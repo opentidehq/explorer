@@ -37,14 +37,49 @@ When `library` and `explorer` are siblings, `opentide explorer build` and `dev` 
 
 ## Development
 
-**Requirements:** Node ≥ 20, pnpm 9+
+**Requirements:** Node ≥ 20.19, pnpm 9+, Next.js **16.2.9**
 
 ```bash
 pnpm install
 pnpm dev          # Turbopack dev server at http://localhost:3000
 pnpm check        # typecheck, oxlint, oxfmt, vitest
+pnpm validate     # check + production build (run before committing)
+pnpm run doctor   # optional React health scan (advisory; may exit non-zero)
 pnpm build        # generates data from ../library and static export
 ```
+
+### Agent skills (Vercel)
+
+Official Vercel Next.js agent skills are installed under [`.agents/skills/`](.agents/skills/) (tracked via [`skills-lock.json`](skills-lock.json)):
+
+| Skill | Source | Use when |
+|-------|--------|----------|
+| `vercel-react-best-practices` | [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) | React/Next.js performance, data fetching, bundle size |
+| `vercel-composition-patterns` | vercel-labs/agent-skills | Component architecture, compound components |
+| `vercel-react-view-transitions` | vercel-labs/agent-skills | View Transition API with Next.js |
+| `next-dev-loop` | [vercel/next.js](https://github.com/vercel/next.js) | Verify runtime behavior during `next dev` |
+| `next-cache-components-adoption` | vercel/next.js | Enabling Cache Components |
+
+Refresh skills: `npx skills update -p -y`
+
+### MCP for agents (Next.js DevTools)
+
+Next.js 16 exposes a built-in MCP endpoint at `/_next/mcp` when `pnpm dev` is running. The [`next-devtools-mcp`](https://www.npmjs.com/package/next-devtools-mcp) bridge is configured in [`.mcp.json`](.mcp.json) and [`.cursor/mcp.json`](.cursor/mcp.json):
+
+```json
+{
+  "mcpServers": {
+    "next-devtools": {
+      "command": "npx",
+      "args": ["-y", "next-devtools-mcp@latest"]
+    }
+  }
+}
+```
+
+**Agent workflow:** start `pnpm dev`, then use MCP tools (`nextjs_index`, `nextjs_call`) to read build/runtime errors, routes, and logs before the user sees them. For UI verification, combine with the `next-dev-loop` skill and [agent-browser](https://github.com/vercel-labs/agent-browser).
+
+Version-accurate Next.js docs ship in `node_modules/next/dist/docs/` (Next.js 16+).
 
 Data is loaded from `public/data/*.json`. During local dev, `scripts/generate-mock-bundle.mjs` reads the sibling `library/objects/` corpus when present.
 

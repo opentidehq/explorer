@@ -7,7 +7,6 @@ const nextConfig: NextConfig = {
   basePath: basePath || undefined,
   trailingSlash: true,
   images: { unoptimized: true },
-  transpilePackages: ["@xyflow/react"],
 };
 
 export default nextConfig;

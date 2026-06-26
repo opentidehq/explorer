@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   check:
-    name: Typecheck, lint, test, build
+    name: Validate (typecheck, lint, test, build)
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -31,25 +31,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Generate sample data
-        run: node scripts/generate-mock-bundle.mjs
+      - name: Validate
+        run: pnpm validate
         env:
           OPENTIDE_REPO_ROOT: ${{ github.workspace }}/../library
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Format check
-        run: pnpm fmt:check
-
-      - name: Test
-        run: pnpm test
-
-      - name: Build
-        run: pnpm build
 
       - name: Audit
         run: pnpm audit --audit-level=high
