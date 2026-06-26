@@ -34,7 +34,10 @@ export async function codegenTypes(schemasDir) {
       });
       parts.push(ts);
     } catch (err) {
-      console.warn(`Skipping schema ${schemaFile}:`, err instanceof Error ? err.message : err);
+      console.warn(
+        `Skipping schema ${schemaFile}:`,
+        err instanceof Error ? err.message : err,
+      );
     }
   }
 
