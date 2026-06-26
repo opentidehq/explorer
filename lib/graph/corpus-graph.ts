@@ -53,7 +53,7 @@ export function buildCorpusGraph(bundle: ExplorerBundle): CorpusGraph {
   const ctx = createGraphContext(bundle);
   const nodes = new Map<string, CorpusNode>();
   const edges: CorpusEdge[] = [];
-  const edgeKeys = new Set<string>();
+  const edgeByPair = new Map<string, number>();
 
   function ensureNode(id: string) {
     if (nodes.has(id)) return;
@@ -77,13 +77,27 @@ export function buildCorpusGraph(bundle: ExplorerBundle): CorpusGraph {
     kind: GraphEdgeKind,
   ) {
     if (source === target) return;
-    const key = `${source}|${target}|${label}|${kind}`;
-    if (edgeKeys.has(key)) return;
-    edgeKeys.add(key);
     ensureNode(source);
     ensureNode(target);
+
+    const pairKey = `${source}|${target}`;
+    const existingIndex = edgeByPair.get(pairKey);
+    if (existingIndex !== undefined) {
+      const existing = edges[existingIndex]!;
+      const labels = new Set(
+        existing.label.split(", ").filter((part) => part.length > 0),
+      );
+      labels.add(label);
+      existing.label = [...labels].join(", ");
+      if (kind === "detection" && existing.kind === "chaining") {
+        existing.kind = "detection";
+      }
+      return;
+    }
+
+    edgeByPair.set(pairKey, edges.length);
     edges.push({
-      id: key,
+      id: pairKey,
       source,
       target,
       label,
@@ -141,11 +155,12 @@ export function buildCorpusGraph(bundle: ExplorerBundle): CorpusGraph {
     }
   }
 
-  const graphology = new Graph({ multi: true, type: "directed" });
+  const graphology = new Graph({ type: "directed" });
   for (const node of nodes.values()) {
     graphology.addNode(node.id, {
       label: node.label,
-      type: node.type,
+      type: "circle",
+      objectType: node.type,
       color: node.color,
       size: node.size,
       x: Math.random(),
@@ -193,12 +208,13 @@ export function filterGraph(
     (e) => nodeSet.has(e.source) && nodeSet.has(e.target),
   );
 
-  const graphology = new Graph({ multi: true, type: "directed" });
+  const graphology = new Graph({ type: "directed" });
   for (const node of nodes) {
     const pos = corpus.graphology.getNodeAttributes(node.id);
     graphology.addNode(node.id, {
       label: node.label,
-      type: node.type,
+      type: "circle",
+      objectType: node.type,
       color: node.color,
       size: node.size,
       x: pos.x ?? Math.random(),
@@ -207,12 +223,14 @@ export function filterGraph(
   }
 
   for (const edge of edges) {
-    graphology.addDirectedEdgeWithKey(edge.id, edge.source, edge.target, {
-      label: edge.label,
-      kind: edge.kind,
-      size: edge.kind === "chaining" ? 1.5 : 1,
-      color: edge.kind === "chaining" ? "#c9a000" : "#6366f1",
-    });
+    if (!graphology.hasEdge(edge.id)) {
+      graphology.addDirectedEdgeWithKey(edge.id, edge.source, edge.target, {
+        label: edge.label,
+        kind: edge.kind,
+        size: edge.kind === "chaining" ? 1.5 : 1,
+        color: edge.kind === "chaining" ? "#c9a000" : "#6366f1",
+      });
+    }
   }
 
   return { nodes, edges, graphology };

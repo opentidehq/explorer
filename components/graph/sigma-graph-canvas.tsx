@@ -10,7 +10,6 @@ import {
 import "@react-sigma/core/lib/style.css";
 import type Graph from "graphology";
 import { useExplorer } from "@/components/shell/explorer-context";
-import type { ObjectType } from "@/lib/opentide/types";
 
 function GraphLoader({ graph }: { graph: Graph }) {
   const loadGraph = useLoadGraph();
@@ -85,16 +84,14 @@ export function SigmaGraphCanvas() {
       labelGridCellSize: 90,
       zIndex: true,
       nodeReducer: (node: string, data: Record<string, unknown>) => {
-        const type = data.type as ObjectType;
         const highlighted = Boolean(data.highlighted);
-        const res = { ...data };
+        const res: Record<string, unknown> = { ...data, type: "circle" };
         if (highlighted) {
           res.zIndex = 2;
         } else if (selectedId && node !== selectedId) {
           res.color = `${data.color}99`;
           res.zIndex = 0;
         }
-        if (type === "rule") res.type = "square";
         return res;
       },
       edgeReducer: (_edge: string, data: Record<string, unknown>) => {
