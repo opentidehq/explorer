@@ -1,0 +1,225 @@
+{
+  "explorer.bundle.json": {
+    "version": "0.1.0",
+    "generatedAt": "2026-01-01T00:00:00.000Z",
+    "models": {
+      "threat": {
+        "59548b96-9b01-414c-badd-c0bf2ab40d9a": {
+          "name": "Shai-Hulud",
+          "metadata": { "uuid": "59548b96-9b01-414c-badd-c0bf2ab40d9a", "schema": "threat::1.0" },
+          "threat": {
+            "att&ck": ["T1195.001", "T1059.007"],
+            "chaining": [
+              {
+                "relation": "atomicity::implements",
+                "vector": "d24f2b4a-80fc-4ee7-9293-3f6e9e3bbbe4"
+              }
+            ]
+          }
+        }
+      },
+      "objective": {
+        "fb62e879-9e91-4c5b-aaa7-999b2b1b3897": {
+          "name": "Detect Shai-Hulud",
+          "metadata": { "uuid": "fb62e879-9e91-4c5b-aaa7-999b2b1b3897", "schema": "objective::1.0" },
+          "objective": {
+            "threats": ["59548b96-9b01-414c-badd-c0bf2ab40d9a"],
+            "signals": [{ "uuid": "a3f7d796-146c-44b0-8d22-7a08daa0d963", "name": "Install anomaly" }]
+          }
+        }
+      },
+      "signal": {
+        "a3f7d796-146c-44b0-8d22-7a08daa0d963": {
+          "name": "Package Manager Install",
+          "metadata": { "uuid": "a3f7d796-146c-44b0-8d22-7a08daa0d963", "schema": "signal::1.0" },
+          "parent": "fb62e879-9e91-4c5b-aaa7-999b2b1b3897"
+        }
+      },
+      "rule": {
+        "bfae62bb-7ce1-46cd-a131-39803832fa9d": {
+          "name": "Shai-Hulud Rule",
+          "metadata": { "uuid": "bfae62bb-7ce1-46cd-a131-39803832fa9d", "schema": "rule::1.0" },
+          "detection_model": "fb62e879-9e91-4c5b-aaa7-999b2b1b3897",
+          "configurations": {
+            "defender_for_endpoint": { "status": "PRODUCTION" }
+          }
+        },
+        "c1ae62bb-7ce1-46cd-a131-39803832fa9e": {
+          "name": "Shai-Hulud Signal Rule",
+          "metadata": { "uuid": "c1ae62bb-7ce1-46cd-a131-39803832fa9e", "schema": "rule::1.0" },
+          "detection_model": "a3f7d796-146c-44b0-8d22-7a08daa0d963",
+          "configurations": {
+            "sentinel": { "status": "STAGING" }
+          }
+        }
+      }
+    },
+    "flatIndex": {
+      "59548b96-9b01-414c-badd-c0bf2ab40d9a": {
+        "name": "Shai-Hulud",
+        "metadata": { "uuid": "59548b96-9b01-414c-badd-c0bf2ab40d9a", "schema": "threat::1.0" },
+        "threat": {
+          "att&ck": ["T1195.001", "T1059.007"],
+          "chaining": [
+            {
+              "relation": "atomicity::implements",
+              "vector": "d24f2b4a-80fc-4ee7-9293-3f6e9e3bbbe4"
+            }
+          ]
+        }
+      },
+      "fb62e879-9e91-4c5b-aaa7-999b2b1b3897": {
+        "name": "Detect Shai-Hulud",
+        "metadata": { "uuid": "fb62e879-9e91-4c5b-aaa7-999b2b1b3897", "schema": "objective::1.0" },
+        "objective": {
+          "threats": ["59548b96-9b01-414c-badd-c0bf2ab40d9a"],
+          "signals": [{ "uuid": "a3f7d796-146c-44b0-8d22-7a08daa0d963", "name": "Install anomaly" }]
+        }
+      },
+      "a3f7d796-146c-44b0-8d22-7a08daa0d963": {
+        "name": "Package Manager Install",
+        "metadata": { "uuid": "a3f7d796-146c-44b0-8d22-7a08daa0d963", "schema": "signal::1.0" },
+        "parent": "fb62e879-9e91-4c5b-aaa7-999b2b1b3897"
+      },
+      "bfae62bb-7ce1-46cd-a131-39803832fa9d": {
+        "name": "Shai-Hulud Rule",
+        "metadata": { "uuid": "bfae62bb-7ce1-46cd-a131-39803832fa9d", "schema": "rule::1.0" },
+        "detection_model": "fb62e879-9e91-4c5b-aaa7-999b2b1b3897",
+        "configurations": {
+          "defender_for_endpoint": { "status": "PRODUCTION" }
+        }
+      },
+      "c1ae62bb-7ce1-46cd-a131-39803832fa9e": {
+        "name": "Shai-Hulud Signal Rule",
+        "metadata": { "uuid": "c1ae62bb-7ce1-46cd-a131-39803832fa9e", "schema": "rule::1.0" },
+        "detection_model": "a3f7d796-146c-44b0-8d22-7a08daa0d963",
+        "configurations": {
+          "sentinel": { "status": "STAGING" }
+        }
+      }
+    },
+    "chaining": {
+      "59548b96-9b01-414c-badd-c0bf2ab40d9a": {
+        "atomicity::implements": ["d24f2b4a-80fc-4ee7-9293-3f6e9e3bbbe4"]
+      }
+    },
+    "signals": {
+      "a3f7d796-146c-44b0-8d22-7a08daa0d963": {
+        "name": "Package Manager Install",
+        "metadata": { "uuid": "a3f7d796-146c-44b0-8d22-7a08daa0d963", "schema": "signal::1.0" },
+        "parent": "fb62e879-9e91-4c5b-aaa7-999b2b1b3897"
+      }
+    },
+    "summaries": [
+      {
+        "uuid": "59548b96-9b01-414c-badd-c0bf2ab40d9a",
+        "type": "threat",
+        "name": "Shai-Hulud",
+        "schema": "threat::1.0",
+        "techniques": ["T1195.001", "T1059.007"],
+        "relatedCount": 1,
+        "platforms": []
+      },
+      {
+        "uuid": "fb62e879-9e91-4c5b-aaa7-999b2b1b3897",
+        "type": "objective",
+        "name": "Detect Shai-Hulud",
+        "schema": "objective::1.0",
+        "techniques": ["T1195.001", "T1059.007"],
+        "relatedCount": 2,
+        "platforms": []
+      },
+      {
+        "uuid": "a3f7d796-146c-44b0-8d22-7a08daa0d963",
+        "type": "signal",
+        "name": "Package Manager Install",
+        "schema": "signal::1.0",
+        "techniques": [],
+        "relatedCount": 2,
+        "platforms": []
+      },
+      {
+        "uuid": "bfae62bb-7ce1-46cd-a131-39803832fa9d",
+        "type": "rule",
+        "name": "Shai-Hulud Rule",
+        "schema": "rule::1.0",
+        "techniques": ["T1195.001", "T1059.007"],
+        "relatedCount": 1,
+        "platforms": ["defender for endpoint"],
+        "status": "PRODUCTION"
+      },
+      {
+        "uuid": "c1ae62bb-7ce1-46cd-a131-39803832fa9e",
+        "type": "rule",
+        "name": "Shai-Hulud Signal Rule",
+        "schema": "rule::1.0",
+        "techniques": [],
+        "relatedCount": 1,
+        "platforms": ["sentinel"],
+        "status": "STAGING"
+      }
+    ]
+  },
+  "explorer.coverage.json": {
+    "gaps": [],
+    "techniqueMatrix": {},
+    "platformRollup": {
+      "defender for endpoint": { "total": 1, "covered": 1 },
+      "sentinel": { "total": 1, "covered": 1 }
+    }
+  },
+  "explorer.search.json": {
+    "documents": [
+      {
+        "id": "59548b96-9b01-414c-badd-c0bf2ab40d9a",
+        "uuid": "59548b96-9b01-414c-badd-c0bf2ab40d9a",
+        "type": "threat",
+        "name": "Shai-Hulud",
+        "techniques": ["T1195.001", "T1059.007"],
+        "platforms": [],
+        "status": "",
+        "content": ""
+      },
+      {
+        "id": "fb62e879-9e91-4c5b-aaa7-999b2b1b3897",
+        "uuid": "fb62e879-9e91-4c5b-aaa7-999b2b1b3897",
+        "type": "objective",
+        "name": "Detect Shai-Hulud",
+        "techniques": ["T1195.001", "T1059.007"],
+        "platforms": [],
+        "status": "",
+        "content": ""
+      },
+      {
+        "id": "a3f7d796-146c-44b0-8d22-7a08daa0d963",
+        "uuid": "a3f7d796-146c-44b0-8d22-7a08daa0d963",
+        "type": "signal",
+        "name": "Package Manager Install",
+        "techniques": [],
+        "platforms": [],
+        "status": "",
+        "content": ""
+      },
+      {
+        "id": "bfae62bb-7ce1-46cd-a131-39803832fa9d",
+        "uuid": "bfae62bb-7ce1-46cd-a131-39803832fa9d",
+        "type": "rule",
+        "name": "Shai-Hulud Rule",
+        "techniques": ["T1195.001", "T1059.007"],
+        "platforms": ["defender for endpoint"],
+        "status": "PRODUCTION",
+        "content": ""
+      },
+      {
+        "id": "c1ae62bb-7ce1-46cd-a131-39803832fa9e",
+        "uuid": "c1ae62bb-7ce1-46cd-a131-39803832fa9e",
+        "type": "rule",
+        "name": "Shai-Hulud Signal Rule",
+        "techniques": [],
+        "platforms": ["sentinel"],
+        "status": "STAGING",
+        "content": ""
+      }
+    ]
+  }
+}
