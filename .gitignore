@@ -1,0 +1,9 @@
+node_modules/
+.next/
+out/
+dist/
+*.tsbuildinfo
+.DS_Store
+.env*.local
+public/data/*.json
+!public/data/.gitkeep
