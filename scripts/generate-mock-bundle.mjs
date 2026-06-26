@@ -65,6 +65,16 @@ function getStatus(body, type) {
   return statuses[0];
 }
 
+function getActors(body, type) {
+  const actors = new Set();
+  if (type === "threat") {
+    for (const actor of body?.threat?.actors ?? body?.actors ?? []) {
+      if (typeof actor === "string") actors.add(actor);
+    }
+  }
+  return [...actors];
+}
+
 function buildChainingIndex(models) {
   const chaining = {};
   for (const threat of Object.values(models.threat)) {
@@ -112,7 +122,7 @@ function resolveTechniques(uuid, flatIndex, cache = new Map()) {
   return techniques;
 }
 
-function countRelations(uuid, models, flatIndex) {
+function countRelations(uuid, flatIndex) {
   let count = 0;
   const body = flatIndex[uuid];
   const type = inferType(body);
@@ -136,62 +146,43 @@ function countRelations(uuid, models, flatIndex) {
   return count;
 }
 
-function buildCoverage(summaries, attackNavPath) {
-  const gaps = [];
+function buildStagingIndex(models) {
+  const deployments = {};
+  const platformSummary = {};
+  const stagingObjects = new Set();
+  const productionObjects = new Set();
 
-  for (const summary of summaries) {
-    if (summary.type === "signal") {
-      const hasRule = summaries.some(
-        (s) =>
-          s.type === "rule" &&
-          flatIndexRef[s.uuid]?.detection_model === summary.uuid,
-      );
-      if (!hasRule) {
-        gaps.push({
-          kind: "signal-no-rules",
-          objectId: summary.uuid,
-          objectName: summary.name,
-          detail: "No downstream detection rules",
-        });
+  for (const [uuid, body] of Object.entries(models.rule)) {
+    const configs = body?.configurations ?? {};
+    deployments[uuid] = {};
+    for (const [platform, config] of Object.entries(configs)) {
+      const status = String(config?.status ?? "UNKNOWN").toUpperCase();
+      deployments[uuid][platform] = status;
+
+      platformSummary[platform] = platformSummary[platform] ?? {
+        production: 0,
+        staging: 0,
+        other: 0,
+      };
+      if (status === "PRODUCTION") {
+        platformSummary[platform].production += 1;
+        productionObjects.add(uuid);
+      } else if (status === "STAGING") {
+        platformSummary[platform].staging += 1;
+        stagingObjects.add(uuid);
+      } else {
+        platformSummary[platform].other += 1;
       }
     }
-    if (summary.type === "rule" && !summary.techniques.length) {
-      gaps.push({
-        kind: "mdr-only",
-        objectId: summary.uuid,
-        objectName: summary.name,
-        detail: "Rule has no resolved ATT&CK techniques",
-      });
-    }
   }
 
-  const techniqueMatrix = {};
-  if (attackNavPath && fs.existsSync(attackNavPath)) {
-    const nav = JSON.parse(fs.readFileSync(attackNavPath, "utf8"));
-    for (const tech of nav.techniques ?? []) {
-      techniqueMatrix[tech.techniqueID] = {
-        color: tech.color,
-        comment: tech.comment,
-        objects: [],
-      };
-    }
-  }
-
-  const platformRollup = {};
-  for (const s of summaries.filter((x) => x.type === "rule")) {
-    for (const platform of s.platforms) {
-      platformRollup[platform] = platformRollup[platform] ?? {
-        total: 0,
-        covered: 1,
-      };
-      platformRollup[platform].total += 1;
-    }
-  }
-
-  return { gaps, techniqueMatrix, platformRollup };
+  return {
+    deployments,
+    platformSummary,
+    stagingObjects: [...stagingObjects],
+    productionObjects: [...productionObjects],
+  };
 }
-
-let flatIndexRef = {};
 
 function buildSearchDocuments(summaries, flatIndex) {
   return summaries.map((s) => ({
@@ -200,8 +191,10 @@ function buildSearchDocuments(summaries, flatIndex) {
     type: s.type,
     name: s.name,
     techniques: s.techniques,
+    actors: s.actors,
     platforms: s.platforms,
     status: s.status ?? "",
+    relatedCount: s.relatedCount,
     content: JSON.stringify(flatIndex[s.uuid] ?? {}).slice(0, 4000),
   }));
 }
@@ -239,8 +232,8 @@ async function main() {
     if (type === "signal") signals[uuid] = body;
   }
 
-  flatIndexRef = flatIndex;
   const chaining = buildChainingIndex(models);
+  const stagingIndex = buildStagingIndex(models);
 
   const summaries = Object.keys(flatIndex).map((uuid) => {
     const body = flatIndex[uuid];
@@ -254,7 +247,8 @@ async function main() {
       tlp: body.metadata?.tlp,
       status: getStatus(body, type),
       techniques: resolveTechniques(uuid, flatIndex),
-      relatedCount: countRelations(uuid, models, flatIndex),
+      actors: getActors(body, type),
+      relatedCount: countRelations(uuid, flatIndex),
       platforms: getPlatforms(body, type),
     };
   });
@@ -267,16 +261,9 @@ async function main() {
     chaining,
     signals,
     summaries,
+    stagingIndex,
   };
 
-  const attackNavPath = path.join(
-    corpusRoot,
-    ".opentide",
-    "exports",
-    "attack-navigator.json",
-  );
-
-  const coverage = buildCoverage(summaries, attackNavPath);
   const search = { documents: buildSearchDocuments(summaries, flatIndex) };
 
   fs.writeFileSync(
@@ -284,17 +271,9 @@ async function main() {
     JSON.stringify(bundle),
   );
   fs.writeFileSync(
-    path.join(outDir, "explorer.coverage.json"),
-    JSON.stringify(coverage),
-  );
-  fs.writeFileSync(
     path.join(outDir, "explorer.search.json"),
     JSON.stringify(search),
   );
-
-  if (fs.existsSync(attackNavPath)) {
-    fs.copyFileSync(attackNavPath, path.join(outDir, "attack-navigator.json"));
-  }
 
   const vocabPath = path.join(
     corpusRoot,
@@ -306,7 +285,9 @@ async function main() {
     fs.copyFileSync(vocabPath, path.join(outDir, "vocab.att&ck.json"));
   }
 
-  console.log(`Wrote exports to ${outDir} (${summaries.length} objects)`);
+  console.log(
+    `Wrote exports to ${outDir} (${summaries.length} objects, staging index: ${stagingIndex.stagingObjects.length} staging rules)`,
+  );
 }
 
 main().catch((err) => {

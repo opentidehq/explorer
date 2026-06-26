@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTheme } from "next-themes";
 import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getHighlighter, EXPLORER_THEME } from "@/lib/shiki/highlighter";
+import { getHighlighter, themeForMode } from "@/lib/shiki/highlighter";
 import { cn } from "@/lib/utils";
 
 interface CodeBlockProps {
@@ -19,8 +20,10 @@ export function CodeBlock({
   className,
   showLineNumbers = true,
 }: CodeBlockProps) {
+  const { resolvedTheme } = useTheme();
   const [html, setHtml] = useState<string>("");
   const [copied, setCopied] = useState(false);
+  const isDark = resolvedTheme !== "light";
 
   useEffect(() => {
     let cancelled = false;
@@ -28,14 +31,14 @@ export function CodeBlock({
       if (cancelled) return;
       const out = hl.codeToHtml(code, {
         lang: language,
-        theme: EXPLORER_THEME,
+        theme: themeForMode(isDark),
       });
       setHtml(out);
     });
     return () => {
       cancelled = true;
     };
-  }, [code, language]);
+  }, [code, language, isDark]);
 
   async function copy() {
     await navigator.clipboard.writeText(code);
@@ -46,12 +49,12 @@ export function CodeBlock({
   return (
     <div
       className={cn(
-        "relative rounded-lg border border-border overflow-hidden",
+        "relative overflow-hidden rounded-lg border border-border",
         className,
       )}
     >
       <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-1.5">
-        <span className="font-mono text-xs text-muted-foreground uppercase">
+        <span className="font-mono text-xs uppercase text-muted-foreground">
           {language}
         </span>
         <Button variant="ghost" size="sm" onClick={copy} className="h-7 px-2">

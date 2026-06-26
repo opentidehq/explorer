@@ -18,8 +18,26 @@ export interface BundleObjectSummary {
   tlp?: string;
   status?: string;
   techniques: string[];
+  actors: string[];
   relatedCount: number;
   platforms: string[];
+}
+
+export interface StagingPlatformSummary {
+  production: number;
+  staging: number;
+  other: number;
+}
+
+export interface StagingIndex {
+  /** uuid → platform → deployment status */
+  deployments: Record<string, Record<string, string>>;
+  /** platform → rollout counts */
+  platformSummary: Record<string, StagingPlatformSummary>;
+  /** uuids with any STAGING platform deployment */
+  stagingObjects: string[];
+  /** uuids with any PRODUCTION platform deployment */
+  productionObjects: string[];
 }
 
 export interface ExplorerBundle {
@@ -30,6 +48,7 @@ export interface ExplorerBundle {
   chaining: Record<string, Record<string, string[]>>;
   signals: Record<string, ObjectBody>;
   summaries: BundleObjectSummary[];
+  stagingIndex?: StagingIndex;
 }
 
 export interface SearchDocument {
@@ -38,44 +57,20 @@ export interface SearchDocument {
   name: string;
   uuid: string;
   techniques: string[];
+  actors: string[];
   platforms: string[];
   status?: string;
   content: string;
+  relatedCount: number;
 }
 
 export interface ExplorerSearchIndex {
   documents: SearchDocument[];
 }
 
-export interface CoverageGap {
-  kind: "signal-no-rules" | "technique-gap" | "mdr-only" | "partial-data";
-  objectId: string;
-  objectName: string;
-  detail: string;
-}
-
-export interface ExplorerCoverage {
-  gaps: CoverageGap[];
-  techniqueMatrix: Record<
-    string,
-    { color: string; comment?: string; objects: string[] }
-  >;
-  platformRollup: Record<string, { total: number; covered: number }>;
-}
-
-export interface AttackNavigatorLayer {
-  versions?: { layer?: string };
-  techniques: Array<{
-    techniqueID: string;
-    color: string;
-    comment?: string;
-    enabled?: boolean;
-  }>;
-}
-
 export const TYPE_COLORS: Record<ObjectType, string> = {
   threat: "#ef4444",
-  objective: "#c9a000",
+  objective: "#3b82f6",
   signal: "#f59e0b",
   rule: "#22c55e",
 };

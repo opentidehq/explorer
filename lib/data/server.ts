@@ -1,11 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import type {
-  AttackNavigatorLayer,
-  ExplorerBundle,
-  ExplorerCoverage,
-  ExplorerSearchIndex,
-} from "@/lib/opentide/types";
+import type { ExplorerBundle, ExplorerSearchIndex } from "@/lib/opentide/types";
 
 const DATA_DIR = path.join(process.cwd(), "public", "data");
 
@@ -18,27 +13,11 @@ export function loadBundleSync(): ExplorerBundle {
   return readJson<ExplorerBundle>("explorer.bundle.json");
 }
 
-export function loadCoverageSync(): ExplorerCoverage {
-  try {
-    return readJson<ExplorerCoverage>("explorer.coverage.json");
-  } catch {
-    return { gaps: [], techniqueMatrix: {}, platformRollup: {} };
-  }
-}
-
 export function loadSearchSync(): ExplorerSearchIndex {
   try {
     return readJson<ExplorerSearchIndex>("explorer.search.json");
   } catch {
     return { documents: [] };
-  }
-}
-
-export function loadAttackNavigatorSync(): AttackNavigatorLayer | null {
-  try {
-    return readJson<AttackNavigatorLayer>("attack-navigator.json");
-  } catch {
-    return null;
   }
 }
 

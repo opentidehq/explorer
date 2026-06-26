@@ -1,12 +1,7 @@
 import Link from "next/link";
 import { ObjectDetailPage } from "@/components/objects/object-detail-page";
-import {
-  loadBundleSync,
-  loadCoverageSync,
-  loadSearchSync,
-  loadAttackNavigatorSync,
-} from "@/lib/data/server";
 import { ExplorerProvider } from "@/components/shell/explorer-context";
+import { loadBundleSync, loadSearchSync } from "@/lib/data/server";
 
 const ROUTE_TYPES = ["threats", "objectives", "signals", "rules"] as const;
 
@@ -41,7 +36,7 @@ export default async function ObjectRoutePage({
 }: {
   params: Promise<{ type: RouteType; uuid: string }>;
 }) {
-  const { type, uuid } = await params;
+  const { uuid } = await params;
   const bundle = loadBundleSync();
   const summary = bundle.summaries.find((s) => s.uuid === uuid);
   const body = bundle.flatIndex[uuid];
@@ -60,13 +55,8 @@ export default async function ObjectRoutePage({
   }
 
   return (
-    <ExplorerProvider
-      bundle={bundle}
-      coverage={loadCoverageSync()}
-      search={loadSearchSync()}
-      attackNavigator={loadAttackNavigatorSync()}
-    >
-      <ObjectDetailPage summary={summary} body={body} routeType={type} />
+    <ExplorerProvider bundle={bundle} search={loadSearchSync()}>
+      <ObjectDetailPage summary={summary} body={body} />
     </ExplorerProvider>
   );
 }

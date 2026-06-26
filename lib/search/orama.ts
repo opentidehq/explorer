@@ -1,5 +1,10 @@
 import { create, insert, search as oramaSearch } from "@orama/orama";
-import type { SearchDocument } from "@/lib/opentide/types";
+import type { CatalogFilters } from "@/lib/search/filters";
+import type {
+  ExplorerBundle,
+  SearchDocument,
+  StagingIndex,
+} from "@/lib/opentide/types";
 
 export interface SearchSchema {
   id: string;
@@ -7,9 +12,11 @@ export interface SearchSchema {
   uuid: string;
   type: string;
   techniques: string[];
+  actors: string[];
   platforms: string[];
   status: string;
   content: string;
+  relatedCount: number;
 }
 
 export async function buildOramaIndex(documents: SearchDocument[]) {
@@ -20,9 +27,11 @@ export async function buildOramaIndex(documents: SearchDocument[]) {
       uuid: "string",
       type: "string",
       techniques: "string[]",
+      actors: "string[]",
       platforms: "string[]",
       status: "string",
       content: "string",
+      relatedCount: "number",
     } as const,
   });
 
@@ -33,84 +42,173 @@ export async function buildOramaIndex(documents: SearchDocument[]) {
       uuid: doc.uuid,
       type: doc.type,
       techniques: doc.techniques,
+      actors: doc.actors,
       platforms: doc.platforms,
       status: doc.status ?? "",
       content: doc.content,
+      relatedCount: doc.relatedCount,
     });
   }
 
   return db;
 }
 
-export async function searchCatalog(
-  db: Awaited<ReturnType<typeof buildOramaIndex>>,
-  term: string,
-  limit = 20,
-) {
-  if (!term.trim()) return [];
+function matchesDocument(
+  doc: SearchDocument,
+  filters: CatalogFilters,
+  stagingIndex?: StagingIndex,
+): boolean {
+  if (filters.types.length && !filters.types.includes(doc.type)) return false;
 
-  const lower = term.toLowerCase();
+  if (filters.uuid && doc.uuid.toLowerCase() !== filters.uuid.toLowerCase()) {
+    return false;
+  }
 
   if (
+    filters.platforms.length &&
+    !filters.platforms.some((p) =>
+      doc.platforms.some((dp) => dp.toLowerCase().includes(p.toLowerCase())),
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    filters.statuses.length &&
+    !filters.statuses.some((s) =>
+      (doc.status ?? "").toUpperCase().includes(s.toUpperCase()),
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    filters.techniques.length &&
+    !filters.techniques.some((t) =>
+      doc.techniques.some((dt) => dt.toUpperCase() === t.toUpperCase()),
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    filters.actors.length &&
+    !filters.actors.some((a) =>
+      doc.actors.some((da) => da.toLowerCase().includes(a.toLowerCase())),
+    )
+  ) {
+    return false;
+  }
+
+  if (filters.stagingOnly && stagingIndex) {
+    if (!stagingIndex.stagingObjects.includes(doc.uuid)) return false;
+  }
+
+  if (filters.productionOnly && stagingIndex) {
+    if (!stagingIndex.productionObjects.includes(doc.uuid)) return false;
+  }
+
+  return true;
+}
+
+export async function searchCatalog(
+  db: Awaited<ReturnType<typeof buildOramaIndex>>,
+  filters: CatalogFilters,
+  options?: {
+    stagingIndex?: StagingIndex;
+    limit?: number;
+  },
+): Promise<SearchDocument[]> {
+  const limit = options?.limit ?? 500;
+  const stagingIndex = options?.stagingIndex;
+  const term = filters.query.trim();
+
+  if (
+    filters.uuid &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      filters.uuid,
+    )
+  ) {
+    const byUuid = await oramaSearch(db, {
+      term: filters.uuid,
+      properties: ["uuid"],
+      limit: 1,
+    });
+    return byUuid.hits
+      .map((h) => h.document as SearchDocument)
+      .filter((doc) => matchesDocument(doc, filters, stagingIndex));
+  }
+
+  if (
+    term &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(term)
   ) {
     const byUuid = await oramaSearch(db, {
-      term: term,
+      term,
       properties: ["uuid"],
-      limit,
+      limit: 1,
     });
-    if (byUuid.hits.length > 0) return byUuid.hits;
+    return byUuid.hits
+      .map((h) => h.document as SearchDocument)
+      .filter((doc) => matchesDocument(doc, filters, stagingIndex));
   }
 
-  if (/^T\d{4}(\.\d{3})?$/i.test(term)) {
+  if (term && /^T\d{4}(\.\d{3})?$/i.test(term)) {
     const byTech = await oramaSearch(db, {
       term: term.toUpperCase(),
       properties: ["techniques"],
       limit,
     });
-    if (byTech.hits.length > 0) return byTech.hits;
+    return byTech.hits
+      .map((h) => h.document as SearchDocument)
+      .filter((doc) => matchesDocument(doc, filters, stagingIndex));
   }
 
-  const typeMatch = term.match(/type:(\w+)/i);
-  const platformMatch = term.match(/platform:(\w+)/i);
-  const statusMatch = term.match(/status:(\w+)/i);
-
-  let searchTerm = term
-    .replace(/type:\w+/gi, "")
-    .replace(/platform:\w+/gi, "")
-    .replace(/status:\w+/gi, "")
-    .trim();
-
   const results = await oramaSearch(db, {
-    term: searchTerm || "*",
-    properties: ["name", "content", "uuid"],
-    limit: limit * 2,
+    term: term || "*",
+    properties: ["name", "content", "uuid", "actors", "techniques"],
+    limit: limit * 3,
   });
 
   return results.hits
-    .filter((hit) => {
-      const doc = hit.document as SearchDocument;
-      if (typeMatch && doc.type !== typeMatch[1]!.toLowerCase()) return false;
-      if (
-        platformMatch &&
-        !doc.platforms.some((p) =>
-          p.toLowerCase().includes(platformMatch[1]!.toLowerCase()),
-        )
-      )
-        return false;
-      if (
-        statusMatch &&
-        !(doc.status ?? "")
-          .toLowerCase()
-          .includes(statusMatch[1]!.toLowerCase())
-      )
-        return false;
-      if (!searchTerm) return true;
+    .map((h) => h.document as SearchDocument)
+    .filter((doc) => {
+      if (!matchesDocument(doc, filters, stagingIndex)) return false;
+      if (!term) return true;
+      const lower = term.toLowerCase();
       return (
         doc.name.toLowerCase().includes(lower) ||
         doc.content.toLowerCase().includes(lower) ||
-        doc.uuid.toLowerCase().includes(lower)
+        doc.uuid.toLowerCase().includes(lower) ||
+        doc.actors.some((a) => a.toLowerCase().includes(lower)) ||
+        doc.techniques.some((t) => t.toLowerCase().includes(lower))
       );
     })
     .slice(0, limit);
+}
+
+export function collectFilterOptions(bundle: ExplorerBundle) {
+  const types = new Set<string>();
+  const platforms = new Set<string>();
+  const statuses = new Set<string>();
+  const techniques = new Set<string>();
+  const actors = new Set<string>();
+
+  for (const summary of bundle.summaries) {
+    types.add(summary.type);
+    summary.platforms.forEach((p) => platforms.add(p));
+    if (summary.status) statuses.add(summary.status);
+    summary.techniques.forEach((t) => techniques.add(t));
+    summary.actors.forEach((a) => actors.add(a));
+  }
+
+  return {
+    types: [...types].sort() as Array<
+      "threat" | "objective" | "signal" | "rule"
+    >,
+    platforms: [...platforms].sort(),
+    statuses: [...statuses].sort(),
+    techniques: [...techniques].sort(),
+    actors: [...actors].sort(),
+  };
 }

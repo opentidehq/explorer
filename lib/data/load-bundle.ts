@@ -1,10 +1,5 @@
 import { Data, Effect } from "effect";
-import type {
-  AttackNavigatorLayer,
-  ExplorerBundle,
-  ExplorerCoverage,
-  ExplorerSearchIndex,
-} from "@/lib/opentide/types";
+import type { ExplorerBundle, ExplorerSearchIndex } from "@/lib/opentide/types";
 
 export class DataLoadError extends Data.TaggedError("DataLoadError")<{
   readonly message: string;
@@ -41,28 +36,6 @@ export const loadSearchIndex = Effect.tryPromise({
     e instanceof DataLoadError
       ? e
       : new DataLoadError({ message: String(e), path: "explorer.search.json" }),
-});
-
-export const loadCoverage = Effect.tryPromise({
-  try: () => fetchJson<ExplorerCoverage>("explorer.coverage.json"),
-  catch: (e) =>
-    e instanceof DataLoadError
-      ? e
-      : new DataLoadError({
-          message: String(e),
-          path: "explorer.coverage.json",
-        }),
-});
-
-export const loadAttackNavigator = Effect.tryPromise({
-  try: () => fetchJson<AttackNavigatorLayer>("attack-navigator.json"),
-  catch: (e) =>
-    e instanceof DataLoadError
-      ? e
-      : new DataLoadError({
-          message: String(e),
-          path: "attack-navigator.json",
-        }),
 });
 
 export function getObjectName(body: Record<string, unknown>): string {

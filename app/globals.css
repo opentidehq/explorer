@@ -1,8 +1,26 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
+  --color-background: #f8f9fc;
+  --color-foreground: #0f1117;
+  --color-card: #ffffff;
+  --color-card-foreground: #0f1117;
+  --color-muted: #eef0f6;
+  --color-muted-foreground: #5c6370;
+  --color-border: #d8dce6;
+  --color-accent: #e8ebf2;
+  --color-primary: #4f46e5;
+  --color-threat: #dc2626;
+  --color-objective: #2563eb;
+  --color-signal: #d97706;
+  --color-rule: #16a34a;
+}
+
+.dark {
   --color-background: #0a0a0f;
   --color-foreground: #e8e8ed;
   --color-card: #12121a;
@@ -13,7 +31,7 @@
   --color-accent: #3b3b52;
   --color-primary: #6366f1;
   --color-threat: #ef4444;
-  --color-objective: #c9a000;
+  --color-objective: #3b82f6;
   --color-signal: #f59e0b;
   --color-rule: #22c55e;
 }
