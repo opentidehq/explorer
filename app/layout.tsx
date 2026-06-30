@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { inter, jetbrainsMono } from "@/lib/fonts";
 import { ThemeProvider } from "@/components/theme/theme-provider";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -19,8 +20,12 @@ export default function RootLayout({
       className={`${inter.variable} ${jetbrainsMono.variable}`}
       suppressHydrationWarning
     >
-      <body>
-        <ThemeProvider>{children}</ThemeProvider>
+      <body className="h-dvh overflow-hidden font-sans">
+        <ThemeProvider>
+          <TooltipProvider delayDuration={0} skipDelayDuration={0}>
+            {children}
+          </TooltipProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

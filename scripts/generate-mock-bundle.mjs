@@ -7,6 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
+import { codegenFromSpecs } from "./codegen-from-specs.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -193,6 +194,8 @@ function buildSearchDocuments(summaries, flatIndex) {
     techniques: s.techniques,
     actors: s.actors,
     platforms: s.platforms,
+    schema: s.schema ?? "",
+    tlp: s.tlp ?? "",
     status: s.status ?? "",
     relatedCount: s.relatedCount,
     content: JSON.stringify(flatIndex[s.uuid] ?? {}).slice(0, 4000),
@@ -203,6 +206,18 @@ async function main() {
   const corpusRoot = resolveCorpusRoot();
   const outDir = path.join(ROOT, "public", "data");
   fs.mkdirSync(outDir, { recursive: true });
+
+  try {
+    const specsDir =
+      process.env.SPECIFICATIONS_REPO_ROOT ??
+      path.resolve(corpusRoot ?? ROOT, "..", "specifications");
+    codegenFromSpecs(specsDir);
+  } catch (err) {
+    console.warn(
+      "Schema codegen skipped:",
+      err instanceof Error ? err.message : err,
+    );
+  }
 
   const models = { threat: {}, objective: {}, signal: {}, rule: {} };
   const flatIndex = {};
@@ -230,6 +245,23 @@ async function main() {
     models[type][uuid] = body;
     flatIndex[uuid] = body;
     if (type === "signal") signals[uuid] = body;
+  }
+
+  for (const [objectiveUuid, body] of Object.entries(models.objective)) {
+    const embedded = body?.objective?.signals ?? [];
+    for (const signal of embedded) {
+      const signalUuid = signal?.uuid;
+      if (!signalUuid || models.signal[signalUuid]) continue;
+      const signalBody = {
+        ...signal,
+        name: signal.name ?? signalUuid,
+        metadata: { uuid: signalUuid, schema: "signal::1.0" },
+        parent: objectiveUuid,
+      };
+      models.signal[signalUuid] = signalBody;
+      flatIndex[signalUuid] = signalBody;
+      signals[signalUuid] = signalBody;
+    }
   }
 
   const chaining = buildChainingIndex(models);

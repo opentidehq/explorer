@@ -29,6 +29,8 @@ export async function buildOramaIndex(documents: SearchDocument[]) {
       techniques: "string[]",
       actors: "string[]",
       platforms: "string[]",
+      schema: "string",
+      tlp: "string",
       status: "string",
       content: "string",
       relatedCount: "number",
@@ -44,6 +46,8 @@ export async function buildOramaIndex(documents: SearchDocument[]) {
       techniques: doc.techniques,
       actors: doc.actors,
       platforms: doc.platforms,
+      schema: doc.schema ?? "",
+      tlp: doc.tlp ?? "",
       status: doc.status ?? "",
       content: doc.content,
       relatedCount: doc.relatedCount,
@@ -100,6 +104,24 @@ function matchesDocument(
     return false;
   }
 
+  if (
+    filters.schemas.length &&
+    !filters.schemas.some((s) =>
+      (doc.schema ?? "").toLowerCase().includes(s.toLowerCase()),
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    filters.tlps.length &&
+    !filters.tlps.some((t) =>
+      (doc.tlp ?? "").toUpperCase().includes(t.toUpperCase()),
+    )
+  ) {
+    return false;
+  }
+
   if (filters.stagingOnly && stagingIndex) {
     if (!stagingIndex.stagingObjects.includes(doc.uuid)) return false;
   }
@@ -117,6 +139,7 @@ export async function searchCatalog(
   options?: {
     stagingIndex?: StagingIndex;
     limit?: number;
+    documents?: SearchDocument[];
   },
 ): Promise<SearchDocument[]> {
   const limit = options?.limit ?? 500;
@@ -164,8 +187,14 @@ export async function searchCatalog(
       .filter((doc) => matchesDocument(doc, filters, stagingIndex));
   }
 
+  if (!term && options?.documents) {
+    return options.documents
+      .filter((doc) => matchesDocument(doc, filters, stagingIndex))
+      .slice(0, limit);
+  }
+
   const results = await oramaSearch(db, {
-    term: term || "*",
+    term,
     properties: ["name", "content", "uuid", "actors", "techniques"],
     limit: limit * 3,
   });

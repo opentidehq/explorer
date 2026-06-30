@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { ObjectDetailPage } from "@/components/objects/object-detail-page";
 import { ExplorerProvider } from "@/components/shell/explorer-context";
-import { loadBundleSync, loadSearchSync } from "@/lib/data/server";
+import {
+  loadBundleSync,
+  loadSearchSync,
+  loadVocabSync,
+} from "@/lib/data/server";
 
 const ROUTE_TYPES = ["threats", "objectives", "signals", "rules"] as const;
 
@@ -55,7 +59,11 @@ export default async function ObjectRoutePage({
   }
 
   return (
-    <ExplorerProvider bundle={bundle} search={loadSearchSync()}>
+    <ExplorerProvider
+      bundle={bundle}
+      search={loadSearchSync()}
+      vocabIndex={loadVocabSync()}
+    >
       <ObjectDetailPage summary={summary} body={body} />
     </ExplorerProvider>
   );

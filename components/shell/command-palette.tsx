@@ -2,20 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { Command } from "cmdk";
-import { Biohazard, Crosshair, Focus, Radio, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useExplorer } from "./explorer-context";
 import { buildOramaIndex, searchCatalog } from "@/lib/search/orama";
-import { parseFilterTokens } from "@/lib/search/filters";
+import { DEFAULT_FILTERS, parseFilterTokens } from "@/lib/search/filters";
+import { TYPE_ICONS } from "@/lib/graph/type-icons";
 import type { ObjectType, SearchDocument } from "@/lib/opentide/types";
-
-const TYPE_ICONS = {
-  threat: Biohazard,
-  objective: Crosshair,
-  signal: Radio,
-  rule: Focus,
-} as const;
 
 export function CommandPalette() {
   const { search, filters, setFilters, setSelectedId, getSummary, bundle } =
@@ -39,21 +33,14 @@ export function CommandPalette() {
   useEffect(() => {
     let cancelled = false;
     async function run() {
-      const parsed = parseFilterTokens(query);
-      const merged = {
-        ...filters,
-        query: parsed.query ?? query,
-        types: parsed.types ?? filters.types,
-        platforms: parsed.platforms ?? filters.platforms,
-        statuses: parsed.statuses ?? filters.statuses,
-        techniques: parsed.techniques ?? filters.techniques,
-        actors: parsed.actors ?? filters.actors,
-        uuid: parsed.uuid ?? filters.uuid,
-      };
+      const merged = query.trim()
+        ? parseFilterTokens(query)
+        : { ...filters, query: "" };
       const db = await buildOramaIndex(search.documents);
       const hits = await searchCatalog(db, merged, {
         stagingIndex: bundle.stagingIndex,
         limit: 30,
+        documents: search.documents,
       });
       if (!cancelled) setResults(hits);
     }
@@ -67,7 +54,7 @@ export function CommandPalette() {
     const summary = getSummary(uuid);
     if (summary) {
       setSelectedId(uuid);
-      setFilters({ query: summary.name });
+      setFilters({ ...DEFAULT_FILTERS, uuid });
     }
     setOpen(false);
     setQuery("");

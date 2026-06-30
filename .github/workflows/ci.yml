@@ -13,13 +13,63 @@ permissions:
   contents: read
 
 jobs:
+  schema-codegen:
+    name: Schema codegen (specifications TOML)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout specifications
+        uses: actions/checkout@v4
+        with:
+          repository: OpenTideHQ/specifications
+          path: specifications
+          ref: main
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Regenerate schema artifacts
+        run: pnpm codegen:specs
+        env:
+          SPECIFICATIONS_REPO_ROOT: ${{ github.workspace }}/specifications
+
+      - name: Verify generated outputs are committed
+        run: pnpm codegen:check
+        env:
+          SPECIFICATIONS_REPO_ROOT: ${{ github.workspace }}/specifications
+
   check:
     name: Validate (typecheck, lint, test, build)
+    needs: schema-codegen
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Checkout specifications
+        uses: actions/checkout@v4
+        with:
+          repository: OpenTideHQ/specifications
+          path: specifications
+          ref: main
+
+      - name: Checkout library
+        uses: actions/checkout@v4
+        with:
+          repository: OpenTideHQ/library
+          path: library
+          ref: main
 
       - uses: pnpm/action-setup@v4
 
@@ -34,7 +84,8 @@ jobs:
       - name: Validate
         run: pnpm validate
         env:
-          OPENTIDE_REPO_ROOT: ${{ github.workspace }}/../library
+          OPENTIDE_REPO_ROOT: ${{ github.workspace }}/library
+          SPECIFICATIONS_REPO_ROOT: ${{ github.workspace }}/specifications
 
       - name: Audit
         run: pnpm audit --audit-level=high

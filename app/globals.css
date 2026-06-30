@@ -3,6 +3,8 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
+  --motion-fast: 150ms;
+  --motion-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
   --color-background: #f8f9fc;
@@ -21,14 +23,14 @@
 }
 
 .dark {
-  --color-background: #0a0a0f;
-  --color-foreground: #e8e8ed;
-  --color-card: #12121a;
-  --color-card-foreground: #e8e8ed;
-  --color-muted: #1a1a24;
-  --color-muted-foreground: #9898a8;
-  --color-border: #2a2a38;
-  --color-accent: #3b3b52;
+  --color-background: #050508;
+  --color-foreground: #d4d4dc;
+  --color-card: #0c0c12;
+  --color-card-foreground: #d4d4dc;
+  --color-muted: #101018;
+  --color-muted-foreground: #6b6b7b;
+  --color-border: #1a1a26;
+  --color-accent: #16161f;
   --color-primary: #6366f1;
   --color-threat: #ef4444;
   --color-objective: #3b82f6;
@@ -44,6 +46,334 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
   }
+}
+
+@layer components {
+  .explorer-interactive {
+    transition:
+      opacity var(--motion-fast) var(--motion-ease),
+      border-color var(--motion-fast) var(--motion-ease),
+      background-color var(--motion-fast) var(--motion-ease),
+      color var(--motion-fast) var(--motion-ease),
+      box-shadow var(--motion-fast) var(--motion-ease);
+  }
+
+  .explorer-view-switcher-pill {
+    transition:
+      transform var(--motion-fast) ease-out,
+      width var(--motion-fast) ease-out;
+  }
+
+  .explorer-view-panel {
+    animation: explorer-view-fade-in var(--motion-fast) ease-out forwards;
+  }
+
+  @keyframes explorer-view-fade-in {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* LIST view — solid panels so dotted grid never bleeds through */
+  .explorer-list-view {
+    background-color: var(--color-background);
+  }
+
+  /* ATT&CK matrix — solid panels so dotted grid never bleeds through */
+  .explorer-attack-view {
+    background-color: var(--color-background);
+  }
+
+  .explorer-attack-column {
+    background-color: var(--color-card);
+    border-color: var(--color-border);
+  }
+
+  .explorer-attack-column-header {
+    background-color: var(--color-card);
+    border-color: var(--color-border);
+    color: var(--color-foreground);
+  }
+
+  .explorer-attack-technique-covered {
+    background-color: color-mix(in srgb, var(--color-primary) 14%, var(--color-card));
+    border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-border));
+  }
+
+  .explorer-attack-technique-covered:hover {
+    background-color: color-mix(in srgb, var(--color-primary) 20%, var(--color-card));
+    border-color: color-mix(in srgb, var(--color-primary) 55%, var(--color-border));
+  }
+
+  .explorer-attack-technique-uncovered {
+    background-color: var(--color-muted);
+    border-color: var(--color-border);
+  }
+
+  .explorer-attack-technique-uncovered:hover {
+    background-color: color-mix(in srgb, var(--color-muted-foreground) 10%, var(--color-muted));
+  }
+
+  .explorer-attack-expand {
+    background-color: var(--color-background);
+    border-color: var(--color-border);
+  }
+
+  .explorer-attack-object-btn:hover {
+    background-color: var(--color-muted);
+  }
+
+  .explorer-list-column {
+    background-color: var(--color-background);
+  }
+
+  .explorer-list-column-scroll {
+    background-color: var(--color-background);
+  }
+
+  .list-row-default {
+    border-color: var(--color-border);
+    background-color: var(--color-card);
+  }
+
+  .list-row-default:hover {
+    border-color: var(--color-border);
+    background-color: var(--color-muted);
+  }
+
+  .list-row-muted {
+    border-color: var(--color-border);
+    background-color: var(--color-muted);
+    color: var(--color-muted-foreground);
+  }
+
+  .list-row-dimmed {
+    border-color: var(--color-border);
+    background-color: var(--color-muted);
+  }
+
+  .list-row-preview {
+    border-color: var(--color-border);
+    background-color: var(--color-accent);
+  }
+
+  .list-row-hover-target {
+    border-color: var(--color-primary);
+    background-color: var(--color-muted);
+    @apply ring-1 ring-primary;
+  }
+
+  .list-row-selected-threat {
+    background-color: color-mix(in srgb, var(--color-threat) 22%, var(--color-card));
+    border-color: color-mix(in srgb, var(--color-threat) 55%, var(--color-border));
+    @apply ring-1 ring-primary;
+  }
+
+  .list-row-selected-objective {
+    background-color: color-mix(in srgb, var(--color-objective) 22%, var(--color-card));
+    border-color: color-mix(in srgb, var(--color-objective) 55%, var(--color-border));
+    @apply ring-1 ring-primary;
+  }
+
+  .list-row-selected-signal {
+    background-color: color-mix(in srgb, var(--color-signal) 22%, var(--color-card));
+    border-color: color-mix(in srgb, var(--color-signal) 55%, var(--color-border));
+    @apply ring-1 ring-primary;
+  }
+
+  .list-row-selected-rule {
+    background-color: color-mix(in srgb, var(--color-rule) 22%, var(--color-card));
+    border-color: color-mix(in srgb, var(--color-rule) 55%, var(--color-border));
+    @apply ring-1 ring-primary;
+  }
+
+  /* Radix ScrollArea defaults to display:table on inner wrapper — clips wrapped text */
+  [data-radix-scroll-area-viewport] > div {
+    display: block !important;
+    min-width: 0 !important;
+    max-width: 100%;
+  }
+
+  .explorer-grid-overview {
+    grid-template-columns: 1fr auto;
+    grid-template-rows: 1fr auto;
+    grid-template-areas:
+      "graph graph"
+      "search controls";
+  }
+
+  .explorer-area-graph {
+    grid-area: graph;
+  }
+
+  .explorer-area-search {
+    grid-area: search;
+  }
+
+  .explorer-area-controls {
+    grid-area: controls;
+  }
+
+  /* Selected layout uses flex in explorer-layout.tsx */
+  .explorer-grid-bg {
+    background-color: var(--color-background);
+    background-image: radial-gradient(
+      circle,
+      color-mix(in srgb, var(--color-border) 45%, transparent) 1px,
+      transparent 1px
+    );
+    background-size: 22px 22px;
+  }
+
+  .explorer-graph-grid-bg {
+    @apply bg-background;
+    background-image: radial-gradient(
+      circle,
+      color-mix(in srgb, var(--color-muted-foreground) 32%, transparent) 1px,
+      transparent 1px
+    );
+    background-size: 20px 20px;
+  }
+
+  /* Sigma defaults to opaque white — keep transparent so parent dots show through */
+  .explorer-graph-grid-bg .react-sigma {
+    --sigma-background-color: transparent;
+    --graph-chaining-color: #e8a838;
+    --graph-canvas-bg: var(--color-background);
+    --graph-card-bg: var(--color-card);
+    --graph-card-border: var(--color-border);
+    --graph-foreground: var(--color-foreground);
+    background-color: transparent;
+  }
+
+  .explorer-graph-grid-bg .sigma-container,
+  .explorer-graph-grid-bg .sigma-container canvas {
+    background: transparent !important;
+  }
+
+  /* SVG overlays (chaining edges, killchain boxes) sit behind the WebGL canvas */
+  .explorer-graph-grid-bg .react-sigma.sigma-graph > .sigma-container {
+    position: relative;
+    z-index: 2;
+  }
+
+  .explorer-graph-grid-bg .react-sigma.sigma-graph > .graph-canvas-underlay {
+    z-index: 1;
+  }
+
+  .edge-dash-animate {
+    animation: edge-dash-march 0.75s linear infinite;
+  }
+
+  .markdown-content {
+    @apply max-w-full break-words;
+    overflow-wrap: anywhere;
+  }
+
+  .markdown-content p {
+    @apply mb-2 last:mb-0;
+  }
+
+  .markdown-content ul {
+    @apply mb-2 list-disc space-y-1 pl-4 last:mb-0;
+  }
+
+  .markdown-content ol {
+    @apply mb-2 list-decimal space-y-1 pl-4 last:mb-0;
+  }
+
+  .markdown-content code {
+    @apply rounded bg-muted px-1 py-0.5 font-mono text-[0.85em];
+  }
+
+  .markdown-content pre {
+    @apply mb-2 max-w-full overflow-x-auto rounded-lg border border-border bg-muted/40 p-3 font-mono text-xs whitespace-pre-wrap break-words last:mb-0;
+  }
+
+  .markdown-content pre code {
+    @apply whitespace-pre-wrap break-words;
+  }
+
+  .markdown-content a {
+    @apply text-primary underline-offset-2 hover:underline;
+  }
+
+  .markdown-content h1,
+  .markdown-content h2,
+  .markdown-content h3 {
+    @apply mb-2 font-semibold last:mb-0;
+  }
+}
+
+@keyframes edge-dash-march {
+  to {
+    stroke-dashoffset: -22;
+  }
+}
+
+/* Dialog — opacity + transform only; backdrop blur stays static on overlay */
+@keyframes dialog-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dialog-overlay-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes dialog-content-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 8px)) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes dialog-content-out {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 8px)) scale(0.96);
+  }
+}
+
+.dialog-overlay[data-state="open"] {
+  animation: dialog-overlay-in var(--motion-fast) ease-out forwards;
+}
+
+.dialog-overlay[data-state="closed"] {
+  animation: dialog-overlay-out var(--motion-fast) ease-out forwards;
+}
+
+.dialog-content {
+  transform: translate(-50%, -50%);
+}
+
+.dialog-content[data-state="open"] {
+  animation: dialog-content-in var(--motion-fast) ease-out forwards;
+}
+
+.dialog-content[data-state="closed"] {
+  animation: dialog-content-out var(--motion-fast) ease-out forwards;
 }
 
 @media (prefers-reduced-motion: reduce) {

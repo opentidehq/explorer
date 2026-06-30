@@ -22,7 +22,7 @@ export function ObjectDetailPage({ summary, body }: ObjectDetailPageProps) {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="flex items-center gap-4 border-b border-border bg-card/80 px-4 py-3 backdrop-blur-md">
+      <header className="flex items-center gap-4 border-b border-border bg-card px-4 py-3">
         <Button variant="ghost" size="sm" asChild>
           <Link href="/">
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -32,11 +32,7 @@ export function ObjectDetailPage({ summary, body }: ObjectDetailPageProps) {
         <h1 className="text-lg font-semibold">{summary.name}</h1>
       </header>
       <div className="relative flex flex-1 justify-end">
-        <ObjectDetailPanel
-          summary={summary}
-          body={body}
-          onClose={() => setSelectedId(null)}
-        />
+        <ObjectDetailPanel summary={summary} body={body} />
       </div>
     </div>
   );

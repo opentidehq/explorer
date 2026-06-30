@@ -59,6 +59,8 @@ export interface SearchDocument {
   techniques: string[];
   actors: string[];
   platforms: string[];
+  schema?: string;
+  tlp?: string;
   status?: string;
   content: string;
   relatedCount: number;

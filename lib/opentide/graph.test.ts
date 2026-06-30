@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
   chainResolver,
+  chainingLinkRowKey,
+  chainingNeighbors,
+  chainsTabData,
   childs,
   createGraphContext,
   getType,
+  inboundChainingSources,
   keepActiveRules,
   parents,
   relationsList,
+  ruleDetectionSources,
+  ruleMapsViaSignal,
   techniquesResolver,
 } from "./graph";
 import type { ModelsIndex, ObjectBody } from "./types";
@@ -114,6 +120,7 @@ describe("graph engine", () => {
   it("walks child relationships", () => {
     expect(childs(ctx, THREAT_ID)).toContain(OBJECTIVE_ID);
     expect(childs(ctx, OBJECTIVE_ID)).toContain(RULE_ID);
+    expect(childs(ctx, OBJECTIVE_ID)).toContain(SIGNAL_ID);
     expect(childs(ctx, SIGNAL_ID)).toContain(SIGNAL_RULE_ID);
   });
 
@@ -159,5 +166,125 @@ describe("graph engine", () => {
     expect(chain[THREAT_ID]?.["atomicity::implements"]).toContain(
       "d24f2b4a-80fc-4ee7-9293-3f6e9e3bbbe4",
     );
+  });
+
+  it("collects chaining neighbors for a threat", () => {
+    const neighbors = chainingNeighbors(ctx, THREAT_ID);
+    expect(neighbors).toContain("d24f2b4a-80fc-4ee7-9293-3f6e9e3bbbe4");
+    expect(neighbors).not.toContain(THREAT_ID);
+  });
+
+  it("builds deduped chains tab rows without inbound or transitive dupes", () => {
+    const PARENT = "d5039f2c-9fcc-4ba3-ad6a-da8c891ba745";
+    const CHILD = "86f62c3a-6556-4a64-a9f5-a79168ad42d9";
+    const GRANDCHILD = "cce22952-735a-4255-8319-e5e44aef9d85";
+    const SPEAR = "dd5d942c-bac4-4000-b9a6-ca4fef6cfb84";
+
+    const parent: ObjectBody = {
+      name: "Abuse of Windows Utilities",
+      metadata: { uuid: PARENT, schema: "threat::1.0" },
+      threat: {},
+    };
+    const child: ObjectBody = {
+      name: "Abuse Windows Utilities to Side-Load Malicious DLLs",
+      metadata: { uuid: CHILD, schema: "threat::1.0" },
+      threat: {
+        chaining: [
+          {
+            relation: "atomicity::implements",
+            vector: PARENT,
+          },
+        ],
+      },
+    };
+    const grandchild: ObjectBody = {
+      name: "Windows startup folder abused by malware",
+      metadata: { uuid: GRANDCHILD, schema: "threat::1.0" },
+      threat: {
+        chaining: [
+          {
+            relation: "sequence::succeeds",
+            vector: SPEAR,
+          },
+          {
+            relation: "atomicity::implements",
+            vector: CHILD,
+          },
+        ],
+      },
+    };
+
+    const chainCtx = createGraphContext({
+      models: {
+        threat: { [PARENT]: parent, [CHILD]: child, [GRANDCHILD]: grandchild },
+        objective: {},
+        signal: {},
+        rule: {},
+      },
+      flatIndex: { [PARENT]: parent, [CHILD]: child, [GRANDCHILD]: grandchild },
+      chaining: {
+        [CHILD]: { "atomicity::implements": [PARENT] },
+        [GRANDCHILD]: {
+          "sequence::succeeds": [SPEAR],
+          "atomicity::implements": [CHILD],
+        },
+      },
+    });
+
+    const childLinks = (child.threat as ObjectBody)
+      .chaining as Array<ObjectBody>;
+    const childTab = chainsTabData(chainCtx, CHILD, childLinks);
+    expect(childTab.count).toBe(1);
+    expect(childTab.relatedChainIds).toEqual([]);
+
+    const grandchildLinks = (grandchild.threat as ObjectBody)
+      .chaining as Array<ObjectBody>;
+    const grandchildTab = chainsTabData(chainCtx, GRANDCHILD, grandchildLinks);
+    expect(grandchildTab.count).toBe(2);
+    expect(grandchildTab.relatedChainIds).not.toContain(PARENT);
+
+    const parentTab = chainsTabData(chainCtx, PARENT, []);
+    expect(parentTab.relatedChainIds).toContain(CHILD);
+    expect(parentTab.relatedChainIds).not.toContain(GRANDCHILD);
+    expect(inboundChainingSources(chainCtx, PARENT)).toEqual([CHILD]);
+  });
+
+  it("preserves duplicate chaining links and yields unique row keys", () => {
+    const vector = "2d7ed070-e5c5-4796-b150-ea1d02ed1785";
+    const links: Array<ObjectBody> = [
+      {
+        relation: "atomicity::implemented",
+        vector,
+        description: "First entry",
+      },
+      {
+        relation: "atomicity::implemented",
+        vector,
+        description: "Duplicate relation+vector",
+      },
+    ];
+
+    const tab = chainsTabData(ctx, THREAT_ID, links);
+    expect(tab.chainingLinks).toHaveLength(2);
+    expect(tab.count).toBe(2);
+
+    const keys = tab.chainingLinks.map((link, index) =>
+      chainingLinkRowKey(link, index),
+    );
+    expect(new Set(keys).size).toBe(2);
+  });
+
+  it("routes signal-mapped rules through their signal parent", () => {
+    expect(ruleMapsViaSignal(ctx, SIGNAL_RULE_ID, OBJECTIVE_ID)).toBe(
+      SIGNAL_ID,
+    );
+    expect(ruleMapsViaSignal(ctx, RULE_ID, OBJECTIVE_ID)).toBeNull();
+
+    expect(ruleDetectionSources(ctx, SIGNAL_RULE_ID)).toEqual([
+      { sourceId: SIGNAL_ID, label: "rule" },
+    ]);
+    expect(ruleDetectionSources(ctx, RULE_ID)).toEqual([
+      { sourceId: OBJECTIVE_ID, label: "detects" },
+    ]);
   });
 });

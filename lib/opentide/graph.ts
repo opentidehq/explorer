@@ -102,13 +102,16 @@ export function getType(
 }
 
 export function parents(ctx: GraphContext, id: string): string[] {
-  const modelType = getType(ctx, id);
-  if (!modelType) return [];
+  const modelType = getType(ctx, id, true);
+  if (!modelType) {
+    const embeddedParent = ctx.flatIndex[id]?.["parent"];
+    return typeof embeddedParent === "string" ? [embeddedParent] : [];
+  }
 
   const mapping = PARENT_MAPPINGS[modelType];
   if (!mapping) return [];
 
-  const modelData = ctx.models[modelType]?.[id];
+  const modelData = ctx.models[modelType]?.[id] ?? ctx.flatIndex[id];
   if (!modelData) return [];
 
   if ("data" in mapping && mapping.data) {
@@ -117,6 +120,26 @@ export function parents(ctx: GraphContext, id: string): string[] {
   }
 
   return asStringArray(modelData[mapping.parent]);
+}
+
+export function embeddedObjectiveSignals(
+  ctx: GraphContext,
+  objectiveId: string,
+): string[] {
+  const modelData = ctx.models.objective?.[objectiveId];
+  if (!modelData) return [];
+
+  const objective = modelData["objective"] as ObjectBody | undefined;
+  const signals = objective?.["signals"];
+  if (!Array.isArray(signals)) return [];
+
+  const ids: string[] = [];
+  for (const signal of signals) {
+    if (!signal || typeof signal !== "object") continue;
+    const uuid = (signal as ObjectBody)["uuid"];
+    if (typeof uuid === "string" && uuid) ids.push(uuid);
+  }
+  return ids;
 }
 
 export function childs(ctx: GraphContext, modelId: string): string[] {
@@ -151,11 +174,67 @@ export function childs(ctx: GraphContext, modelId: string): string[] {
     }
   }
 
+  if (modelType === "objective") {
+    implementations.push(...embeddedObjectiveSignals(ctx, modelId));
+  }
+
   return [...new Set(implementations)];
 }
 
 function checkStatus(status: unknown): string {
   return typeof status === "string" ? status.toLowerCase() : "";
+}
+
+/** When a rule's detection_model is an objective, find an embedded signal it implements. */
+export function ruleMapsViaSignal(
+  ctx: GraphContext,
+  ruleId: string,
+  objectiveId: string,
+): string | null {
+  const signalIds = embeddedObjectiveSignals(ctx, objectiveId);
+  if (signalIds.length === 0) return null;
+
+  for (const signalId of signalIds) {
+    if (childs(ctx, signalId).includes(ruleId)) return signalId;
+  }
+
+  const ruleBody = ctx.flatIndex[ruleId];
+  if (ruleBody) {
+    const serialized = JSON.stringify(ruleBody);
+    for (const signalId of signalIds) {
+      if (serialized.includes(signalId)) return signalId;
+    }
+  }
+
+  return null;
+}
+
+/** Detection parents for a rule: signal when mapped via signal, else objective. */
+export function ruleDetectionSources(
+  ctx: GraphContext,
+  ruleId: string,
+): Array<{ sourceId: string; label: string }> {
+  const sources: Array<{ sourceId: string; label: string }> = [];
+
+  for (const parent of parents(ctx, ruleId)) {
+    const parentType = getType(ctx, parent, true);
+    if (parentType === "signal") {
+      sources.push({ sourceId: parent, label: "rule" });
+      continue;
+    }
+    if (parentType === "objective") {
+      const viaSignal = ruleMapsViaSignal(ctx, ruleId, parent);
+      if (viaSignal) {
+        sources.push({ sourceId: viaSignal, label: "rule" });
+      } else {
+        sources.push({ sourceId: parent, label: "detects" });
+      }
+      continue;
+    }
+    sources.push({ sourceId: parent, label: "detects" });
+  }
+
+  return sources;
 }
 
 export function keepActiveRules(
@@ -387,6 +466,151 @@ export function relationsList(
   }
 
   return flat;
+}
+
+/** UUIDs linked to `id` via threat chaining (graph index, resolver, or body vectors). */
+export function chainingNeighbors(
+  ctx: GraphContext,
+  id: string,
+  options?: {
+    corpusChainingEdges?: ReadonlyArray<{
+      source: string;
+      target: string;
+      kind: string;
+    }>;
+    threatChainingVectors?: string[];
+  },
+): string[] {
+  const neighbors = new Set<string>();
+
+  for (const edge of options?.corpusChainingEdges ?? []) {
+    if (edge.kind !== "chaining") continue;
+    if (edge.source === id) neighbors.add(edge.target);
+    if (edge.target === id) neighbors.add(edge.source);
+  }
+
+  const outgoing = ctx.chaining[id];
+  if (outgoing) {
+    for (const targets of Object.values(outgoing)) {
+      for (const target of targets) neighbors.add(target);
+    }
+  }
+
+  for (const [root, relations] of Object.entries(ctx.chaining)) {
+    for (const targets of Object.values(relations)) {
+      if (!targets.includes(id)) continue;
+      neighbors.add(root);
+      for (const target of targets) {
+        if (target !== id) neighbors.add(target);
+      }
+    }
+  }
+
+  const resolved = chainResolver(ctx, id);
+  for (const [source, relations] of Object.entries(resolved)) {
+    if (source !== id) neighbors.add(source);
+    for (const targets of Object.values(relations)) {
+      for (const target of targets) neighbors.add(target);
+    }
+  }
+
+  for (const vector of options?.threatChainingVectors ?? []) {
+    if (vector) neighbors.add(vector);
+  }
+
+  neighbors.delete(id);
+  return [...neighbors];
+}
+
+/** Threats with an outbound chaining link whose vector is `id`. */
+export function inboundChainingSources(
+  ctx: GraphContext,
+  id: string,
+  options?: {
+    corpusChainingEdges?: ReadonlyArray<{
+      source: string;
+      target: string;
+      kind: string;
+    }>;
+  },
+): string[] {
+  const sources = new Set<string>();
+
+  for (const [rootId, relations] of Object.entries(ctx.chaining)) {
+    if (rootId === id) continue;
+    for (const targets of Object.values(relations)) {
+      if (targets.includes(id)) {
+        sources.add(rootId);
+        break;
+      }
+    }
+  }
+
+  for (const edge of options?.corpusChainingEdges ?? []) {
+    if (edge.kind !== "chaining") continue;
+    if (edge.target === id && edge.source !== id) {
+      sources.add(edge.source);
+    }
+  }
+
+  return [...sources];
+}
+
+export interface ChainsTabData {
+  chainingLinks: Array<ObjectBody>;
+  relatedChainIds: string[];
+  count: number;
+}
+
+/** Stable unique key for a chains-tab link card (relation+vector may repeat). */
+export function chainingLinkRowKey(link: ObjectBody, index: number): string {
+  const relation = String(link["relation"] ?? "");
+  const vector =
+    typeof link["vector"] === "string" ? link["vector"] : `row-${index}`;
+  return `${relation}::${vector}::${index}`;
+}
+
+/**
+ * Deduped chains-tab rows: explicit outbound `threat.chaining` link cards plus,
+ * only when this threat has no outbound links, inbound threats that chain here.
+ */
+export function chainsTabData(
+  ctx: GraphContext,
+  id: string,
+  chainingLinks: Array<ObjectBody>,
+  options?: {
+    corpusChainingEdges?: ReadonlyArray<{
+      source: string;
+      target: string;
+      kind: string;
+    }>;
+  },
+): ChainsTabData {
+  const outboundVectors = new Set(
+    chainingLinks
+      .map((link) => link["vector"])
+      .filter((v): v is string => typeof v === "string" && v.length > 0),
+  );
+
+  const excluded = new Set<string>([id, ...outboundVectors]);
+
+  const resolved = chainResolver(ctx, id);
+  for (const targets of Object.values(resolved[id] ?? {})) {
+    for (const target of targets) excluded.add(target);
+  }
+
+  let relatedChainIds: string[] = [];
+  if (chainingLinks.length === 0) {
+    relatedChainIds = inboundChainingSources(ctx, id, options).filter(
+      (sourceId) => !excluded.has(sourceId),
+    );
+  }
+
+  return {
+    chainingLinks,
+    relatedChainIds,
+    count: chainingLinks.length + relatedChainIds.length,
+  };
 }
 
 export function chainResolver(

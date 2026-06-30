@@ -12,6 +12,7 @@ interface CodeBlockProps {
   language?: string;
   className?: string;
   showLineNumbers?: boolean;
+  variant?: "default" | "plain";
 }
 
 export function CodeBlock({
@@ -19,6 +20,7 @@ export function CodeBlock({
   language = "yaml",
   className,
   showLineNumbers = true,
+  variant = "default",
 }: CodeBlockProps) {
   const { resolvedTheme } = useTheme();
   const [html, setHtml] = useState<string>("");
@@ -46,6 +48,35 @@ export function CodeBlock({
     setTimeout(() => setCopied(false), 2000);
   }
 
+  if (variant === "plain") {
+    return (
+      <div className={cn("relative min-w-0", className)}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={copy}
+          className="absolute right-0 top-0 z-10 h-7 px-2"
+          aria-label="Copy code"
+        >
+          {copied ? (
+            <Check className="h-3.5 w-3.5" />
+          ) : (
+            <Copy className="h-3.5 w-3.5" />
+          )}
+        </Button>
+        <div
+          className={cn(
+            "overflow-x-auto py-1 pr-8 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap [&_pre]:!bg-transparent [&_pre]:whitespace-pre-wrap [&_code]:font-mono [&_code]:break-words",
+            showLineNumbers && "[&_pre]:pl-2",
+          )}
+          dangerouslySetInnerHTML={{
+            __html: html || `<pre><code>${code}</code></pre>`,
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
@@ -67,7 +98,7 @@ export function CodeBlock({
       </div>
       <div
         className={cn(
-          "overflow-x-auto p-4 font-mono text-sm [&_pre]:!bg-transparent [&_code]:font-mono",
+          "overflow-x-auto p-4 font-mono text-sm break-words whitespace-pre-wrap [&_pre]:!bg-transparent [&_pre]:whitespace-pre-wrap [&_code]:font-mono [&_code]:break-words",
           showLineNumbers && "[&_pre]:pl-2",
         )}
         dangerouslySetInnerHTML={{
