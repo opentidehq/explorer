@@ -12,8 +12,6 @@ import {
 import type { BundleObjectSummary, ObjectBody } from "@/lib/opentide/types";
 import { FieldRow } from "@/components/objects/field-value-renderer";
 
-export { SurfaceField } from "@/components/objects/field-value-renderer";
-
 export function SchemaAssessment({
   summary,
   body,
@@ -26,17 +24,18 @@ export function SchemaAssessment({
   const enrichedBody = buildEnrichedBody(summary, body);
   const assessmentPathSet = new Set(getAssessmentPaths(summary.type));
 
-  const visible = FIELD_REGISTRY[summary.type]
-    .filter((field) => assessmentPathSet.has(field.path))
-    .map((field) => ({
-      field,
-      value: resolveFieldValue(enrichedBody, field.path),
-    }))
-    .filter(({ value }) => {
-      if (value == null || value === "") return false;
-      if (Array.isArray(value)) return value.length > 0;
-      return true;
-    });
+  const visible: Array<{
+    field: (typeof FIELD_REGISTRY)[typeof summary.type][number];
+    value: unknown;
+  }> = [];
+
+  for (const field of FIELD_REGISTRY[summary.type]) {
+    if (!assessmentPathSet.has(field.path)) continue;
+    const value = resolveFieldValue(enrichedBody, field.path);
+    if (value == null || value === "") continue;
+    if (Array.isArray(value) && value.length === 0) continue;
+    visible.push({ field, value });
+  }
 
   if (!visible.length) {
     return (

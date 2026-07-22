@@ -9,7 +9,7 @@ export const EXPLORER_VIEW_LABELS: Record<ExplorerView, string> = {
 
 const STORAGE_KEY = "explorer:view-mode:v1";
 
-export function readStoredExplorerView(): ExplorerView {
+function readStoredExplorerView(): ExplorerView {
   if (typeof window === "undefined") return "graph";
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -28,4 +28,20 @@ export function writeStoredExplorerView(view: ExplorerView): void {
   } catch {
     /* quota / disabled */
   }
+  for (const listener of explorerViewListeners) {
+    listener();
+  }
+}
+
+const explorerViewListeners = new Set<() => void>();
+
+export function subscribeExplorerView(onStoreChange: () => void): () => void {
+  explorerViewListeners.add(onStoreChange);
+  return () => {
+    explorerViewListeners.delete(onStoreChange);
+  };
+}
+
+export function getExplorerViewSnapshot(): ExplorerView {
+  return readStoredExplorerView();
 }

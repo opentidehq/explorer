@@ -21,7 +21,7 @@ export function resolveSpecsDir(specsDir) {
 /**
  * @param {string} filePath
  */
-export function parseTomlFile(filePath) {
+function parseTomlFile(filePath) {
   const content = fs.readFileSync(filePath, "utf8");
   return parse(content);
 }
@@ -55,7 +55,7 @@ export function comparePinVersions(a, b) {
 /**
  * @param {string} schemaKey e.g. `threat::2.1`
  */
-export function parseSchemaKey(schemaKey) {
+function parseSchemaKey(schemaKey) {
   const idx = schemaKey.indexOf("::");
   if (idx === -1) return { type: schemaKey, version: "0" };
   return {
@@ -215,7 +215,7 @@ export function pathToLabel(pathKey) {
  * @param {string} pathKey
  * @param {string | undefined} vocabStem
  */
-export function inferFieldFormat(pathKey, vocabStem) {
+function inferFieldFormat(pathKey, vocabStem) {
   if (FORMAT_OVERRIDES[pathKey]) return FORMAT_OVERRIDES[pathKey];
   if (pathKey.includes("chaining")) return null;
   if (vocabStem === "att&ck") return "attack";
@@ -229,7 +229,7 @@ export function inferFieldFormat(pathKey, vocabStem) {
  * @param {string} objectType
  * @param {string} pathKey
  */
-export function normalizePinPath(objectType, pathKey) {
+function normalizePinPath(objectType, pathKey) {
   if (pathKey.startsWith("metadata.")) return pathKey;
   if (pathKey === "criticality") return pathKey;
   if (objectType === "threat" && pathKey.startsWith("threat.")) return pathKey;

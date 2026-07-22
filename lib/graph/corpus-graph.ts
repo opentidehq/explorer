@@ -313,19 +313,6 @@ export function buildCorpusGraph(bundle: ExplorerBundle): CorpusGraph {
   };
 }
 
-export function filterGraph(
-  corpus: CorpusGraph,
-  visibleIds: Set<string>,
-): { nodes: CorpusNode[]; edges: CorpusEdge[] } {
-  const nodes = corpus.nodes.filter((n) => visibleIds.has(n.id));
-  const nodeSet = new Set(nodes.map((n) => n.id));
-  const edges = corpus.edges.filter(
-    (e) => nodeSet.has(e.source) && nodeSet.has(e.target),
-  );
-
-  return { nodes, edges };
-}
-
 export function expandVisibleIds(
   corpus: CorpusGraph,
   seedIds: Set<string>,

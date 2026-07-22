@@ -2,7 +2,7 @@ import type Graph from "graphology";
 import type { ExplorerBundle, ObjectBody } from "@/lib/opentide/types";
 import { lookupVocabTerm, type VocabTerm } from "@/lib/opentide/vocab";
 
-export const KILLCHAIN_STAGE_ORDER = [
+const KILLCHAIN_STAGE_ORDER = [
   "Initial Foothold",
   "Network Propagation",
   "Action on Objectives",

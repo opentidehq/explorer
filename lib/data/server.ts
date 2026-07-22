@@ -29,7 +29,3 @@ export function loadVocabSync(): VocabIndex {
     return {};
   }
 }
-
-export function getAllUuids(bundle: ExplorerBundle): string[] {
-  return bundle.summaries.map((s) => s.uuid);
-}

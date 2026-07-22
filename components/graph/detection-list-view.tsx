@@ -3,10 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, List } from "lucide-react";
 import { CoverageBadges } from "@/components/ui/coverage-badges";
-import {
-  extractObjectDescription,
-  ObjectHoverTooltip,
-} from "@/components/ui/object-hover-tooltip";
+import { ObjectHoverTooltip } from "@/components/ui/object-hover-tooltip";
+import { extractObjectDescription } from "@/lib/opentide/object-description";
 import { useExplorer } from "@/components/shell/explorer-context";
 import { getCausalChain } from "@/lib/graph/corpus-graph";
 import {

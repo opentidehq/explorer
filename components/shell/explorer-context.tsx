@@ -2,12 +2,13 @@
 
 import {
   createContext,
+  use,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import type {
@@ -35,7 +36,8 @@ import {
 } from "@/lib/search/token-catalog";
 import type { VocabIndex } from "@/lib/opentide/vocab";
 import {
-  readStoredExplorerView,
+  subscribeExplorerView,
+  getExplorerViewSnapshot,
   writeStoredExplorerView,
   type ExplorerView,
 } from "@/lib/graph/explorer-view";
@@ -104,14 +106,13 @@ export function ExplorerProvider({
   const [layoutNonce, setLayoutNonce] = useState(0);
   const [killchainGrouping, setKillchainGrouping] = useState(false);
   const [showVocabNodes, setShowVocabNodes] = useState(false);
-  const [explorerView, setExplorerViewState] = useState<ExplorerView>("graph");
-
-  useEffect(() => {
-    setExplorerViewState(readStoredExplorerView());
-  }, []);
+  const explorerView = useSyncExternalStore(
+    subscribeExplorerView,
+    getExplorerViewSnapshot,
+    () => "graph" as ExplorerView,
+  );
 
   const setExplorerView = useCallback((view: ExplorerView) => {
-    setExplorerViewState(view);
     writeStoredExplorerView(view);
   }, []);
 
@@ -335,7 +336,7 @@ export function ExplorerProvider({
 }
 
 export function useExplorer() {
-  const ctx = useContext(ExplorerContext);
+  const ctx = use(ExplorerContext);
   if (!ctx) throw new Error("useExplorer must be used within ExplorerProvider");
   return ctx;
 }

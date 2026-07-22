@@ -68,19 +68,23 @@ export function lookupChainingRelation(
 
 export function splitPillValues(value: unknown): string[] {
   let raw: string[];
-  if (Array.isArray(value)) raw = value.map(String).filter(Boolean);
+  if (Array.isArray(value))
+    raw = value.flatMap((item) => {
+      const text = String(item);
+      return text ? [text] : [];
+    });
   else if (typeof value !== "string")
     raw = value != null ? [String(value)] : [];
   else if (value.includes(";")) {
-    raw = value
-      .split(";")
-      .map((s) => s.trim())
-      .filter(Boolean);
+    raw = value.split(";").flatMap((s) => {
+      const trimmed = s.trim();
+      return trimmed ? [trimmed] : [];
+    });
   } else if (value.includes(",")) {
-    raw = value
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
+    raw = value.split(",").flatMap((s) => {
+      const trimmed = s.trim();
+      return trimmed ? [trimmed] : [];
+    });
   } else {
     raw = value.trim() ? [value.trim()] : [];
   }
@@ -170,10 +174,10 @@ export function parseTerrainMarkdown(text: string): ParsedTerrain {
     }
     const match = line.match(SCOPE_LINE_RE);
     if (!match?.[2]) break;
-    const values = match[2]
-      .split(/[,;]/)
-      .map((part) => part.trim())
-      .filter(Boolean);
+    const values = match[2].split(/[,;]/).flatMap((part) => {
+      const trimmed = part.trim();
+      return trimmed ? [trimmed] : [];
+    });
     scopes.unshift({
       kind: match[1] as TerrainScopeKind,
       values,
@@ -190,6 +194,17 @@ export function parseTerrainMarkdown(text: string): ParsedTerrain {
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+const wordBoundaryPatternCache = new Map<string, RegExp>();
+
+function wordBoundaryPattern(text: string): RegExp {
+  let pattern = wordBoundaryPatternCache.get(text);
+  if (!pattern) {
+    pattern = new RegExp(`\\b${escapeRegExp(text)}\\b`, "i");
+    wordBoundaryPatternCache.set(text, pattern);
+  }
+  return pattern;
 }
 
 /** Match surface vocabulary terms mentioned in free-form terrain prose. */
@@ -219,25 +234,21 @@ export function findSurfaceTermsInText(
         continue;
       }
 
-      const re = new RegExp(`\\b${escapeRegExp(trimmed)}\\b`, "i");
-      if (re.test(text)) {
+      if (wordBoundaryPattern(trimmed).test(text)) {
         matches.set(key, Math.max(matches.get(key) ?? 0, trimmed.length));
       }
     }
   }
 
-  return [...matches.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([key]) => key)
-    .filter(
-      (key, _i, all) =>
-        !all.some(
-          (other) =>
-            other !== key &&
-            other.startsWith(`${key}::`) &&
-            text.includes(other),
-        ),
-    );
+  const sortedKeys = [...matches.entries()].toSorted((a, b) => b[1] - a[1]);
+  const keys = sortedKeys.map(([key]) => key);
+  return keys.filter(
+    (key) =>
+      !keys.some(
+        (other) =>
+          other !== key && other.startsWith(`${key}::`) && text.includes(other),
+      ),
+  );
 }
 
 function normalizeScopedPath(path: string): string {

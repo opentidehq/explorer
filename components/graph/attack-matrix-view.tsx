@@ -27,10 +27,8 @@ import {
   Zap,
 } from "lucide-react";
 import { CoverageBadges } from "@/components/ui/coverage-badges";
-import {
-  extractObjectDescription,
-  ObjectHoverTooltip,
-} from "@/components/ui/object-hover-tooltip";
+import { ObjectHoverTooltip } from "@/components/ui/object-hover-tooltip";
+import { extractObjectDescription } from "@/lib/opentide/object-description";
 import { VocabTooltip } from "@/components/ui/vocab-tooltip";
 import { useExplorer } from "@/components/shell/explorer-context";
 import {

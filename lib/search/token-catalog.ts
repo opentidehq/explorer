@@ -143,13 +143,13 @@ export function buildTokenVocabulary(bundle: ExplorerBundle): TokenVocabulary {
   }
 
   return {
-    types: [...new Set([...OBJECT_TYPES, ...fromCorpus.types])].sort(),
+    types: [...new Set([...OBJECT_TYPES, ...fromCorpus.types])].toSorted(),
     platforms: fromCorpus.platforms,
-    statuses: [...statuses].sort(),
+    statuses: [...statuses].toSorted(),
     techniques: fromCorpus.techniques,
     actors: fromCorpus.actors,
-    schemas: [...schemas].sort(),
-    tlps: [...tlps].sort(),
+    schemas: [...schemas].toSorted(),
+    tlps: [...tlps].toSorted(),
     relations: RELATION_VALUES.map((r) => r.value),
     deploy: ["staging", "production"],
     valueHints: {},

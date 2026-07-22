@@ -10,10 +10,7 @@ export {
 
 import { flattenReferences } from "@/lib/opentide/vocab";
 
-export function getValueAtPath(
-  body: Record<string, unknown>,
-  path: string,
-): unknown {
+function getValueAtPath(body: Record<string, unknown>, path: string): unknown {
   const parts = path.split(".");
   let current: unknown = body;
   for (const part of parts) {

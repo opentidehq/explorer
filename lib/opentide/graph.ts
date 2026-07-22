@@ -1,7 +1,7 @@
-import { Data, Effect } from "effect";
+import { Data } from "effect";
 import type { ModelsIndex, ObjectBody, ObjectType } from "./types";
 
-export class GraphError extends Data.TaggedError("GraphError")<{
+class GraphError extends Data.TaggedError("GraphError")<{
   readonly message: string;
   readonly uuid?: string;
 }> {}
@@ -52,18 +52,6 @@ function asStringArray(value: unknown): string[] {
     return value.filter((v): v is string => typeof v === "string");
   }
   return [];
-}
-
-function getKeyInModelBody(modelBody: ObjectBody, key: string): unknown {
-  if (key in modelBody) return modelBody[key];
-  for (const modelKey of Object.keys(modelBody)) {
-    const child = modelBody[modelKey];
-    if (child && typeof child === "object" && !Array.isArray(child)) {
-      const found = getKeyInModelBody(child as ObjectBody, key);
-      if (found !== undefined && found !== null) return found;
-    }
-  }
-  return undefined;
 }
 
 export function getType(
@@ -122,7 +110,7 @@ export function parents(ctx: GraphContext, id: string): string[] {
   return asStringArray(modelData[mapping.parent]);
 }
 
-export function embeddedObjectiveSignals(
+function embeddedObjectiveSignals(
   ctx: GraphContext,
   objectiveId: string,
 ): string[] {
@@ -162,13 +150,13 @@ export function childs(ctx: GraphContext, modelId: string): string[] {
           const sectionData = childData[section] as ObjectBody | undefined;
           for (const reference of mapping.references) {
             const refs = asStringArray(sectionData?.[reference]);
-            if (refs.includes(modelId)) implementations.push(childId);
+            if (new Set(refs).has(modelId)) implementations.push(childId);
           }
         }
       } else {
         for (const reference of mapping.references) {
           const refs = asStringArray(childData[reference]);
-          if (refs.includes(modelId)) implementations.push(childId);
+          if (new Set(refs).has(modelId)) implementations.push(childId);
         }
       }
     }
@@ -195,7 +183,7 @@ export function ruleMapsViaSignal(
   if (signalIds.length === 0) return null;
 
   for (const signalId of signalIds) {
-    if (childs(ctx, signalId).includes(ruleId)) return signalId;
+    if (new Set(childs(ctx, signalId)).has(ruleId)) return signalId;
   }
 
   const ruleBody = ctx.flatIndex[ruleId];
@@ -498,7 +486,7 @@ export function chainingNeighbors(
 
   for (const [root, relations] of Object.entries(ctx.chaining)) {
     for (const targets of Object.values(relations)) {
-      if (!targets.includes(id)) continue;
+      if (!new Set(targets).has(id)) continue;
       neighbors.add(root);
       for (const target of targets) {
         if (target !== id) neighbors.add(target);
@@ -539,7 +527,7 @@ export function inboundChainingSources(
   for (const [rootId, relations] of Object.entries(ctx.chaining)) {
     if (rootId === id) continue;
     for (const targets of Object.values(relations)) {
-      if (targets.includes(id)) {
+      if (new Set(targets).has(id)) {
         sources.add(rootId);
         break;
       }
@@ -626,7 +614,8 @@ export function chainResolver(
     if (!(link in chain[entryPoint]!)) chain[entryPoint]![link] = [];
 
     for (const v of vectorChaining[link] ?? []) {
-      if (!chain[entryPoint]![link]!.includes(v)) {
+      const seen = new Set(chain[entryPoint]![link]!);
+      if (!seen.has(v)) {
         chain[entryPoint]![link]!.push(v);
         chainResolver(ctx, v, chain);
       }
@@ -634,18 +623,6 @@ export function chainResolver(
   }
 
   return chain;
-}
-
-export function modelValue(
-  ctx: GraphContext,
-  id: string,
-  key: string,
-): unknown {
-  const modelType = getType(ctx, id, true);
-  if (!modelType) return null;
-  const data = ctx.models[modelType]?.[id];
-  if (!data) return null;
-  return getKeyInModelBody(data, key);
 }
 
 export function createGraphContext(bundle: {
@@ -659,19 +636,3 @@ export function createGraphContext(bundle: {
     chaining: bundle.chaining,
   };
 }
-
-export const getTypeEffect = (ctx: GraphContext, uuid: string) =>
-  Effect.try({
-    try: () => getType(ctx, uuid),
-    catch: (e) =>
-      e instanceof GraphError
-        ? e
-        : new GraphError({ message: String(e), uuid }),
-  });
-
-export const relationsListEffect = (
-  ctx: GraphContext,
-  id: string,
-  mode: "count" | "flat" = "flat",
-  direction: "upstream" | "downstream" | "both" = "downstream",
-) => Effect.sync(() => relationsList(ctx, id, mode, direction));

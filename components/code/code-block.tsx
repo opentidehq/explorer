@@ -7,6 +7,15 @@ import { Button } from "@/components/ui/button";
 import { getHighlighter, themeForMode } from "@/lib/shiki/highlighter";
 import { cn } from "@/lib/utils";
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 interface CodeBlockProps {
   code: string;
   language?: string;
@@ -70,7 +79,7 @@ export function CodeBlock({
             showLineNumbers && "[&_pre]:pl-2",
           )}
           dangerouslySetInnerHTML={{
-            __html: html || `<pre><code>${code}</code></pre>`,
+            __html: html || `<pre><code>${escapeHtml(code)}</code></pre>`,
           }}
         />
       </div>
@@ -102,7 +111,7 @@ export function CodeBlock({
           showLineNumbers && "[&_pre]:pl-2",
         )}
         dangerouslySetInnerHTML={{
-          __html: html || `<pre><code>${code}</code></pre>`,
+          __html: html || `<pre><code>${escapeHtml(code)}</code></pre>`,
         }}
       />
     </div>

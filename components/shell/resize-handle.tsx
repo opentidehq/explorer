@@ -53,6 +53,7 @@ export function ResizeHandle({
     <div
       role="separator"
       aria-orientation={direction}
+      aria-label={direction === "horizontal" ? "Resize columns" : "Resize rows"}
       tabIndex={0}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}

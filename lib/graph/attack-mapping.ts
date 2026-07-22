@@ -281,31 +281,15 @@ function sortTactics(
 ): string[] {
   const unique = [...new Set(tactics)];
   const order = TACTIC_ORDER_BY_MATRIX[matrix];
-  const ordered = order.filter((t) => unique.includes(t));
+  const uniqueSet = new Set(unique);
+  const orderSet = new Set<string>(order);
+  const ordered = order.filter((t) => uniqueSet.has(t));
   const rest = unique
-    .filter((t) => !order.includes(t as (typeof order)[number]))
+    .filter((t) => !orderSet.has(t))
     .toSorted((a, b) =>
       (TACTIC_LABELS[a] ?? a).localeCompare(TACTIC_LABELS[b] ?? b),
     );
   return [...ordered, ...rest];
-}
-
-/** Detect dominant ATT&CK matrix label from vocab terms. */
-export function detectAttackMatrixLabel(index: VocabIndex): string {
-  const bucket = index["att&ck"];
-  if (!bucket) return "Enterprise ATT&CK";
-
-  const counts = new Map<string, number>();
-  for (const term of Object.values(bucket)) {
-    if (!/^T\d/i.test(term.name) && !term.link?.includes("/techniques/")) {
-      continue;
-    }
-    const matrix = parseAttackMatrix(term);
-    counts.set(matrix, (counts.get(matrix) ?? 0) + 1);
-  }
-
-  const top = [...counts.entries()].toSorted((a, b) => b[1] - a[1])[0];
-  return top ? `${top[0]} ATT&CK` : "Enterprise ATT&CK";
 }
 
 /** Latest ATT&CK version hint from vocab technique links (e.g. attack.mitre.org vX). */
@@ -451,7 +435,7 @@ export function formatTacticLabel(tactic: string): string {
 }
 
 /** Lucide icon slug per ATT&CK tactic (see attack-matrix-view icon map). */
-export const TACTIC_ICON_SLUGS: Record<string, string> = {
+const TACTIC_ICON_SLUGS: Record<string, string> = {
   reconnaissance: "binoculars",
   "resource-development": "package-plus",
   "initial-access": "door-open",
@@ -474,14 +458,6 @@ export const TACTIC_ICON_SLUGS: Record<string, string> = {
 
 export function getTacticIconSlug(tactic: string): string {
   return TACTIC_ICON_SLUGS[tactic] ?? "circle-help";
-}
-
-export function techniqueTermName(
-  term: VocabTerm | undefined,
-  id: string,
-): string {
-  if (!term) return id.toUpperCase();
-  return formatVocabDisplayName(term.name);
 }
 
 export function techniquesForTactic(

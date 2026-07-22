@@ -37,22 +37,24 @@ export async function buildOramaIndex(documents: SearchDocument[]) {
     } as const,
   });
 
-  for (const doc of documents) {
-    await insert(db, {
-      id: doc.id,
-      name: doc.name,
-      uuid: doc.uuid,
-      type: doc.type,
-      techniques: doc.techniques,
-      actors: doc.actors,
-      platforms: doc.platforms,
-      schema: doc.schema ?? "",
-      tlp: doc.tlp ?? "",
-      status: doc.status ?? "",
-      content: doc.content,
-      relatedCount: doc.relatedCount,
-    });
-  }
+  await Promise.all(
+    documents.map((doc) =>
+      insert(db, {
+        id: doc.id,
+        name: doc.name,
+        uuid: doc.uuid,
+        type: doc.type,
+        techniques: doc.techniques,
+        actors: doc.actors,
+        platforms: doc.platforms,
+        schema: doc.schema ?? "",
+        tlp: doc.tlp ?? "",
+        status: doc.status ?? "",
+        content: doc.content,
+        relatedCount: doc.relatedCount,
+      }),
+    ),
+  );
 
   return db;
 }
@@ -157,9 +159,12 @@ export async function searchCatalog(
       properties: ["uuid"],
       limit: 1,
     });
-    return byUuid.hits
-      .map((h) => h.document as SearchDocument)
-      .filter((doc) => matchesDocument(doc, filters, stagingIndex));
+    const hits: SearchDocument[] = [];
+    for (const hit of byUuid.hits) {
+      const doc = hit.document as SearchDocument;
+      if (matchesDocument(doc, filters, stagingIndex)) hits.push(doc);
+    }
+    return hits;
   }
 
   if (
@@ -171,9 +176,12 @@ export async function searchCatalog(
       properties: ["uuid"],
       limit: 1,
     });
-    return byUuid.hits
-      .map((h) => h.document as SearchDocument)
-      .filter((doc) => matchesDocument(doc, filters, stagingIndex));
+    const hits: SearchDocument[] = [];
+    for (const hit of byUuid.hits) {
+      const doc = hit.document as SearchDocument;
+      if (matchesDocument(doc, filters, stagingIndex)) hits.push(doc);
+    }
+    return hits;
   }
 
   if (term && /^T\d{4}(\.\d{3})?$/i.test(term)) {
@@ -182,9 +190,12 @@ export async function searchCatalog(
       properties: ["techniques"],
       limit,
     });
-    return byTech.hits
-      .map((h) => h.document as SearchDocument)
-      .filter((doc) => matchesDocument(doc, filters, stagingIndex));
+    const hits: SearchDocument[] = [];
+    for (const hit of byTech.hits) {
+      const doc = hit.document as SearchDocument;
+      if (matchesDocument(doc, filters, stagingIndex)) hits.push(doc);
+    }
+    return hits;
   }
 
   if (!term && options?.documents) {
@@ -199,21 +210,26 @@ export async function searchCatalog(
     limit: limit * 3,
   });
 
-  return results.hits
-    .map((h) => h.document as SearchDocument)
-    .filter((doc) => {
-      if (!matchesDocument(doc, filters, stagingIndex)) return false;
-      if (!term) return true;
-      const lower = term.toLowerCase();
-      return (
-        doc.name.toLowerCase().includes(lower) ||
-        doc.content.toLowerCase().includes(lower) ||
-        doc.uuid.toLowerCase().includes(lower) ||
-        doc.actors.some((a) => a.toLowerCase().includes(lower)) ||
-        doc.techniques.some((t) => t.toLowerCase().includes(lower))
-      );
-    })
-    .slice(0, limit);
+  const matched: SearchDocument[] = [];
+  for (const hit of results.hits) {
+    const doc = hit.document as SearchDocument;
+    if (!matchesDocument(doc, filters, stagingIndex)) continue;
+    if (!term) {
+      matched.push(doc);
+      continue;
+    }
+    const lower = term.toLowerCase();
+    if (
+      doc.name.toLowerCase().includes(lower) ||
+      doc.content.toLowerCase().includes(lower) ||
+      doc.uuid.toLowerCase().includes(lower) ||
+      doc.actors.some((a) => a.toLowerCase().includes(lower)) ||
+      doc.techniques.some((t) => t.toLowerCase().includes(lower))
+    ) {
+      matched.push(doc);
+    }
+  }
+  return matched.slice(0, limit);
 }
 
 export function collectFilterOptions(bundle: ExplorerBundle) {
@@ -232,12 +248,12 @@ export function collectFilterOptions(bundle: ExplorerBundle) {
   }
 
   return {
-    types: [...types].sort() as Array<
+    types: [...types].toSorted() as Array<
       "threat" | "objective" | "signal" | "rule"
     >,
-    platforms: [...platforms].sort(),
-    statuses: [...statuses].sort(),
-    techniques: [...techniques].sort(),
-    actors: [...actors].sort(),
+    platforms: [...platforms].toSorted(),
+    statuses: [...statuses].toSorted(),
+    techniques: [...techniques].toSorted(),
+    actors: [...actors].toSorted(),
   };
 }

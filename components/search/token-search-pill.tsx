@@ -12,6 +12,7 @@ import {
 import { Loader2, Search, X } from "lucide-react";
 import { GraphLegend } from "@/components/search/graph-legend";
 import { useExplorer } from "@/components/shell/explorer-context";
+import { useIsClient } from "@/lib/hooks/use-is-client";
 import {
   activeFilterCount,
   formatFilterTokens,
@@ -27,18 +28,32 @@ import { cn } from "@/lib/utils";
 const ITEM_HEIGHT = 32;
 const MAX_VISIBLE = 5;
 
+function scrollSuggestionIntoView(
+  list: HTMLDivElement | null,
+  index: number,
+  maxHeight: number,
+) {
+  if (!list || index < 0) return;
+  const itemTop = index * ITEM_HEIGHT;
+  const itemBottom = itemTop + ITEM_HEIGHT;
+  if (itemTop < list.scrollTop) list.scrollTop = itemTop;
+  else if (itemBottom > list.scrollTop + maxHeight)
+    list.scrollTop = itemBottom - maxHeight;
+}
+
 function VirtualSuggestions({
   items,
   activeIndex,
   onSelect,
   listboxId,
+  listRef,
 }: {
   items: TokenSuggestion[];
   activeIndex: number;
   onSelect: (item: TokenSuggestion) => void;
   listboxId: string;
+  listRef: React.RefObject<HTMLDivElement | null>;
 }) {
-  const listRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const maxHeight = ITEM_HEIGHT * MAX_VISIBLE;
   const totalHeight = items.length * ITEM_HEIGHT;
@@ -46,16 +61,6 @@ function VirtualSuggestions({
   const visibleCount = Math.ceil(maxHeight / ITEM_HEIGHT) + 2;
   const end = Math.min(items.length, start + visibleCount);
   const slice = items.slice(start, end);
-
-  useEffect(() => {
-    const el = listRef.current;
-    if (!el || activeIndex < 0) return;
-    const itemTop = activeIndex * ITEM_HEIGHT;
-    const itemBottom = itemTop + ITEM_HEIGHT;
-    if (itemTop < el.scrollTop) el.scrollTop = itemTop;
-    else if (itemBottom > el.scrollTop + maxHeight)
-      el.scrollTop = itemBottom - maxHeight;
-  }, [activeIndex, maxHeight]);
 
   if (!items.length) return null;
 
@@ -137,24 +142,24 @@ function useSearchInput() {
   const [cursor, setCursor] = useState(0);
   const [focused, setFocused] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useIsClient();
   const inputRef = useRef<HTMLInputElement>(null);
+  const suggestionsListRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipFiltersSyncRef = useRef(false);
   const listboxId = useId();
-
-  useEffect(() => setMounted(true), []);
 
   const { context, suggestions } = useMemo(
     () => getTokenSuggestions(input, cursor, tokenVocabulary, 20),
     [input, cursor, tokenVocabulary],
   );
 
-  const showDropdown = mounted && focused && suggestions.length > 0;
+  const activeSuggestionIndex =
+    suggestions.length === 0
+      ? 0
+      : Math.min(activeIndex, suggestions.length - 1);
 
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [suggestions]);
+  const showDropdown = mounted && focused && suggestions.length > 0;
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -197,22 +202,42 @@ function useSearchInput() {
     if (showDropdown) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setActiveIndex((i) => Math.min(i + 1, suggestions.length - 1));
+        setActiveIndex((i) => {
+          const next = Math.min(i + 1, suggestions.length - 1);
+          requestAnimationFrame(() =>
+            scrollSuggestionIntoView(
+              suggestionsListRef.current,
+              next,
+              ITEM_HEIGHT * MAX_VISIBLE,
+            ),
+          );
+          return next;
+        });
         return;
       }
       if (e.key === "ArrowUp") {
         e.preventDefault();
-        setActiveIndex((i) => Math.max(i - 1, 0));
+        setActiveIndex((i) => {
+          const next = Math.max(i - 1, 0);
+          requestAnimationFrame(() =>
+            scrollSuggestionIntoView(
+              suggestionsListRef.current,
+              next,
+              ITEM_HEIGHT * MAX_VISIBLE,
+            ),
+          );
+          return next;
+        });
         return;
       }
-      if (e.key === "Enter" && suggestions[activeIndex]) {
+      if (e.key === "Enter" && suggestions[activeSuggestionIndex]) {
         e.preventDefault();
-        selectSuggestion(suggestions[activeIndex]!);
+        selectSuggestion(suggestions[activeSuggestionIndex]!);
         return;
       }
-      if (e.key === "Tab" && suggestions[activeIndex]) {
+      if (e.key === "Tab" && suggestions[activeSuggestionIndex]) {
         e.preventDefault();
-        selectSuggestion(suggestions[activeIndex]!);
+        selectSuggestion(suggestions[activeSuggestionIndex]!);
         return;
       }
     }
@@ -240,7 +265,7 @@ function useSearchInput() {
     onKeyDown,
     showDropdown,
     suggestions,
-    activeIndex,
+    activeIndex: activeSuggestionIndex,
     selectSuggestion,
     isSearching,
     matchCount,
@@ -249,6 +274,7 @@ function useSearchInput() {
     hasFilters,
     clear,
     listboxId,
+    suggestionsListRef,
   };
 }
 
@@ -271,6 +297,7 @@ export function SearchPanel() {
     hasFilters,
     clear,
     listboxId,
+    suggestionsListRef,
   } = useSearchInput();
 
   return (
@@ -292,6 +319,7 @@ export function SearchPanel() {
               activeIndex={activeIndex}
               onSelect={selectSuggestion}
               listboxId={listboxId}
+              listRef={suggestionsListRef}
             />
           </div>
         )}
@@ -320,10 +348,6 @@ export function SearchPanel() {
             placeholder="Search… type:rule AND platform:sentinel"
             className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             aria-label="Search catalog"
-            aria-expanded={showDropdown}
-            aria-autocomplete="list"
-            aria-controls={showDropdown ? listboxId : undefined}
-            role="combobox"
           />
 
           {isSearching ? (
@@ -351,14 +375,4 @@ export function SearchPanel() {
       </div>
     </div>
   );
-}
-
-/** @deprecated Use SearchPanel in layout */
-export function TokenSearchPill() {
-  return <SearchPanel />;
-}
-
-/** @deprecated Controls removed from bottom bar */
-export function GraphControlsPanel() {
-  return null;
 }

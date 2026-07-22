@@ -11,7 +11,7 @@ import type {
 } from "@/lib/opentide/types";
 
 /** Registry paths rendered in the shared metadata section (not assessment). */
-export const METADATA_PATHS: Record<ObjectType, readonly string[]> = {
+const METADATA_PATHS: Record<ObjectType, readonly string[]> = {
   threat: ["metadata.tlp", "metadata.schema", "metadata.version", "references"],
   objective: [
     "metadata.tlp",
@@ -36,14 +36,13 @@ export const METADATA_PATHS: Record<ObjectType, readonly string[]> = {
 };
 
 /** Registry paths rendered in the left Description column — not Analysis. */
-export const DESCRIPTION_PANEL_PATHS: Partial<
-  Record<ObjectType, readonly string[]>
-> = {
-  rule: ["description"],
-};
+const DESCRIPTION_PANEL_PATHS: Partial<Record<ObjectType, readonly string[]>> =
+  {
+    rule: ["description"],
+  };
 
 /** Objective fields surfaced on signals as inherited metadata. */
-export const SIGNAL_INHERITED_PATHS: readonly string[] = [
+const SIGNAL_INHERITED_PATHS: readonly string[] = [
   "metadata.tlp",
   "objective.type",
   "objective.priority",
@@ -123,7 +122,7 @@ function collectFields(
   return entries;
 }
 
-export function resolveParentObjective(
+function resolveParentObjective(
   ctx: GraphContext,
   flatIndex: Record<string, ObjectBody>,
   signalId: string,
@@ -222,12 +221,17 @@ export function getAssessmentPaths(type: ObjectType): string[] {
   const descriptionPanelSet = new Set<string>(
     DESCRIPTION_PANEL_PATHS[type] ?? [],
   );
-  return FIELD_REGISTRY[type]
-    .map((field) => field.path)
-    .filter(
-      (path) =>
-        !metadataSet.has(path) &&
-        !descriptionPanelSet.has(path) &&
-        path !== "threat.surface",
-    );
+  const paths: string[] = [];
+  for (const field of FIELD_REGISTRY[type]) {
+    const path = field.path;
+    if (
+      metadataSet.has(path) ||
+      descriptionPanelSet.has(path) ||
+      path === "threat.surface"
+    ) {
+      continue;
+    }
+    paths.push(path);
+  }
+  return paths;
 }

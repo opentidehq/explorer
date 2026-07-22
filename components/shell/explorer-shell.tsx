@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { ExplorerCanvas } from "@/components/graph/explorer-canvas";
 import {
   ObjectDescriptionPanel,
@@ -45,48 +46,71 @@ export function ExplorerShell() {
       ? getThreatTerrainPanelData(body)
       : null;
 
+  const description = useMemo(
+    () =>
+      hasSelection && summary && body ? (
+        <ObjectDescriptionPanel summary={summary} body={body} />
+      ) : (
+        <PanelEmptyState message="No object selected" />
+      ),
+    [hasSelection, summary, body],
+  );
+
+  const terrain = useMemo(
+    () =>
+      threatTerrainPanel ? (
+        <ThreatTerrainPanel
+          surface={threatTerrainPanel.surface}
+          terrain={threatTerrainPanel.terrain}
+        />
+      ) : null,
+    [threatTerrainPanel],
+  );
+
+  const title = useMemo(
+    () =>
+      hasSelection && summary && body ? (
+        <ObjectTitleBar summary={summary} body={body} />
+      ) : (
+        <PanelEmptyState message="No object selected" compact />
+      ),
+    [hasSelection, summary, body],
+  );
+
+  const metadata = useMemo(
+    () =>
+      hasSelection && summary && body ? (
+        <ObjectMetadataTabs summary={summary} body={body} />
+      ) : (
+        <PanelEmptyState message="No object selected" />
+      ),
+    [hasSelection, summary, body],
+  );
+
+  const relations = useMemo(
+    () =>
+      hasSelection && summary ? (
+        <ObjectRelationsPanel summary={summary} body={body ?? undefined} />
+      ) : (
+        <PanelEmptyState message="No object selected" />
+      ),
+    [hasSelection, summary, body],
+  );
+
+  const header = useMemo(() => <ExplorerHeader />, []);
+  const graph = useMemo(() => <ExplorerCanvas />, []);
+  const bottomBar = useMemo(() => <SearchPanel />, []);
   return (
     <>
       <ExplorerLayout
-        header={<ExplorerHeader />}
-        graph={<ExplorerCanvas />}
-        bottomBar={<SearchPanel />}
-        description={
-          hasSelection && summary && body ? (
-            <ObjectDescriptionPanel summary={summary} body={body} />
-          ) : (
-            <PanelEmptyState message="No object selected" />
-          )
-        }
-        terrain={
-          threatTerrainPanel ? (
-            <ThreatTerrainPanel
-              surface={threatTerrainPanel.surface}
-              terrain={threatTerrainPanel.terrain}
-            />
-          ) : null
-        }
-        title={
-          hasSelection && summary && body ? (
-            <ObjectTitleBar summary={summary} body={body} />
-          ) : (
-            <PanelEmptyState message="No object selected" compact />
-          )
-        }
-        metadata={
-          hasSelection && summary && body ? (
-            <ObjectMetadataTabs summary={summary} body={body} />
-          ) : (
-            <PanelEmptyState message="No object selected" />
-          )
-        }
-        relations={
-          hasSelection && summary ? (
-            <ObjectRelationsPanel summary={summary} body={body ?? undefined} />
-          ) : (
-            <PanelEmptyState message="No object selected" />
-          )
-        }
+        header={header}
+        graph={graph}
+        bottomBar={bottomBar}
+        description={description}
+        terrain={terrain}
+        title={title}
+        metadata={metadata}
+        relations={relations}
       />
       <CommandPalette />
     </>

@@ -2,7 +2,6 @@
 
 import {
   useCallback,
-  useEffect,
   useState,
   type CSSProperties,
   type ReactNode,
@@ -18,7 +17,7 @@ import {
 } from "@/lib/shell/panel-layout";
 import { cn } from "@/lib/utils";
 
-export function ExplorerPanel({
+function ExplorerPanel({
   children,
   className,
   noBorder,
@@ -68,53 +67,38 @@ export function ExplorerLayout({
   relations,
 }: ExplorerLayoutProps) {
   const hasTerrain = terrain != null;
-  const [leftWidth, setLeftWidth] = useState(PANEL_LAYOUT_DEFAULTS.leftWidth);
-  const [rightWidth, setRightWidth] = useState(
-    PANEL_LAYOUT_DEFAULTS.rightWidth,
+  const [leftWidth, setLeftWidth] = useState(() =>
+    readStoredPanelSize(
+      PANEL_LAYOUT_STORAGE.left,
+      PANEL_LAYOUT_DEFAULTS.leftWidth,
+      PANEL_LAYOUT_DEFAULTS.minLeftWidth,
+      PANEL_LAYOUT_DEFAULTS.maxLeftWidth,
+    ),
   );
-  const [relationsHeight, setRelationsHeight] = useState(
-    PANEL_LAYOUT_DEFAULTS.relationsHeight,
+  const [rightWidth, setRightWidth] = useState(() =>
+    readStoredPanelSize(
+      PANEL_LAYOUT_STORAGE.right,
+      PANEL_LAYOUT_DEFAULTS.rightWidth,
+      PANEL_LAYOUT_DEFAULTS.minRightWidth,
+      PANEL_LAYOUT_DEFAULTS.maxRightWidth,
+    ),
   );
-  const [terrainHeight, setTerrainHeight] = useState(
-    PANEL_LAYOUT_DEFAULTS.terrainHeight,
+  const [relationsHeight, setRelationsHeight] = useState(() =>
+    readStoredPanelSize(
+      PANEL_LAYOUT_STORAGE.relations,
+      PANEL_LAYOUT_DEFAULTS.relationsHeight,
+      PANEL_LAYOUT_DEFAULTS.minRelationsHeight,
+      PANEL_LAYOUT_DEFAULTS.maxRelationsHeight,
+    ),
   );
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    setLeftWidth(
-      readStoredPanelSize(
-        PANEL_LAYOUT_STORAGE.left,
-        PANEL_LAYOUT_DEFAULTS.leftWidth,
-        PANEL_LAYOUT_DEFAULTS.minLeftWidth,
-        PANEL_LAYOUT_DEFAULTS.maxLeftWidth,
-      ),
-    );
-    setRightWidth(
-      readStoredPanelSize(
-        PANEL_LAYOUT_STORAGE.right,
-        PANEL_LAYOUT_DEFAULTS.rightWidth,
-        PANEL_LAYOUT_DEFAULTS.minRightWidth,
-        PANEL_LAYOUT_DEFAULTS.maxRightWidth,
-      ),
-    );
-    setRelationsHeight(
-      readStoredPanelSize(
-        PANEL_LAYOUT_STORAGE.relations,
-        PANEL_LAYOUT_DEFAULTS.relationsHeight,
-        PANEL_LAYOUT_DEFAULTS.minRelationsHeight,
-        PANEL_LAYOUT_DEFAULTS.maxRelationsHeight,
-      ),
-    );
-    setTerrainHeight(
-      readStoredPanelSize(
-        PANEL_LAYOUT_STORAGE.terrain,
-        PANEL_LAYOUT_DEFAULTS.terrainHeight,
-        PANEL_LAYOUT_DEFAULTS.minTerrainHeight,
-        PANEL_LAYOUT_DEFAULTS.maxTerrainHeight,
-      ),
-    );
-    setReady(true);
-  }, []);
+  const [terrainHeight, setTerrainHeight] = useState(() =>
+    readStoredPanelSize(
+      PANEL_LAYOUT_STORAGE.terrain,
+      PANEL_LAYOUT_DEFAULTS.terrainHeight,
+      PANEL_LAYOUT_DEFAULTS.minTerrainHeight,
+      PANEL_LAYOUT_DEFAULTS.maxTerrainHeight,
+    ),
+  );
 
   const persistLeft = useCallback(() => {
     writeStoredPanelSize(PANEL_LAYOUT_STORAGE.left, leftWidth);
@@ -138,12 +122,9 @@ export function ExplorerLayout({
 
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <div
+          suppressHydrationWarning
           className="flex shrink-0 flex-col"
-          style={
-            ready
-              ? { width: leftWidth }
-              : { width: PANEL_LAYOUT_DEFAULTS.leftWidth }
-          }
+          style={{ width: leftWidth }}
         >
           <ExplorerPanel className="min-h-0 flex-1 border-r">
             {description}
@@ -165,16 +146,11 @@ export function ExplorerLayout({
                 onResizeEnd={persistTerrain}
               />
 
-              <ExplorerPanel
-                className="shrink-0 border-r"
-                style={
-                  ready
-                    ? { height: terrainHeight }
-                    : { height: PANEL_LAYOUT_DEFAULTS.terrainHeight }
-                }
-              >
-                {terrain}
-              </ExplorerPanel>
+              <div suppressHydrationWarning style={{ height: terrainHeight }}>
+                <ExplorerPanel className="h-full shrink-0 border-r">
+                  {terrain}
+                </ExplorerPanel>
+              </div>
             </>
           ) : null}
         </div>
@@ -222,12 +198,9 @@ export function ExplorerLayout({
         />
 
         <div
+          suppressHydrationWarning
           className="flex shrink-0 flex-col"
-          style={
-            ready
-              ? { width: rightWidth }
-              : { width: PANEL_LAYOUT_DEFAULTS.rightWidth }
-          }
+          style={{ width: rightWidth }}
         >
           <ExplorerPanel className="min-h-0 flex-1 border-l">
             {metadata}
@@ -247,16 +220,11 @@ export function ExplorerLayout({
             onResizeEnd={persistRelations}
           />
 
-          <ExplorerPanel
-            className="shrink-0 border-l"
-            style={
-              ready
-                ? { height: relationsHeight }
-                : { height: PANEL_LAYOUT_DEFAULTS.relationsHeight }
-            }
-          >
-            {relations}
-          </ExplorerPanel>
+          <div suppressHydrationWarning style={{ height: relationsHeight }}>
+            <ExplorerPanel className="h-full shrink-0 border-l">
+              {relations}
+            </ExplorerPanel>
+          </div>
         </div>
       </div>
     </div>

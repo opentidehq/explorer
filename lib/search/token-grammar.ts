@@ -97,7 +97,7 @@ function valueIsComplete(
 }
 
 /** Quote-aware token boundaries at cursor (space-delimited). */
-export function tokenBoundsAt(
+function tokenBoundsAt(
   input: string,
   cursor: number,
 ): { start: number; end: number } {
@@ -391,37 +391,5 @@ export function getQueryParseState(
     partial: token,
     inQuotes: false,
     completedClauses,
-  };
-}
-
-/** @deprecated Use getQueryParseState — kept for tests migrating from old API. */
-export function getTokenContext(
-  input: string,
-  cursor: number,
-): {
-  tokenStart: number;
-  tokenEnd: number;
-  field: string | null;
-  partial: string;
-  phase: "field" | "value";
-} {
-  const state = getQueryParseState(input, cursor);
-  const legacyPhase =
-    state.phase === "after_operator"
-      ? "value"
-      : state.phase === "after_field"
-        ? "field"
-        : state.phase === "start" ||
-            state.phase === "after_boolean" ||
-            state.phase === "after_value"
-          ? "field"
-          : "value";
-
-  return {
-    tokenStart: state.tokenStart,
-    tokenEnd: state.tokenEnd,
-    field: state.field,
-    partial: state.partial,
-    phase: legacyPhase,
   };
 }

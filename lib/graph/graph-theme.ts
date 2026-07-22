@@ -16,7 +16,7 @@ const GRAPH_THEME_FALLBACK: GraphThemeColors = {
   cardBorder: "#1a1a26",
 };
 
-export function readGraphThemeColors(scope?: Element | null): GraphThemeColors {
+function readGraphThemeColors(scope?: Element | null): GraphThemeColors {
   if (typeof document === "undefined") return GRAPH_THEME_FALLBACK;
 
   const el =

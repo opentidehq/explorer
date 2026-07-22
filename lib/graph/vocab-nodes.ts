@@ -32,7 +32,7 @@ import {
   type VocabIndex,
 } from "@/lib/opentide/vocab";
 
-export const VOCAB_NODE_PREFIX = "vocab::";
+const VOCAB_NODE_PREFIX = "vocab::";
 
 export type VocabGraphNodeType = "vocab";
 
@@ -53,19 +53,6 @@ export function vocabNodeId(bucket: string, term: string): string {
 
 export function isVocabNodeId(id: string): boolean {
   return id.startsWith(VOCAB_NODE_PREFIX);
-}
-
-export function parseVocabNodeId(
-  id: string,
-): { bucket: string; term: string } | null {
-  if (!isVocabNodeId(id)) return null;
-  const rest = id.slice(VOCAB_NODE_PREFIX.length);
-  const sep = rest.indexOf("::");
-  if (sep === -1) return null;
-  return {
-    bucket: rest.slice(0, sep),
-    term: rest.slice(sep + 2),
-  };
 }
 
 function pillValuesForField(

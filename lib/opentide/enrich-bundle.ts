@@ -3,7 +3,6 @@ import type {
   ExplorerBundle,
   ExplorerSearchIndex,
   ObjectBody,
-  ObjectType,
   SearchDocument,
 } from "@/lib/opentide/types";
 
@@ -159,17 +158,4 @@ export function enrichSearchIndex(
   }
 
   return { documents };
-}
-
-export function embeddedSignalIds(
-  bundle: ExplorerBundle,
-  objectiveId: string,
-): string[] {
-  const body = bundle.models.objective[objectiveId];
-  if (!body) return [];
-  return embeddedSignalBodies(objectiveId, body).map((s) => s.uuid);
-}
-
-export function isEmbeddedSignalType(type: ObjectType): boolean {
-  return type === "signal";
 }

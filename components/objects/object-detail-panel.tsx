@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   BookOpen,
   Check,
@@ -335,14 +335,11 @@ export function ObjectRelationsPanel({
     return items;
   }, [chainsTabCount, chainingLinks.length, relatedChainIds, relations]);
 
-  const [activeTab, setActiveTab] = useState<string>("");
-
-  useEffect(() => {
-    setActiveTab((current) => {
-      if (tabs.some((tab) => tab.key === current)) return current;
-      return tabs[0]?.key ?? "";
-    });
-  }, [summary.uuid, tabs]);
+  const [pickedTab, setPickedTab] = useState<string | null>(null);
+  const activeTab =
+    pickedTab && tabs.some((tab) => tab.key === pickedTab)
+      ? pickedTab
+      : (tabs[0]?.key ?? "");
 
   if (!tabs.length) {
     return (
@@ -361,7 +358,7 @@ export function ObjectRelationsPanel({
   return (
     <Tabs
       value={activeTab}
-      onValueChange={setActiveTab}
+      onValueChange={setPickedTab}
       className="flex h-full min-h-0 flex-col"
       aria-label="Related objects"
     >
@@ -627,7 +624,10 @@ function ExamplesList({ examples }: { examples: unknown }) {
           if (!example || typeof example !== "object") return null;
           const ex = example as ObjectBody;
           return (
-            <li key={index} className="border border-border/30 bg-muted/10 p-3">
+            <li
+              key={`${String(ex["description"] ?? "")}-${String(ex["language"] ?? "")}-${String(ex["link"] ?? index)}`}
+              className="border border-border/30 bg-muted/10 p-3"
+            >
               {Boolean(ex["description"]) && (
                 <MarkdownText>{String(ex["description"])}</MarkdownText>
               )}

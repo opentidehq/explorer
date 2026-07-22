@@ -76,9 +76,3 @@ export const TYPE_COLORS: Record<ObjectType, string> = {
   signal: "#f59e0b",
   rule: "#22c55e",
 };
-
-export const DEPRECATED_STATUSES = new Set([
-  "deprecated",
-  "retired",
-  "decommissioned",
-]);

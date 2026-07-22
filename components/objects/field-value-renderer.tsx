@@ -95,7 +95,7 @@ export function FieldRow({
   );
 }
 
-export function FieldValue({
+function FieldValue({
   field,
   value,
   vocab,
@@ -207,7 +207,7 @@ export function FieldValue({
   );
 }
 
-export function SurfaceField({
+function SurfaceField({
   value,
   vocabKey,
   vocabIndex,

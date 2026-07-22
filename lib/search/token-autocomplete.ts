@@ -2,7 +2,6 @@ import {
   matchFields,
   RELATION_VALUES,
   valuesForField,
-  type SearchFieldDef,
   type TokenVocabulary,
 } from "@/lib/search/token-catalog";
 import {
@@ -11,7 +10,6 @@ import {
   SEARCH_OPERATORS,
   getQueryParseState,
   type QueryParseState,
-  type TokenPhase,
 } from "@/lib/search/token-grammar";
 
 export type SuggestionKind = "field" | "operator" | "value" | "boolean";
@@ -25,8 +23,6 @@ export interface TokenSuggestion {
 }
 
 export type TokenContext = QueryParseState;
-
-export { getQueryParseState as getTokenContext, type TokenPhase };
 
 function scoreMatch(text: string, query: string): number {
   const lower = text.toLowerCase();
@@ -251,8 +247,4 @@ export function applySuggestion(
   const cursorPos = (before + gapBefore + insert + gapAfter).length;
 
   return { next, cursor: cursorPos };
-}
-
-export function listSupportedFields(): SearchFieldDef[] {
-  return matchFields("");
 }

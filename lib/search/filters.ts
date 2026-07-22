@@ -250,20 +250,3 @@ export function formatFilterTokens(filters: CatalogFilters): string {
 
   return parts.join(" ");
 }
-
-export function mergeFilters(
-  base: CatalogFilters,
-  patch: Partial<CatalogFilters>,
-): CatalogFilters {
-  return {
-    ...base,
-    ...patch,
-    types: patch.types ?? base.types,
-    platforms: patch.platforms ?? base.platforms,
-    statuses: patch.statuses ?? base.statuses,
-    techniques: patch.techniques ?? base.techniques,
-    actors: patch.actors ?? base.actors,
-    schemas: patch.schemas ?? base.schemas,
-    tlps: patch.tlps ?? base.tlps,
-  };
-}
