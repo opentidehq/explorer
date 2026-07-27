@@ -18,6 +18,9 @@ permissions:
 
 jobs:
   analyze:
+    # Re-enable when GitHub Code Security / code scanning is turned on for this repo.
+    # Currently fails with: "Code Security must be enabled for this repository".
+    if: ${{ false }}
     name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
