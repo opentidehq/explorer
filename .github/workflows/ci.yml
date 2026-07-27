@@ -114,10 +114,22 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Validate
-        run: pnpm validate
+      - name: Check (typecheck, lint, format, test, codegen)
+        run: pnpm codegen:specs && pnpm check
         env:
           OPENTIDE_REPO_ROOT: ${{ github.workspace }}/library
+          SPECIFICATIONS_REPO_ROOT: ${{ github.workspace }}/specifications
+
+      - name: Build static export (fixture corpus)
+        # Full library SSG writes ~11GB (.next + out) and overflows ubuntu-latest
+        # during export finalize. Fixture keeps CI green; library Pages build
+        # covers the real corpus.
+        run: |
+          rm -rf .next out
+          node scripts/generate-mock-bundle.mjs
+          pnpm exec next build
+        env:
+          OPENTIDE_USE_FIXTURE: "1"
           SPECIFICATIONS_REPO_ROOT: ${{ github.workspace }}/specifications
 
       - name: Audit
