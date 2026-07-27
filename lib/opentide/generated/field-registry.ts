@@ -21,281 +21,281 @@ export interface FieldDefinition {
 
 const OBJECTIVE_FIELDS: FieldDefinition[] = [
   {
-    "path": "metadata.tlp",
-    "label": "TLP",
-    "format": "pills",
-    "vocab": "tlp"
+    path: "metadata.tlp",
+    label: "TLP",
+    format: "pills",
+    vocab: "tlp",
   },
   {
-    "path": "objective.attack",
-    "label": "ATT&CK",
-    "format": "attack"
+    path: "objective.attack",
+    label: "ATT&CK",
+    format: "attack",
   },
   {
-    "path": "objective.composition.strategy",
-    "label": "Composition",
-    "format": "pills",
-    "vocab": "detection.composition"
+    path: "objective.composition.strategy",
+    label: "Composition",
+    format: "pills",
+    vocab: "detection.composition",
   },
   {
-    "path": "objective.signals.data.logsources",
-    "label": "Data sources",
-    "format": "pills",
-    "vocab": "datasources"
+    path: "objective.signals.data.logsources",
+    label: "Data sources",
+    format: "pills",
+    vocab: "datasources",
   },
   {
-    "path": "objective.signals.effort",
-    "label": "Effort",
-    "format": "pills",
-    "vocab": "efforts"
+    path: "objective.signals.effort",
+    label: "Effort",
+    format: "pills",
+    vocab: "efforts",
   },
   {
-    "path": "objective.signals.entities",
-    "label": "Entities",
-    "format": "pills",
-    "vocab": "signal.entities"
+    path: "objective.signals.entities",
+    label: "Entities",
+    format: "pills",
+    vocab: "signal.entities",
   },
   {
-    "path": "objective.signals.methodology",
-    "label": "Methodology",
-    "format": "pills",
-    "vocab": "detection.methodology"
+    path: "objective.signals.methodology",
+    label: "Methodology",
+    format: "pills",
+    vocab: "detection.methodology",
   },
   {
-    "path": "objective.signals.severity",
-    "label": "Severity",
-    "format": "pills",
-    "vocab": "severity"
+    path: "objective.signals.severity",
+    label: "Severity",
+    format: "pills",
+    vocab: "severity",
   },
   {
-    "path": "objective.type",
-    "label": "Type",
-    "format": "pills",
-    "vocab": "detection.types"
+    path: "objective.type",
+    label: "Type",
+    format: "pills",
+    vocab: "detection.types",
   },
   {
-    "path": "objective.investment",
-    "label": "Investment",
-    "format": "pills"
+    path: "objective.investment",
+    label: "Investment",
+    format: "pills",
   },
   {
-    "path": "objective.priority",
-    "label": "Priority",
-    "format": "pills",
-    "vocab": "criticality"
+    path: "objective.priority",
+    label: "Priority",
+    format: "pills",
+    vocab: "criticality",
   },
   {
-    "path": "objective.composition.description",
-    "label": "Composition details",
-    "format": "markdown"
-  }
+    path: "objective.composition.description",
+    label: "Composition details",
+    format: "markdown",
+  },
 ];
 
 const RULE_FIELDS: FieldDefinition[] = [
   {
-    "path": "metadata.tlp",
-    "label": "TLP",
-    "format": "pills",
-    "vocab": "tlp"
+    path: "metadata.tlp",
+    label: "TLP",
+    format: "pills",
+    vocab: "tlp",
   },
   {
-    "path": "response.alert_severity",
-    "label": "Alert Severity",
-    "format": "pills",
-    "vocab": "alert_severity"
+    path: "response.alert_severity",
+    label: "Alert Severity",
+    format: "pills",
+    vocab: "alert_severity",
   },
   {
-    "path": "response.responders",
-    "label": "Responders",
-    "format": "pills",
-    "vocab": "responders"
+    path: "response.responders",
+    label: "Responders",
+    format: "pills",
+    vocab: "responders",
   },
   {
-    "path": "severity",
-    "label": "Severity",
-    "format": "pills",
-    "vocab": "severity"
+    path: "severity",
+    label: "Severity",
+    format: "pills",
+    vocab: "severity",
   },
   {
-    "path": "techniques",
-    "label": "ATT&CK",
-    "format": "attack"
+    path: "techniques",
+    label: "ATT&CK",
+    format: "attack",
   },
   {
-    "path": "metadata.schema",
-    "label": "Schema",
-    "format": "text"
+    path: "metadata.schema",
+    label: "Schema",
+    format: "text",
   },
   {
-    "path": "metadata.version",
-    "label": "Version",
-    "format": "text"
+    path: "metadata.version",
+    label: "Version",
+    format: "text",
   },
   {
-    "path": "metadata.created",
-    "label": "Created",
-    "format": "text"
+    path: "metadata.created",
+    label: "Created",
+    format: "text",
   },
   {
-    "path": "metadata.modified",
-    "label": "Modified",
-    "format": "text"
+    path: "metadata.modified",
+    label: "Modified",
+    format: "text",
   },
   {
-    "path": "metadata.author",
-    "label": "Author",
-    "format": "text"
+    path: "metadata.author",
+    label: "Author",
+    format: "text",
   },
   {
-    "path": "description",
-    "label": "Description",
-    "format": "markdown"
+    path: "description",
+    label: "Description",
+    format: "markdown",
   },
   {
-    "path": "detection_model",
-    "label": "Detection model",
-    "format": "text"
+    path: "detection_model",
+    label: "Detection model",
+    format: "text",
   },
   {
-    "path": "response.procedure.analysis",
-    "label": "Response analysis",
-    "format": "markdown"
+    path: "response.procedure.analysis",
+    label: "Response analysis",
+    format: "markdown",
   },
   {
-    "path": "response.procedure.containment",
-    "label": "Containment",
-    "format": "markdown"
+    path: "response.procedure.containment",
+    label: "Containment",
+    format: "markdown",
   },
   {
-    "path": "references",
-    "label": "References",
-    "format": "references"
+    path: "references",
+    label: "References",
+    format: "references",
   },
   {
-    "path": "_status",
-    "label": "Status",
-    "format": "text"
-  }
+    path: "_status",
+    label: "Status",
+    format: "text",
+  },
 ];
 
 const SIGNAL_FIELDS: FieldDefinition[] = [
   {
-    "path": "data.logsources",
-    "label": "Data sources",
-    "format": "pills",
-    "vocab": "datasources"
+    path: "data.logsources",
+    label: "Data sources",
+    format: "pills",
+    vocab: "datasources",
   },
   {
-    "path": "effort",
-    "label": "Effort",
-    "format": "pills",
-    "vocab": "efforts"
+    path: "effort",
+    label: "Effort",
+    format: "pills",
+    vocab: "efforts",
   },
   {
-    "path": "entities",
-    "label": "Entities",
-    "format": "pills",
-    "vocab": "signal.entities"
+    path: "entities",
+    label: "Entities",
+    format: "pills",
+    vocab: "signal.entities",
   },
   {
-    "path": "methodology",
-    "label": "Methodology",
-    "format": "pills",
-    "vocab": "detection.methodology"
+    path: "methodology",
+    label: "Methodology",
+    format: "pills",
+    vocab: "detection.methodology",
   },
   {
-    "path": "severity",
-    "label": "Severity",
-    "format": "pills",
-    "vocab": "severity"
+    path: "severity",
+    label: "Severity",
+    format: "pills",
+    vocab: "severity",
   },
   {
-    "path": "data.availability",
-    "label": "Data availability",
-    "format": "text"
+    path: "data.availability",
+    label: "Data availability",
+    format: "text",
   },
   {
-    "path": "data.requirements",
-    "label": "Data requirements",
-    "format": "markdown"
-  }
+    path: "data.requirements",
+    label: "Data requirements",
+    format: "markdown",
+  },
 ];
 
 const THREAT_FIELDS: FieldDefinition[] = [
   {
-    "path": "criticality",
-    "label": "Criticality",
-    "format": "pills",
-    "vocab": "criticality"
+    path: "criticality",
+    label: "Criticality",
+    format: "pills",
+    vocab: "criticality",
   },
   {
-    "path": "metadata.tlp",
-    "label": "TLP",
-    "format": "pills",
-    "vocab": "tlp"
+    path: "metadata.tlp",
+    label: "TLP",
+    format: "pills",
+    vocab: "tlp",
   },
   {
-    "path": "threat.actors",
-    "label": "Threat actors",
-    "format": "pills",
-    "vocab": "actors"
+    path: "threat.actors",
+    label: "Threat actors",
+    format: "pills",
+    vocab: "actors",
   },
   {
-    "path": "threat.att&ck",
-    "label": "ATT&CK",
-    "format": "attack"
+    path: "threat.att&ck",
+    label: "ATT&CK",
+    format: "attack",
   },
   {
-    "path": "threat.impact",
-    "label": "Impact",
-    "format": "pills",
-    "vocab": "impact"
+    path: "threat.impact",
+    label: "Impact",
+    format: "pills",
+    vocab: "impact",
   },
   {
-    "path": "threat.killchain",
-    "label": "Kill chain",
-    "format": "pills",
-    "vocab": "killchain"
+    path: "threat.killchain",
+    label: "Kill chain",
+    format: "pills",
+    vocab: "killchain",
   },
   {
-    "path": "threat.leverage",
-    "label": "Leverage",
-    "format": "pills",
-    "vocab": "leverage"
+    path: "threat.leverage",
+    label: "Leverage",
+    format: "pills",
+    vocab: "leverage",
   },
   {
-    "path": "threat.severity",
-    "label": "Severity",
-    "format": "pills",
-    "vocab": "severity"
+    path: "threat.severity",
+    label: "Severity",
+    format: "pills",
+    vocab: "severity",
   },
   {
-    "path": "threat.surface",
-    "label": "Surface",
-    "format": "surface",
-    "vocab": "surface"
+    path: "threat.terrain",
+    label: "Surface",
+    format: "surface",
+    vocab: "surface",
   },
   {
-    "path": "threat.viability",
-    "label": "Viability",
-    "format": "pills",
-    "vocab": "viability"
+    path: "threat.viability",
+    label: "Viability",
+    format: "pills",
+    vocab: "viability",
   },
   {
-    "path": "metadata.schema",
-    "label": "Schema",
-    "format": "text"
+    path: "metadata.schema",
+    label: "Schema",
+    format: "text",
   },
   {
-    "path": "metadata.version",
-    "label": "Version",
-    "format": "text"
+    path: "metadata.version",
+    label: "Version",
+    format: "text",
   },
   {
-    "path": "references",
-    "label": "References",
-    "format": "references"
-  }
+    path: "references",
+    label: "References",
+    format: "references",
+  },
 ];
 
 export const FIELD_REGISTRY: Record<ObjectType, FieldDefinition[]> = {
@@ -304,4 +304,3 @@ export const FIELD_REGISTRY: Record<ObjectType, FieldDefinition[]> = {
   signal: SIGNAL_FIELDS,
   threat: THREAT_FIELDS,
 };
-

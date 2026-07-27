@@ -18,6 +18,9 @@ permissions:
 
 jobs:
   analyze:
+    # Re-enable when GitHub Code Security / code scanning is turned on for this repo.
+    # Currently fails with: "Code Security must be enabled for this repository".
+    if: ${{ false }}
     name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -27,17 +30,17 @@ jobs:
         language: [javascript-typescript, actions]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: github/codeql-action/init@v3
+      - uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
           queries: security-extended
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         if: matrix.language == 'javascript-typescript'
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: matrix.language == 'javascript-typescript'
         with:
           node-version: "22"
@@ -50,6 +53,6 @@ jobs:
           node scripts/generate-mock-bundle.mjs
           pnpm build
 
-      - uses: github/codeql-action/analyze@v3
+      - uses: github/codeql-action/analyze@v4
         with:
           category: /language:${{ matrix.language }}

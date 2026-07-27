@@ -13,6 +13,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 
 function resolveCorpusRoot() {
+  if (process.env.OPENTIDE_USE_FIXTURE === "1") {
+    return null;
+  }
+
   const candidates = [
     process.env.OPENTIDE_REPO_ROOT,
     path.resolve(ROOT, "../library"),
