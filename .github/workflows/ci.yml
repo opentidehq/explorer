@@ -17,20 +17,33 @@ jobs:
     name: Schema codegen (specifications TOML)
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      HAS_GITHUB_APP: ${{ secrets.GH_APP_ID && secrets.GH_APP_KEY && 'true' || 'false' }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+
+      - name: Generate GitHub App token
+        id: generate_token
+        if: ${{ env.HAS_GITHUB_APP == 'true' }}
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.GH_APP_ID }}
+          private-key: ${{ secrets.GH_APP_KEY }}
+          owner: OpenTideHQ
+          repositories: specifications,library
 
       - name: Checkout specifications
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: OpenTideHQ/specifications
           path: specifications
           ref: main
+          token: ${{ steps.generate_token.outputs.token }}
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: "pnpm"
@@ -53,27 +66,41 @@ jobs:
     needs: schema-codegen
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      HAS_GITHUB_APP: ${{ secrets.GH_APP_ID && secrets.GH_APP_KEY && 'true' || 'false' }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+
+      - name: Generate GitHub App token
+        id: generate_token
+        if: ${{ env.HAS_GITHUB_APP == 'true' }}
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.GH_APP_ID }}
+          private-key: ${{ secrets.GH_APP_KEY }}
+          owner: OpenTideHQ
+          repositories: specifications,library
 
       - name: Checkout specifications
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: OpenTideHQ/specifications
           path: specifications
           ref: main
+          token: ${{ steps.generate_token.outputs.token }}
 
       - name: Checkout library
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: OpenTideHQ/library
           path: library
           ref: main
+          token: ${{ steps.generate_token.outputs.token }}
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: "pnpm"
