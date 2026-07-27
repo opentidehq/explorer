@@ -270,7 +270,7 @@ const THREAT_FIELDS: FieldDefinition[] = [
     "vocab": "severity"
   },
   {
-    "path": "threat.surface",
+    "path": "threat.terrain",
     "label": "Surface",
     "format": "surface",
     "vocab": "surface"
