@@ -106,6 +106,11 @@ export function codegenFromSpecs(specsDir) {
     FIELD_REGISTRY_OUT,
     `${serializeFieldRegistry(fieldRegistry)}\n`,
   );
+  // Keep generated TS aligned with oxfmt so `fmt:check` after codegen stays green.
+  execSync(`pnpm exec oxfmt ${JSON.stringify(FIELD_REGISTRY_OUT)}`, {
+    cwd: ROOT,
+    stdio: "pipe",
+  });
 
   return {
     vocabCount: Object.keys(vocabIndex).length,
