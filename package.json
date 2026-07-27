@@ -31,7 +31,7 @@
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "doctor": "react-doctor .",
-    "test": "vitest run",
+    "test": "node scripts/generate-mock-bundle.mjs && vitest run",
     "check": "pnpm typecheck && pnpm lint && pnpm fmt:check && pnpm test && pnpm codegen:check",
     "codegen:specs": "node scripts/codegen-from-specs.mjs",
     "codegen:check": "node scripts/codegen-from-specs.mjs --check",
