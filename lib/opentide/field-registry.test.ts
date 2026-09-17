@@ -98,6 +98,22 @@ describe("resolveFieldValue", () => {
     ).toEqual(["att&ck::G0007", "att&ck::G0016"]);
   });
 
+  it("does not leak signal names into severity pins", () => {
+    expect(
+      resolveFieldValue(
+        {
+          objective: {
+            signals: [
+              { uuid: "sig-1", name: "Suspicious login" },
+              { uuid: "sig-2", name: "Token theft" },
+            ],
+          },
+        },
+        "objective.signals.severity",
+      ),
+    ).toEqual([]);
+  });
+
   it("inherits techniques from summary injection", () => {
     expect(
       collectRuleTechniques({

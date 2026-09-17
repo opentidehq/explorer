@@ -12,13 +12,20 @@ import { flattenReferences } from "@/lib/opentide/vocab";
 
 const REF_KEYS = ["name", "id", "value", "label"] as const;
 
+function isRefKey(part: string): boolean {
+  return (REF_KEYS as readonly string[]).includes(part);
+}
+
 function projectArrayItem(item: unknown, part: string): unknown[] {
   if (item == null) return [];
-  if (typeof item !== "object") return [item];
+  // Primitive list items are the pin value only for identity paths
+  // (`threat.actors.name`). Other segments must not steal those strings.
+  if (typeof item !== "object") return isRefKey(part) ? [item] : [];
   const record = item as Record<string, unknown>;
   const next = record[part];
   if (typeof next === "string" && next.trim()) return [next.trim()];
   if (next !== undefined && next !== null && next !== "") return [next];
+  if (!isRefKey(part)) return [];
   for (const key of REF_KEYS) {
     const candidate = record[key];
     if (typeof candidate === "string" && candidate.trim()) {
