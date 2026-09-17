@@ -58,6 +58,32 @@ describe("splitPillValues", () => {
       splitPillValues(["att&ck::G0007", "att&ck::G0007", "att&ck::G0016"]),
     ).toEqual(["att&ck::G0007", "att&ck::G0016"]);
   });
+
+  it("unwraps ThreatActor objects by name without collapsing them", () => {
+    expect(
+      splitPillValues([
+        { name: "att&ck::G0125" },
+        { name: "misp::4f05d6c1-aaaa-bbbb-cccc-ddddeeeeffff" },
+        { name: "att&ck::G0125" },
+      ]),
+    ).toEqual(["att&ck::G0125", "misp::4f05d6c1-aaaa-bbbb-cccc-ddddeeeeffff"]);
+  });
+
+  it("falls back to id and ignores objects without a stable key", () => {
+    expect(
+      splitPillValues([{ id: "att&ck::G0007" }, { foo: "bar" }, "G0016"]),
+    ).toEqual(["att&ck::G0007", "G0016"]);
+  });
+
+  it("flattens nested arrays from projected signal fields", () => {
+    expect(
+      splitPillValues([
+        ["user", "host"],
+        ["process"],
+        { name: "att&ck::G0007" },
+      ]),
+    ).toEqual(["user", "host", "process", "att&ck::G0007"]);
+  });
 });
 
 describe("normalizeReference", () => {

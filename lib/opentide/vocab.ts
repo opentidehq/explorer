@@ -66,27 +66,49 @@ export function lookupChainingRelation(
   return bucket[relation] ?? bucket[short];
 }
 
+/** Unwrap `{ name }` / `{ id }` refs before stringifying (ThreatActor objects). */
+export function pillItemToString(item: unknown): string {
+  if (typeof item === "string") return item.trim();
+  if (typeof item === "number" || typeof item === "boolean") {
+    return String(item);
+  }
+  if (!item || typeof item !== "object") return "";
+
+  const record = item as Record<string, unknown>;
+  for (const key of ["name", "id", "value", "label"] as const) {
+    const candidate = record[key];
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+  return "";
+}
+
+function collectPillItems(item: unknown): string[] {
+  if (item == null) return [];
+  if (Array.isArray(item)) return item.flatMap(collectPillItems);
+  const text = pillItemToString(item);
+  return text ? [text] : [];
+}
+
 export function splitPillValues(value: unknown): string[] {
   let raw: string[];
-  if (Array.isArray(value))
-    raw = value.flatMap((item) => {
-      const text = String(item);
-      return text ? [text] : [];
-    });
-  else if (typeof value !== "string")
-    raw = value != null ? [String(value)] : [];
-  else if (value.includes(";")) {
-    raw = value.split(";").flatMap((s) => {
-      const trimmed = s.trim();
-      return trimmed ? [trimmed] : [];
-    });
-  } else if (value.includes(",")) {
-    raw = value.split(",").flatMap((s) => {
-      const trimmed = s.trim();
-      return trimmed ? [trimmed] : [];
-    });
+  if (typeof value === "string") {
+    if (value.includes(";")) {
+      raw = value.split(";").flatMap((s) => {
+        const trimmed = s.trim();
+        return trimmed ? [trimmed] : [];
+      });
+    } else if (value.includes(",")) {
+      raw = value.split(",").flatMap((s) => {
+        const trimmed = s.trim();
+        return trimmed ? [trimmed] : [];
+      });
+    } else {
+      raw = value.trim() ? [value.trim()] : [];
+    }
   } else {
-    raw = value.trim() ? [value.trim()] : [];
+    raw = collectPillItems(value);
   }
 
   const seen = new Set<string>();
