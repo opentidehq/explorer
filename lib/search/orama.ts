@@ -44,9 +44,9 @@ export async function buildOramaIndex(documents: SearchDocument[]) {
         name: doc.name,
         uuid: doc.uuid,
         type: doc.type,
-        techniques: doc.techniques,
-        actors: doc.actors,
-        platforms: doc.platforms,
+        techniques: doc.techniques ?? [],
+        actors: doc.actors ?? [],
+        platforms: doc.platforms ?? [],
         schema: doc.schema ?? "",
         tlp: doc.tlp ?? "",
         status: doc.status ?? "",
@@ -241,10 +241,10 @@ export function collectFilterOptions(bundle: ExplorerBundle) {
 
   for (const summary of bundle.summaries) {
     types.add(summary.type);
-    summary.platforms.forEach((p) => platforms.add(p));
+    for (const platform of summary.platforms ?? []) platforms.add(platform);
     if (summary.status) statuses.add(summary.status);
-    summary.techniques.forEach((t) => techniques.add(t));
-    summary.actors.forEach((a) => actors.add(a));
+    for (const technique of summary.techniques ?? []) techniques.add(technique);
+    for (const actor of summary.actors ?? []) actors.add(actor);
   }
 
   return {

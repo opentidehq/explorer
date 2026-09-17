@@ -6,19 +6,29 @@ import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ObjectDetailPanel } from "./object-detail-panel";
 import { useExplorer } from "@/components/shell/explorer-context";
-import type { BundleObjectSummary, ObjectBody } from "@/lib/opentide/types";
 
-interface ObjectDetailPageProps {
-  summary: BundleObjectSummary;
-  body: ObjectBody;
-}
-
-export function ObjectDetailPage({ summary, body }: ObjectDetailPageProps) {
-  const { setSelectedId } = useExplorer();
+export function ObjectDetailPage({ uuid }: { uuid: string }) {
+  const { getSummary, bundle, setSelectedId } = useExplorer();
+  const summary = getSummary(uuid);
+  const body = bundle.flatIndex[uuid];
 
   useEffect(() => {
+    if (!summary) return;
     setSelectedId(summary.uuid);
-  }, [summary.uuid, setSelectedId]);
+  }, [summary, setSelectedId]);
+
+  if (!summary || !body) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-xl font-semibold">Object not found</h1>
+          <Link href="/" className="mt-4 text-primary hover:underline">
+            Back to explorer
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col">

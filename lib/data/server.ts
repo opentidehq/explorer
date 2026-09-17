@@ -10,6 +10,7 @@ function readJson<T>(filename: string): T {
   return JSON.parse(fs.readFileSync(filePath, "utf8")) as T;
 }
 
+/** Build-time only. Do not pass these values into client providers — they are fetched from `/data`. */
 export function loadBundleSync(): ExplorerBundle {
   return readJson<ExplorerBundle>("explorer.bundle.json");
 }
