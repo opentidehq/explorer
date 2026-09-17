@@ -1,11 +1,5 @@
-import Link from "next/link";
 import { ObjectDetailPage } from "@/components/objects/object-detail-page";
-import { ExplorerProvider } from "@/components/shell/explorer-context";
-import {
-  loadBundleSync,
-  loadSearchSync,
-  loadVocabSync,
-} from "@/lib/data/server";
+import { loadBundleSync } from "@/lib/data/server";
 
 const ROUTE_TYPES = ["threats", "objectives", "signals", "rules"] as const;
 
@@ -41,30 +35,5 @@ export default async function ObjectRoutePage({
   params: Promise<{ type: RouteType; uuid: string }>;
 }) {
   const { uuid } = await params;
-  const bundle = loadBundleSync();
-  const summary = bundle.summaries.find((s) => s.uuid === uuid);
-  const body = bundle.flatIndex[uuid];
-
-  if (!summary || !body) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-xl font-semibold">Object not found</h1>
-          <Link href="/" className="mt-4 text-primary hover:underline">
-            Back to explorer
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <ExplorerProvider
-      bundle={bundle}
-      search={loadSearchSync()}
-      vocabIndex={loadVocabSync()}
-    >
-      <ObjectDetailPage summary={summary} body={body} />
-    </ExplorerProvider>
-  );
+  return <ObjectDetailPage uuid={uuid} />;
 }
