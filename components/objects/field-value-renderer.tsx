@@ -171,12 +171,14 @@ function FieldValue({
   }
 
   if (field.format === "surface" && Array.isArray(value) && value.length > 0) {
+    const pills = splitPillValues(value);
+    if (pills.length === 0) return null;
     return (
       <div className="flex flex-wrap gap-1.5">
-        {value.map((pill) => (
+        {pills.map((pill) => (
           <VocabPill
-            key={String(pill)}
-            value={String(pill)}
+            key={pill}
+            value={pill}
             vocabKey={field.vocab}
             vocabIndex={vocab}
           />

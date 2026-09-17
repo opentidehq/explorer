@@ -66,16 +66,35 @@ export function lookupChainingRelation(
   return bucket[relation] ?? bucket[short];
 }
 
+/** Unwrap `{ name }` / `{ id }` refs before stringifying (ThreatActor objects). */
+export function pillItemToString(item: unknown): string {
+  if (typeof item === "string") return item.trim();
+  if (typeof item === "number" || typeof item === "boolean") {
+    return String(item);
+  }
+  if (!item || typeof item !== "object") return "";
+
+  const record = item as Record<string, unknown>;
+  for (const key of ["name", "id", "value", "label"] as const) {
+    const candidate = record[key];
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+  return "";
+}
+
 export function splitPillValues(value: unknown): string[] {
   let raw: string[];
   if (Array.isArray(value))
     raw = value.flatMap((item) => {
-      const text = String(item);
+      const text = pillItemToString(item);
       return text ? [text] : [];
     });
-  else if (typeof value !== "string")
-    raw = value != null ? [String(value)] : [];
-  else if (value.includes(";")) {
+  else if (typeof value !== "string") {
+    const text = pillItemToString(value);
+    raw = text ? [text] : [];
+  } else if (value.includes(";")) {
     raw = value.split(";").flatMap((s) => {
       const trimmed = s.trim();
       return trimmed ? [trimmed] : [];
