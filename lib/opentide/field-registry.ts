@@ -10,19 +10,31 @@ export {
 
 import { flattenReferences } from "@/lib/opentide/vocab";
 
+const REF_KEYS = ["name", "id", "value", "label"] as const;
+
+function projectArrayItem(item: unknown, part: string): unknown[] {
+  if (item == null) return [];
+  if (typeof item !== "object") return [item];
+  const record = item as Record<string, unknown>;
+  const next = record[part];
+  if (typeof next === "string" && next.trim()) return [next.trim()];
+  if (next !== undefined && next !== null && next !== "") return [next];
+  for (const key of REF_KEYS) {
+    const candidate = record[key];
+    if (typeof candidate === "string" && candidate.trim()) {
+      return [candidate.trim()];
+    }
+  }
+  return [];
+}
+
 function getValueAtPath(body: Record<string, unknown>, path: string): unknown {
   const parts = path.split(".");
   let current: unknown = body;
   for (const part of parts) {
     if (current == null) return undefined;
     if (Array.isArray(current)) {
-      current = current.flatMap((item) => {
-        if (item == null) return [];
-        // Primitive list items are already the pin value (legacy string actors).
-        if (typeof item !== "object") return [item];
-        const next = (item as Record<string, unknown>)[part];
-        return next === undefined ? [] : [next];
-      });
+      current = current.flatMap((item) => projectArrayItem(item, part));
       continue;
     }
     if (typeof current !== "object") return undefined;

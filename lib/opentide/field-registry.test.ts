@@ -85,7 +85,7 @@ describe("resolveFieldValue", () => {
     ).toEqual(["att&ck::G0007", "att&ck::G0016"]);
   });
 
-  it("falls back to threat.actors when .name is missing on objects", () => {
+  it("reads id and label when .name is missing on actor objects", () => {
     expect(
       resolveFieldValue(
         {
@@ -95,7 +95,7 @@ describe("resolveFieldValue", () => {
         },
         "threat.actors.name",
       ),
-    ).toEqual([{ id: "att&ck::G0007" }, { label: "att&ck::G0016" }]);
+    ).toEqual(["att&ck::G0007", "att&ck::G0016"]);
   });
 
   it("inherits techniques from summary injection", () => {

@@ -37,7 +37,7 @@ When `library` and `explorer` are siblings, `opentide explorer build` and `dev` 
 
 ## Development
 
-**Requirements:** Node ≥ 20.19, pnpm 9+, Next.js **16.2.9**
+**Requirements:** Node ≥ 20.19, pnpm 9+, Next.js **16.3.3**
 
 ```bash
 pnpm install
