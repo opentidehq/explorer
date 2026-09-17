@@ -8,6 +8,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
 import { codegenFromSpecs } from "./codegen-from-specs.mjs";
+import { resolveCodegenPolicy } from "./lib/codegen-policy.mjs";
+import { collectActorNames, techniqueList } from "./lib/corpus-fields.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -71,13 +73,8 @@ function getStatus(body, type) {
 }
 
 function getActors(body, type) {
-  const actors = new Set();
-  if (type === "threat") {
-    for (const actor of body?.threat?.actors ?? body?.actors ?? []) {
-      if (typeof actor === "string") actors.add(actor);
-    }
-  }
-  return [...actors];
+  if (type !== "threat") return [];
+  return collectActorNames(body?.threat?.actors ?? body?.actors ?? []);
 }
 
 function buildChainingIndex(models) {
@@ -107,9 +104,12 @@ function resolveTechniques(uuid, flatIndex, cache = new Map()) {
   let techniques = [];
 
   if (type === "threat") {
-    techniques = body?.threat?.["att&ck"] ?? [];
+    techniques = techniqueList(body?.threat?.["att&ck"], body?.threat?.attack);
   } else if (type === "objective") {
-    techniques = body?.objective?.["att&ck"] ?? [];
+    techniques = techniqueList(
+      body?.objective?.attack,
+      body?.objective?.["att&ck"],
+    );
     if (!techniques.length) {
       for (const parent of body?.objective?.threats ?? []) {
         techniques.push(...resolveTechniques(parent, flatIndex, cache));
@@ -206,22 +206,38 @@ function buildSearchDocuments(summaries, flatIndex) {
   }));
 }
 
+function runSchemaCodegen(corpusRoot) {
+  const specsDir =
+    process.env.SPECIFICATIONS_REPO_ROOT ??
+    path.resolve(corpusRoot ?? ROOT, "..", "specifications");
+  const policy = resolveCodegenPolicy({
+    specsDir,
+    specsExist: fs.existsSync(specsDir),
+    specsRootSet: Boolean(process.env.SPECIFICATIONS_REPO_ROOT),
+    useFixture: process.env.OPENTIDE_USE_FIXTURE === "1" || corpusRoot == null,
+    skipCodegen: process.env.OPENTIDE_SKIP_CODEGEN === "1",
+  });
+
+  if (policy.skip) {
+    console.warn(`Schema codegen skipped: ${policy.reason}`);
+    return;
+  }
+
+  if (!fs.existsSync(specsDir)) {
+    throw new Error(
+      `Schema codegen required (${policy.reason}). Set SPECIFICATIONS_REPO_ROOT or OPENTIDE_SKIP_CODEGEN=1.`,
+    );
+  }
+
+  codegenFromSpecs(specsDir);
+}
+
 async function main() {
   const corpusRoot = resolveCorpusRoot();
   const outDir = path.join(ROOT, "public", "data");
   fs.mkdirSync(outDir, { recursive: true });
 
-  try {
-    const specsDir =
-      process.env.SPECIFICATIONS_REPO_ROOT ??
-      path.resolve(corpusRoot ?? ROOT, "..", "specifications");
-    codegenFromSpecs(specsDir);
-  } catch (err) {
-    console.warn(
-      "Schema codegen skipped:",
-      err instanceof Error ? err.message : err,
-    );
-  }
+  runSchemaCodegen(corpusRoot);
 
   const models = { threat: {}, objective: {}, signal: {}, rule: {} };
   const flatIndex = {};

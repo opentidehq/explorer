@@ -135,6 +135,35 @@ describe("graph engine", () => {
     ]);
   });
 
+  it("reads objective.attack before inheriting parent techniques", () => {
+    const ownObjectiveId = "obj-attack-own";
+    const objective: ObjectBody = {
+      name: "Detect Abuse of Valid Azure Credentials",
+      metadata: { uuid: ownObjectiveId, schema: "objective::1.0" },
+      objective: {
+        attack: ["T1078.004", "T1110", "T1555"],
+        threats: [THREAT_ID],
+      },
+    };
+    const ownCtx = createGraphContext({
+      models: {
+        ...fixture.models,
+        objective: {
+          ...fixture.models.objective,
+          [ownObjectiveId]: objective,
+        },
+      },
+      flatIndex: { ...fixture.flatIndex, [ownObjectiveId]: objective },
+      chaining: fixture.chaining,
+    });
+
+    expect(techniquesResolver(ownCtx, ownObjectiveId)).toEqual([
+      "T1078.004",
+      "T1110",
+      "T1555",
+    ]);
+  });
+
   it("filters deprecated rules", () => {
     const deprecatedRule = "deprecated-rule";
     fixture.models.rule[deprecatedRule] = {

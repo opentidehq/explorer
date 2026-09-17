@@ -54,6 +54,20 @@ function asStringArray(value: unknown): string[] {
   return [];
 }
 
+function ownTechniqueIds(
+  section: ObjectBody | undefined,
+  keys: string[],
+): string[] {
+  if (!section) return [];
+  for (const key of keys) {
+    const value = section[key];
+    if (Array.isArray(value) && value.length > 0) {
+      return value.filter((item): item is string => typeof item === "string");
+    }
+  }
+  return [];
+}
+
 export function getType(
   ctx: GraphContext,
   modelUuid: string,
@@ -288,8 +302,9 @@ export function techniquesResolver(
 
   if (modelType === "objective") {
     const objective = modelBody["objective"] as ObjectBody | undefined;
-    if (objective && Array.isArray(objective["att&ck"])) {
-      techniques = objective["att&ck"] as string[];
+    const own = ownTechniqueIds(objective, ["attack", "att&ck"]);
+    if (own.length > 0) {
+      techniques = own;
     } else {
       const parentIds = asStringArray(objective?.["threats"]);
       if (recursive) {
@@ -302,9 +317,7 @@ export function techniquesResolver(
 
   if (modelType === "threat") {
     const threat = modelBody["threat"] as ObjectBody | undefined;
-    if (threat && Array.isArray(threat["att&ck"])) {
-      techniques = threat["att&ck"] as string[];
-    }
+    techniques = ownTechniqueIds(threat, ["att&ck", "attack"]);
   }
 
   return [...new Set(techniques)];
