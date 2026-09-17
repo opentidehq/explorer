@@ -43,7 +43,7 @@ jobs:
           # Fall back to GITHUB_TOKEN so public clones work without App secrets.
           token: ${{ steps.generate_token.outputs.token || github.token }}
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@v6.1.0
 
       - uses: actions/setup-node@v7
         with:
@@ -110,7 +110,7 @@ jobs:
           ref: main
           token: ${{ steps.generate_token.outputs.token || github.token }}
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@v6.1.0
 
       - uses: actions/setup-node@v7
         with:
