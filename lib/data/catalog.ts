@@ -7,6 +7,39 @@ export function catalogDataUrl(filename: string): string {
   return `${prefix}/data/${filename}`;
 }
 
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+/** Older bundles omit `actors` / `platforms` on summaries. */
+export function normalizeExplorerBundle(
+  bundle: ExplorerBundle,
+): ExplorerBundle {
+  return {
+    ...bundle,
+    summaries: bundle.summaries.map((summary) => ({
+      ...summary,
+      techniques: asStringArray(summary.techniques),
+      actors: asStringArray(summary.actors),
+      platforms: asStringArray(summary.platforms),
+    })),
+  };
+}
+
+export function normalizeSearchIndex(
+  search: ExplorerSearchIndex,
+): ExplorerSearchIndex {
+  return {
+    documents: search.documents.map((doc) => ({
+      ...doc,
+      techniques: asStringArray(doc.techniques),
+      actors: asStringArray(doc.actors),
+      platforms: asStringArray(doc.platforms),
+    })),
+  };
+}
+
 export interface CatalogPayload {
   bundle: ExplorerBundle;
   search: ExplorerSearchIndex;
@@ -36,8 +69,8 @@ export async function loadCatalog(): Promise<CatalogPayload> {
   }
 
   return {
-    bundle,
-    search: search ?? { documents: [] },
+    bundle: normalizeExplorerBundle(bundle),
+    search: normalizeSearchIndex(search ?? { documents: [] }),
     vocabIndex: vocabIndex ?? {},
   };
 }

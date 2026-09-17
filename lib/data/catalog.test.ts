@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { catalogDataUrl } from "@/lib/data/catalog";
+import { catalogDataUrl, normalizeExplorerBundle } from "@/lib/data/catalog";
+import { collectFilterOptions } from "@/lib/search/orama";
+import type { ExplorerBundle } from "@/lib/opentide/types";
 
 describe("catalogDataUrl", () => {
   function withBasePath(value: string | undefined, run: () => void) {
@@ -42,5 +44,32 @@ describe("static pages do not inline catalogue JSON", () => {
       expect(source).not.toMatch(/loadSearchSync/);
     }
     expect(home).not.toMatch(/loadBundleSync/);
+  });
+});
+
+describe("normalizeExplorerBundle", () => {
+  it("fills missing actors so filter collection does not throw", () => {
+    const bundle = normalizeExplorerBundle({
+      version: "1",
+      generatedAt: "",
+      models: { threat: {}, objective: {}, signal: {}, rule: {} },
+      flatIndex: {},
+      chaining: {},
+      signals: {},
+      summaries: [
+        {
+          uuid: "t1",
+          type: "threat",
+          name: "Shai-Hulud",
+          techniques: ["T1195.001"],
+          relatedCount: 0,
+          platforms: ["npm"],
+        } as ExplorerBundle["summaries"][number],
+      ],
+    });
+
+    expect(bundle.summaries[0]?.actors).toEqual([]);
+    expect(() => collectFilterOptions(bundle)).not.toThrow();
+    expect(collectFilterOptions(bundle).techniques).toEqual(["T1195.001"]);
   });
 });
