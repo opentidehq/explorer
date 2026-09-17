@@ -72,6 +72,32 @@ describe("resolveFieldValue", () => {
     ).toEqual(["att&ck::G0125", "misp::4f05d6c1-aaaa-bbbb-cccc-ddddeeeeffff"]);
   });
 
+  it("reads string threat.actors through the .name pin", () => {
+    expect(
+      resolveFieldValue(
+        {
+          threat: {
+            actors: ["att&ck::G0007", "att&ck::G0016"],
+          },
+        },
+        "threat.actors.name",
+      ),
+    ).toEqual(["att&ck::G0007", "att&ck::G0016"]);
+  });
+
+  it("falls back to threat.actors when .name is missing on objects", () => {
+    expect(
+      resolveFieldValue(
+        {
+          threat: {
+            actors: [{ id: "att&ck::G0007" }, { label: "att&ck::G0016" }],
+          },
+        },
+        "threat.actors.name",
+      ),
+    ).toEqual([{ id: "att&ck::G0007" }, { label: "att&ck::G0016" }]);
+  });
+
   it("inherits techniques from summary injection", () => {
     expect(
       collectRuleTechniques({

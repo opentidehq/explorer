@@ -17,7 +17,9 @@ function getValueAtPath(body: Record<string, unknown>, path: string): unknown {
     if (current == null) return undefined;
     if (Array.isArray(current)) {
       current = current.flatMap((item) => {
-        if (item == null || typeof item !== "object") return [];
+        if (item == null) return [];
+        // Primitive list items are already the pin value (legacy string actors).
+        if (typeof item !== "object") return [item];
         const next = (item as Record<string, unknown>)[part];
         return next === undefined ? [] : [next];
       });
@@ -80,6 +82,13 @@ export function collectRuleTechniques(body: Record<string, unknown>): string[] {
   return [...techniques];
 }
 
+function hasFieldValue(value: unknown): boolean {
+  if (value == null || value === "") return false;
+  // Empty projections (e.g. `.name` over string actors) must not block fallbacks.
+  if (Array.isArray(value) && value.length === 0) return false;
+  return true;
+}
+
 /** Resolve a registry path, including bundle shapes that omit type prefixes. */
 export function resolveFieldValue(
   body: Record<string, unknown>,
@@ -97,10 +106,10 @@ export function resolveFieldValue(
   }
 
   const direct = getValueAtPath(body, path);
-  if (direct != null && direct !== "") return direct;
+  if (hasFieldValue(direct)) return direct;
   for (const alt of FIELD_PATH_FALLBACKS[path] ?? []) {
     const value = getValueAtPath(body, alt);
-    if (value != null && value !== "") return value;
+    if (hasFieldValue(value)) return value;
   }
   return direct;
 }
