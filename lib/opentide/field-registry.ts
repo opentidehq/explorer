@@ -10,11 +10,41 @@ export {
 
 import { flattenReferences } from "@/lib/opentide/vocab";
 
+const REF_KEYS = ["name", "id", "value", "label"] as const;
+
+function isRefKey(part: string): boolean {
+  return (REF_KEYS as readonly string[]).includes(part);
+}
+
+function projectArrayItem(item: unknown, part: string): unknown[] {
+  if (item == null) return [];
+  // Primitive list items are the pin value only for identity paths
+  // (`threat.actors.name`). Other segments must not steal those strings.
+  if (typeof item !== "object") return isRefKey(part) ? [item] : [];
+  const record = item as Record<string, unknown>;
+  const next = record[part];
+  if (typeof next === "string" && next.trim()) return [next.trim()];
+  if (next !== undefined && next !== null && next !== "") return [next];
+  if (!isRefKey(part)) return [];
+  for (const key of REF_KEYS) {
+    const candidate = record[key];
+    if (typeof candidate === "string" && candidate.trim()) {
+      return [candidate.trim()];
+    }
+  }
+  return [];
+}
+
 function getValueAtPath(body: Record<string, unknown>, path: string): unknown {
   const parts = path.split(".");
   let current: unknown = body;
   for (const part of parts) {
-    if (current == null || typeof current !== "object") return undefined;
+    if (current == null) return undefined;
+    if (Array.isArray(current)) {
+      current = current.flatMap((item) => projectArrayItem(item, part));
+      continue;
+    }
+    if (typeof current !== "object") return undefined;
     current = (current as Record<string, unknown>)[part];
   }
   return current;
@@ -27,6 +57,8 @@ const FIELD_PATH_FALLBACKS: Record<string, string[]> = {
   "metadata.author": ["author"],
   status: ["_status"],
   techniques: ["_techniques"],
+  "threat.actors.name": ["threat.actors"],
+  "threat.surface": ["threat.terrain"],
 };
 
 /** Collect ATT&CK technique IDs from rule body and platform alert blocks. */
@@ -69,6 +101,13 @@ export function collectRuleTechniques(body: Record<string, unknown>): string[] {
   return [...techniques];
 }
 
+function hasFieldValue(value: unknown): boolean {
+  if (value == null || value === "") return false;
+  // Empty projections (e.g. `.name` over string actors) must not block fallbacks.
+  if (Array.isArray(value) && value.length === 0) return false;
+  return true;
+}
+
 /** Resolve a registry path, including bundle shapes that omit type prefixes. */
 export function resolveFieldValue(
   body: Record<string, unknown>,
@@ -86,10 +125,10 @@ export function resolveFieldValue(
   }
 
   const direct = getValueAtPath(body, path);
-  if (direct != null && direct !== "") return direct;
+  if (hasFieldValue(direct)) return direct;
   for (const alt of FIELD_PATH_FALLBACKS[path] ?? []) {
     const value = getValueAtPath(body, alt);
-    if (value != null && value !== "") return value;
+    if (hasFieldValue(value)) return value;
   }
   return direct;
 }

@@ -56,6 +56,64 @@ describe("resolveFieldValue", () => {
     ).toEqual(["T1195.002", "T1078"]);
   });
 
+  it("projects ThreatActor names from threat.actors.name", () => {
+    expect(
+      resolveFieldValue(
+        {
+          threat: {
+            actors: [
+              { name: "att&ck::G0125" },
+              { name: "misp::4f05d6c1-aaaa-bbbb-cccc-ddddeeeeffff" },
+            ],
+          },
+        },
+        "threat.actors.name",
+      ),
+    ).toEqual(["att&ck::G0125", "misp::4f05d6c1-aaaa-bbbb-cccc-ddddeeeeffff"]);
+  });
+
+  it("reads string threat.actors through the .name pin", () => {
+    expect(
+      resolveFieldValue(
+        {
+          threat: {
+            actors: ["att&ck::G0007", "att&ck::G0016"],
+          },
+        },
+        "threat.actors.name",
+      ),
+    ).toEqual(["att&ck::G0007", "att&ck::G0016"]);
+  });
+
+  it("reads id and label when .name is missing on actor objects", () => {
+    expect(
+      resolveFieldValue(
+        {
+          threat: {
+            actors: [{ id: "att&ck::G0007" }, { label: "att&ck::G0016" }],
+          },
+        },
+        "threat.actors.name",
+      ),
+    ).toEqual(["att&ck::G0007", "att&ck::G0016"]);
+  });
+
+  it("does not leak signal names into severity pins", () => {
+    expect(
+      resolveFieldValue(
+        {
+          objective: {
+            signals: [
+              { uuid: "sig-1", name: "Suspicious login" },
+              { uuid: "sig-2", name: "Token theft" },
+            ],
+          },
+        },
+        "objective.signals.severity",
+      ),
+    ).toEqual([]);
+  });
+
   it("inherits techniques from summary injection", () => {
     expect(
       collectRuleTechniques({

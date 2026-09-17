@@ -106,6 +106,7 @@ describe("spec-toml", () => {
 
   it("labels threat surface pin as Surface", () => {
     expect(pathToLabel("threat.surface")).toBe("Surface");
+    expect(pathToLabel("threat.actors.name")).toBe("Threat actors");
   });
 
   it("builds vocab index from specifications when present", () => {
@@ -131,6 +132,9 @@ describe("spec-toml", () => {
     expect(
       registry.threat?.find((f) => f.path === "threat.surface")?.label,
     ).toBe("Surface");
+    expect(
+      registry.threat?.find((f) => f.path === "threat.actors.name")?.label,
+    ).toBe("Threat actors");
     expect(registry.threat?.some((f) => f.path === "threat.chaining")).toBe(
       false,
     );
