@@ -44,6 +44,7 @@ const FIELD_ICONS: Record<string, ComponentType<{ className?: string }>> = {
   "threat.surface": Globe,
   "threat.terrain": Globe,
   "threat.actors": Users,
+  "threat.actors.name": Users,
   "threat.att&ck": Target,
   "metadata.tlp": Tag,
   "metadata.schema": Fingerprint,

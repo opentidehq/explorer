@@ -14,7 +14,16 @@ function getValueAtPath(body: Record<string, unknown>, path: string): unknown {
   const parts = path.split(".");
   let current: unknown = body;
   for (const part of parts) {
-    if (current == null || typeof current !== "object") return undefined;
+    if (current == null) return undefined;
+    if (Array.isArray(current)) {
+      current = current.flatMap((item) => {
+        if (item == null || typeof item !== "object") return [];
+        const next = (item as Record<string, unknown>)[part];
+        return next === undefined ? [] : [next];
+      });
+      continue;
+    }
+    if (typeof current !== "object") return undefined;
     current = (current as Record<string, unknown>)[part];
   }
   return current;
@@ -27,6 +36,8 @@ const FIELD_PATH_FALLBACKS: Record<string, string[]> = {
   "metadata.author": ["author"],
   status: ["_status"],
   techniques: ["_techniques"],
+  "threat.actors.name": ["threat.actors"],
+  "threat.surface": ["threat.terrain"],
 };
 
 /** Collect ATT&CK technique IDs from rule body and platform alert blocks. */

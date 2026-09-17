@@ -235,7 +235,7 @@ const THREAT_FIELDS: FieldDefinition[] = [
     vocab: "tlp",
   },
   {
-    path: "threat.actors",
+    path: "threat.actors.name",
     label: "Threat actors",
     format: "pills",
     vocab: "actors",
@@ -270,7 +270,7 @@ const THREAT_FIELDS: FieldDefinition[] = [
     vocab: "severity",
   },
   {
-    path: "threat.terrain",
+    path: "threat.surface",
     label: "Surface",
     format: "surface",
     vocab: "surface",

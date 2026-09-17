@@ -198,6 +198,8 @@ const LABEL_OVERRIDES = {
   "metadata.version": "Version",
   "threat.killchain": "Kill chain",
   "threat.actors": "Threat actors",
+  "threat.actors.name": "Threat actors",
+  "threat.surface": "Surface",
   "data.logsources": "Data sources",
 };
 

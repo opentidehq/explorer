@@ -56,6 +56,22 @@ describe("resolveFieldValue", () => {
     ).toEqual(["T1195.002", "T1078"]);
   });
 
+  it("projects ThreatActor names from threat.actors.name", () => {
+    expect(
+      resolveFieldValue(
+        {
+          threat: {
+            actors: [
+              { name: "att&ck::G0125" },
+              { name: "misp::4f05d6c1-aaaa-bbbb-cccc-ddddeeeeffff" },
+            ],
+          },
+        },
+        "threat.actors.name",
+      ),
+    ).toEqual(["att&ck::G0125", "misp::4f05d6c1-aaaa-bbbb-cccc-ddddeeeeffff"]);
+  });
+
   it("inherits techniques from summary injection", () => {
     expect(
       collectRuleTechniques({
