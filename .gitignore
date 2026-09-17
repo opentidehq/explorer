@@ -7,3 +7,8 @@ dist/
 .env*.local
 public/data/*.json
 !public/data/.gitkeep
+
+# CI clones these into the workspace for corpus tests and schema codegen.
+# oxfmt honors .gitignore; without this, fmt:check reformats the checkouts.
+/library/
+/specifications/
