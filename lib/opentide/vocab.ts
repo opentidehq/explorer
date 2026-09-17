@@ -84,28 +84,31 @@ export function pillItemToString(item: unknown): string {
   return "";
 }
 
+function collectPillItems(item: unknown): string[] {
+  if (item == null) return [];
+  if (Array.isArray(item)) return item.flatMap(collectPillItems);
+  const text = pillItemToString(item);
+  return text ? [text] : [];
+}
+
 export function splitPillValues(value: unknown): string[] {
   let raw: string[];
-  if (Array.isArray(value))
-    raw = value.flatMap((item) => {
-      const text = pillItemToString(item);
-      return text ? [text] : [];
-    });
-  else if (typeof value !== "string") {
-    const text = pillItemToString(value);
-    raw = text ? [text] : [];
-  } else if (value.includes(";")) {
-    raw = value.split(";").flatMap((s) => {
-      const trimmed = s.trim();
-      return trimmed ? [trimmed] : [];
-    });
-  } else if (value.includes(",")) {
-    raw = value.split(",").flatMap((s) => {
-      const trimmed = s.trim();
-      return trimmed ? [trimmed] : [];
-    });
+  if (typeof value === "string") {
+    if (value.includes(";")) {
+      raw = value.split(";").flatMap((s) => {
+        const trimmed = s.trim();
+        return trimmed ? [trimmed] : [];
+      });
+    } else if (value.includes(",")) {
+      raw = value.split(",").flatMap((s) => {
+        const trimmed = s.trim();
+        return trimmed ? [trimmed] : [];
+      });
+    } else {
+      raw = value.trim() ? [value.trim()] : [];
+    }
   } else {
-    raw = value.trim() ? [value.trim()] : [];
+    raw = collectPillItems(value);
   }
 
   const seen = new Set<string>();

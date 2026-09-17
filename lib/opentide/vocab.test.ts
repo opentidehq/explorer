@@ -74,6 +74,16 @@ describe("splitPillValues", () => {
       splitPillValues([{ id: "att&ck::G0007" }, { foo: "bar" }, "G0016"]),
     ).toEqual(["att&ck::G0007", "G0016"]);
   });
+
+  it("flattens nested arrays from projected signal fields", () => {
+    expect(
+      splitPillValues([
+        ["user", "host"],
+        ["process"],
+        { name: "att&ck::G0007" },
+      ]),
+    ).toEqual(["user", "host", "process", "att&ck::G0007"]);
+  });
 });
 
 describe("normalizeReference", () => {
