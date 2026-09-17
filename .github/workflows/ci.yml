@@ -39,7 +39,9 @@ jobs:
           repository: OpenTideHQ/specifications
           path: specifications
           ref: main
-          token: ${{ steps.generate_token.outputs.token }}
+          # Empty App token overrides checkout's default and fails the step.
+          # Fall back to GITHUB_TOKEN so public clones work without App secrets.
+          token: ${{ steps.generate_token.outputs.token || github.token }}
 
       - uses: pnpm/action-setup@v6
 
@@ -96,7 +98,9 @@ jobs:
           repository: OpenTideHQ/specifications
           path: specifications
           ref: main
-          token: ${{ steps.generate_token.outputs.token }}
+          # Empty App token overrides checkout's default and fails the step.
+          # Fall back to GITHUB_TOKEN so public clones work without App secrets.
+          token: ${{ steps.generate_token.outputs.token || github.token }}
 
       - name: Checkout library
         uses: actions/checkout@v7
@@ -104,7 +108,7 @@ jobs:
           repository: OpenTideHQ/library
           path: library
           ref: main
-          token: ${{ steps.generate_token.outputs.token }}
+          token: ${{ steps.generate_token.outputs.token || github.token }}
 
       - uses: pnpm/action-setup@v6
 
