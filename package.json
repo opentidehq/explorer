@@ -1,7 +1,7 @@
 {
   "name": "@opentide/explorer",
   "version": "0.1.0",
-  "description": "Interactive OpenTide corpus explorer \u2014 static Next.js UI",
+  "description": "Interactive OpenTide corpus explorer — static Next.js UI",
   "license": "Apache-2.0",
   "type": "module",
   "bin": {
