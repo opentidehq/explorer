@@ -71,7 +71,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "json-schema-to-typescript": "^16.0.0",
-    "oxfmt": "^0.14.0",
+    "oxfmt": "^0.71.0",
     "oxlint": "^1.86.0",
     "react-doctor": "^0.9.14",
     "smol-toml": "^1.9.0",
