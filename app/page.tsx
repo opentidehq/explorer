@@ -1,5 +1,5 @@
-import { ExplorerShell } from "@/components/shell/explorer-shell";
+import { ExplorerApp } from "@/components/explorer/explorer-app";
 
 export default function HomePage() {
-  return <ExplorerShell />;
+  return <ExplorerApp />;
 }

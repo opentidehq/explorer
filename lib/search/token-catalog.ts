@@ -1,5 +1,5 @@
 import type { ExplorerBundle, ObjectType } from "@/lib/opentide/types";
-import { collectFilterOptions } from "@/lib/search/orama";
+import { collectFilterOptions } from "@/lib/search/engine";
 import {
   formatVocabDisplayName,
   lookupVocabTerm,

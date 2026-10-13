@@ -48,13 +48,8 @@ function copyExports(exportsDir, targetDir) {
   fs.mkdirSync(dataDir, { recursive: true });
 
   const required = ["explorer.bundle.json"];
-  const optional = [
-    "explorer.coverage.json",
-    "explorer.search.json",
-    "attack-navigator.json",
-    "vocab.att&ck.json",
-    "explorer.graph.json",
-  ];
+  // The client reads explorer.vocab.json, falling back to vocab.index.json.
+  const optional = ["explorer.vocab.json", "vocab.index.json"];
 
   for (const file of required) {
     const src = path.join(exportsDir, file);

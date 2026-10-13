@@ -47,7 +47,7 @@ export async function codegenTypes(schemasDir) {
   );
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1] ?? "")) {
   const schemasDir =
     process.argv[2] ?? path.resolve(ROOT, "../library/.opentide/schemas");
   codegenTypes(schemasDir).catch((err) => {

@@ -1,14 +1,20 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  buildCorpusGraph,
+  expandVisibleIds,
+  getCausalChain,
+  getDetectionChain,
+  stableCoord,
+} from "@/lib/graph/corpus-graph";
+import {
   applyCircularLayout,
   applyGraphTopology,
   applyGridLayout,
   applyTypeBandsLayout,
-  buildCorpusGraph,
-  expandVisibleIds,
-  getDetectionChain,
-} from "@/lib/graph/corpus-graph";
+  toGraphology,
+} from "@/lib/graph/graph-layout";
+import { normalizeExplorerBundle } from "@/lib/data/catalog";
 import { enrichBundle } from "@/lib/opentide/enrich-bundle";
 import type {
   ExplorerBundle,
@@ -193,9 +199,11 @@ function duplicateSourceTargetPairs(
 
 describe("buildCorpusGraph", () => {
   it("deduplicates parallel edges between the same nodes", () => {
-    const bundle = JSON.parse(
-      readFileSync("public/data/explorer.bundle.json", "utf8"),
-    ) as ExplorerBundle;
+    const bundle = normalizeExplorerBundle(
+      JSON.parse(
+        readFileSync("public/data/explorer.bundle.json", "utf8"),
+      ) as ExplorerBundle,
+    );
 
     const graph = buildCorpusGraph(bundle);
 
@@ -213,9 +221,11 @@ describe("buildCorpusGraph", () => {
 
   it("includes embedded objective signals as detection-chain nodes", () => {
     const bundle = enrichBundle(
-      JSON.parse(
-        readFileSync("public/data/explorer.bundle.json", "utf8"),
-      ) as ExplorerBundle,
+      normalizeExplorerBundle(
+        JSON.parse(
+          readFileSync("public/data/explorer.bundle.json", "utf8"),
+        ) as ExplorerBundle,
+      ),
     );
 
     const graph = buildCorpusGraph(bundle);
@@ -310,6 +320,30 @@ describe("buildCorpusGraph", () => {
     expect(chain.nodes.has(RULE_ID)).toBe(false);
   });
 
+  it("indexes edges by endpoint for constant-time traversal", () => {
+    const graph = buildCorpusGraph(makeGraphFixtureBundle());
+
+    for (const edge of graph.edges) {
+      expect(graph.outgoing.get(edge.source)).toContain(edge);
+      expect(graph.incoming.get(edge.target)).toContain(edge);
+    }
+    expect(graph.nodeById.get(THREAT_ID)?.type).toBe("threat");
+  });
+
+  it("joins the detection chain and threat chaining around a node", () => {
+    const bundle = makeGraphFixtureBundle();
+    const chained = "e2ae62bb-7ce1-46cd-a131-39803832fa00";
+    bundle.chaining = { [THREAT_ID]: { "sequence::preceeds": [chained] } };
+    const graph = buildCorpusGraph(bundle);
+    const chain = getCausalChain(graph, OBJECTIVE_ID);
+
+    expect(chain.nodes.has(THREAT_ID)).toBe(true);
+    expect(chain.nodes.has(SIGNAL_RULE_ID)).toBe(true);
+    // Chaining is one hop from the focused node only.
+    expect(chain.nodes.has(chained)).toBe(false);
+    expect(getCausalChain(graph, THREAT_ID).nodes.has(chained)).toBe(true);
+  });
+
   it("expands chain mode upstream without sibling signals", () => {
     const bundle = makeGraphFixtureBundle();
     const graph = buildCorpusGraph(bundle);
@@ -327,9 +361,34 @@ describe("buildCorpusGraph", () => {
   });
 });
 
+describe("stableCoord", () => {
+  it("is deterministic, bounded, and independent across axes", () => {
+    const ids = Array.from(
+      { length: 400 },
+      (_, i) =>
+        `${i.toString(16).padStart(8, "0")}-4b61-4116-bd97-de54b02b197e`,
+    );
+    const xs = ids.map((id) => stableCoord(id, 0));
+    const ys = ids.map((id) => stableCoord(id, 1));
+    expect(stableCoord(ids[0]!, 0)).toBe(xs[0]);
+    for (const v of [...xs, ...ys]) {
+      expect(v).toBeGreaterThanOrEqual(-1);
+      expect(v).toBeLessThanOrEqual(1);
+    }
+    // Seeds on a line start ForceAtlas2 degenerate; x and y must not correlate.
+    const mean = (a: number[]) => a.reduce((sum, v) => sum + v, 0) / a.length;
+    const mx = mean(xs);
+    const my = mean(ys);
+    const cov = mean(xs.map((x, i) => (x - mx) * (ys[i]! - my)));
+    const sd = (a: number[], m: number) =>
+      Math.sqrt(mean(a.map((v) => (v - m) ** 2)));
+    expect(Math.abs(cov / (sd(xs, mx) * sd(ys, my)))).toBeLessThan(0.15);
+  });
+});
+
 describe("graph layout topologies", () => {
   it("assigns coordinates for each topology preset", () => {
-    const graph = buildCorpusGraph(makeGraphFixtureBundle()).graphology;
+    const graph = toGraphology(buildCorpusGraph(makeGraphFixtureBundle()));
 
     for (const topology of [
       "force",
@@ -346,7 +405,7 @@ describe("graph layout topologies", () => {
   });
 
   it("places type bands on distinct horizontal rows", () => {
-    const graph = buildCorpusGraph(makeGraphFixtureBundle()).graphology;
+    const graph = toGraphology(buildCorpusGraph(makeGraphFixtureBundle()));
     applyTypeBandsLayout(graph);
 
     const yByType = new Map<string, number>();
@@ -367,7 +426,7 @@ describe("graph layout topologies", () => {
   });
 
   it("places circular layout nodes on a ring", () => {
-    const graph = buildCorpusGraph(makeGraphFixtureBundle()).graphology;
+    const graph = toGraphology(buildCorpusGraph(makeGraphFixtureBundle()));
     applyCircularLayout(graph);
 
     const radii = graph
@@ -386,7 +445,7 @@ describe("graph layout topologies", () => {
   });
 
   it("places grid layout nodes on a lattice", () => {
-    const graph = buildCorpusGraph(makeGraphFixtureBundle()).graphology;
+    const graph = toGraphology(buildCorpusGraph(makeGraphFixtureBundle()));
     applyGridLayout(graph);
 
     const xs = new Set<number>();

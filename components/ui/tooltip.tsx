@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
-import { glassPopoverClasses } from "@/components/ui/glass-surface";
 import { cn } from "@/lib/utils";
 
 const TooltipProvider = TooltipPrimitive.Provider;
@@ -15,7 +14,7 @@ function TooltipContent({
   ref,
   ...props
 }: React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content> & {
-  ref?: React.Ref<React.ElementRef<typeof TooltipPrimitive.Content>>;
+  ref?: React.Ref<React.ComponentRef<typeof TooltipPrimitive.Content>>;
 }) {
   return (
     <TooltipPrimitive.Portal>
@@ -23,8 +22,7 @@ function TooltipContent({
         ref={ref}
         sideOffset={sideOffset}
         className={cn(
-          glassPopoverClasses,
-          "z-[200] max-w-sm rounded-lg px-3 py-2.5 text-xs leading-relaxed text-foreground",
+          "tide-fade-slide z-[200] max-w-sm rounded-xl border border-line bg-panel px-3 py-2 text-xs leading-relaxed text-ink shadow-float",
           className,
         )}
         {...props}
@@ -32,6 +30,5 @@ function TooltipContent({
     </TooltipPrimitive.Portal>
   );
 }
-TooltipContent.displayName = TooltipPrimitive.Content.displayName;
 
 export { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent };

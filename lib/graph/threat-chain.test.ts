@@ -5,13 +5,16 @@ import {
   buildThreatChainTree,
   countThreatChainNodes,
 } from "@/lib/graph/threat-chain";
+import { normalizeExplorerBundle } from "@/lib/data/catalog";
 import { createGraphContext } from "@/lib/opentide/graph";
-import type { ExplorerBundle } from "@/lib/opentide/types";
+import type { RawExplorerBundle } from "@/lib/opentide/types";
 
 describe("threat chaining highlights", () => {
-  const bundle = JSON.parse(
-    readFileSync("public/data/explorer.bundle.json", "utf8"),
-  ) as ExplorerBundle;
+  const bundle = normalizeExplorerBundle(
+    JSON.parse(
+      readFileSync("public/data/explorer.bundle.json", "utf8"),
+    ) as RawExplorerBundle,
+  );
   const graph = buildCorpusGraph(bundle);
 
   it("highlights only direct chaining neighbors, not the full transitive chain", () => {
@@ -50,9 +53,11 @@ describe("threat chaining highlights", () => {
 });
 
 describe("buildThreatChainTree", () => {
-  const bundle = JSON.parse(
-    readFileSync("public/data/explorer.bundle.json", "utf8"),
-  ) as ExplorerBundle;
+  const bundle = normalizeExplorerBundle(
+    JSON.parse(
+      readFileSync("public/data/explorer.bundle.json", "utf8"),
+    ) as RawExplorerBundle,
+  );
   const ctx = createGraphContext(bundle);
 
   it("resolves transitive chains for modal display", () => {

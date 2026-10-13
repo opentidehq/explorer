@@ -1,4 +1,4 @@
-import Graph from "graphology";
+import type Graph from "graphology";
 import {
   FIELD_REGISTRY,
   resolveFieldValue,
@@ -10,18 +10,9 @@ import type {
   ObjectBody,
   ObjectType,
 } from "@/lib/opentide/types";
-import type {
-  CorpusEdge,
-  CorpusGraph,
-  CorpusNode,
-} from "@/lib/graph/corpus-graph";
+import type { CorpusEdge, CorpusNode } from "@/lib/graph/corpus-graph";
 import { stableCoord } from "@/lib/graph/corpus-graph";
-import { nodeIconUrl } from "@/lib/graph/node-icons";
-import {
-  GRAPH_CANVAS_BG,
-  VOCAB_NODE_COLOR,
-  VOCAB_NODE_SIZE,
-} from "@/lib/graph/render-styles";
+import { VOCAB_NODE_SIZE } from "@/lib/graph/render-styles";
 import { buildEnrichedBody } from "@/lib/opentide/metadata-fields";
 import {
   findSurfaceTermsInText,
@@ -145,7 +136,6 @@ export function buildVocabGraphLayer(
       label,
       type: "vocab",
       vocabBucket: bucket,
-      color: VOCAB_NODE_COLOR,
       size: VOCAB_NODE_SIZE,
     });
     return id;
@@ -188,10 +178,6 @@ export function buildVocabGraphLayer(
   return { nodes: [...nodes.values()], edges };
 }
 
-function copyGraph(source: Graph): Graph {
-  return source.copy();
-}
-
 function positionVocabNodeNearSource(
   graph: Graph,
   vocabId: string,
@@ -213,35 +199,32 @@ function positionVocabNodeNearSource(
   graph.setNodeAttribute(vocabId, "y", sy + dist * Math.sin(angle));
 }
 
-/** Merge an optional vocab layer onto a copy of the corpus graph for display. */
+/**
+ * Merge an optional vocab layer onto a copy of the base graph for display. Without the layer
+ * the base graph itself is returned, so its positions carry over between renders.
+ */
 export function buildDisplayGraph(
-  corpus: CorpusGraph,
+  base: Graph,
   bundle: ExplorerBundle,
   visibleObjectIds: Set<string>,
   showVocabNodes: boolean,
   vocabIndex: VocabIndex,
+  layer: VocabGraphLayer = showVocabNodes
+    ? buildVocabGraphLayer(bundle, visibleObjectIds, vocabIndex)
+    : { nodes: [], edges: [] },
 ): Graph {
-  if (!showVocabNodes || visibleObjectIds.size === 0) {
-    return corpus.graphology;
-  }
+  if (!showVocabNodes || visibleObjectIds.size === 0) return base;
+  if (layer.nodes.length === 0) return base;
 
-  const layer = buildVocabGraphLayer(bundle, visibleObjectIds, vocabIndex);
-  if (layer.nodes.length === 0) {
-    return corpus.graphology;
-  }
-
-  const graph = copyGraph(corpus.graphology);
+  const graph = base.copy();
 
   for (const node of layer.nodes) {
     if (graph.hasNode(node.id)) continue;
     graph.addNode(node.id, {
       label: node.label,
-      type: "image",
       objectType: "vocab",
       vocabBucket: node.vocabBucket,
-      color: GRAPH_CANVAS_BG,
       size: node.size,
-      image: nodeIconUrl("vocab"),
       x: stableCoord(node.id, 0),
       y: stableCoord(node.id, 1),
     });
@@ -256,9 +239,7 @@ export function buildDisplayGraph(
     graph.addDirectedEdgeWithKey(edge.id, edge.source, edge.target, {
       label: edge.label,
       kind: edge.kind,
-      type: "curvedArrow",
       size: 0.75,
-      color: "#a78bfa66",
     });
   }
 

@@ -2,10 +2,15 @@ import { defineConfig } from "react-doctor/api";
 
 export default defineConfig({
   ignore: {
-    files: ["components/graph/**", "bin/**", "scripts/**", ".github/**"],
+    files: [
+      "components/explorer/graph/**",
+      "bin/**",
+      "scripts/**",
+      ".github/**",
+    ],
   },
   rules: {
-    // Sigma graph canvas — intentional effect/callback patterns; large refactor risk.
+    // Sigma graph view — imperative WebGL instance driven from effects and refs.
     "react-doctor/exhaustive-deps": "off",
     "react-doctor/prefer-use-effect-event": "off",
     "react-doctor/no-prop-callback-in-effect": "off",
@@ -14,7 +19,7 @@ export default defineConfig({
     "react-doctor/rerender-lazy-ref-init": "off",
     "react-doctor/js-cache-property-access": "off",
     "react-doctor/js-set-map-lookups": "off",
-    // Explorer shell state — useReducer migration is out of scope.
+    // Explorer state lives in an external store; components hold only local UI state.
     "react-doctor/prefer-useReducer": "off",
     // Radix Dialog is used intentionally (focus trap, a11y).
     "react-doctor/prefer-html-dialog": "off",

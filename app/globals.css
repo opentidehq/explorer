@@ -2,320 +2,592 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-@theme {
-  --motion-fast: 150ms;
-  --motion-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-mono);
-  --color-background: #f8f9fc;
-  --color-foreground: #0f1117;
-  --color-card: #ffffff;
-  --color-card-foreground: #0f1117;
-  --color-muted: #eef0f6;
-  --color-muted-foreground: #5c6370;
-  --color-border: #d8dce6;
-  --color-accent: #e8ebf2;
-  --color-primary: #4f46e5;
-  --color-threat: #dc2626;
-  --color-objective: #2563eb;
-  --color-signal: #d97706;
-  --color-rule: #16a34a;
+/*
+ * opentide explorer — the opentide.org design language, as an app.
+ *
+ * Tokens mirror the site's `--landing-*` set: light is white + Pantone Reflex Blue, dark is
+ * black + EU Yellow. The app shell sits on the band colour; content lives in panels with a
+ * 1px border and a 1rem radius; real artefacts (YAML, queries) sit in deep-tide navy panels in
+ * both themes. Object types read as depth: threats are the slate landscape, objectives blue,
+ * signals foam, and rules the amber light of a detection firing.
+ */
+
+:root {
+  --eu-blue: #001489;
+  --eu-yellow: #ffcc00;
+  --eu-blue-muted: #1a3a9e;
+  --yellow-lift: #ffe566;
+
+  --tide-bg: #ffffff;
+  --tide-band: #f5f6fa;
+  --tide-panel: #ffffff;
+  --tide-sunken: #f7f7f9;
+  --tide-ink: #0a0a0c;
+  --tide-muted: #3f3f46;
+  --tide-subtle: #52525b;
+  --tide-dim: #71717a;
+  --tide-accent: var(--eu-blue);
+  --tide-accent-lift: var(--eu-blue-muted);
+  --tide-accent-fg: #ffffff;
+  --tide-border: rgb(0 0 0 / 0.1);
+  --tide-border-subtle: rgb(0 0 0 / 0.06);
+  --tide-hover: rgb(0 0 0 / 0.04);
+  --tide-btn-shadow: rgb(0 20 137 / 0.28);
+  --tide-float: 0 14px 36px -18px rgb(0 20 80 / 0.4), 0 2px 6px -3px rgb(0 0 0 / 0.1);
+  --tide-glow: #f0a800;
+
+  --tide-code-bg: #000b1f;
+  --tide-code-ink: #e8f0ff;
+  --tide-code-dim: #8fa8d4;
+  --tide-code-key: #7ec8e3;
+  --tide-code-str: var(--yellow-lift);
+  --tide-code-num: #9db1ef;
+
+  --type-threat: #56627d;
+  --type-objective: #2747d6;
+  --type-signal: #0a7ea6;
+  --type-rule: #a26a00;
+  --type-vocab: #7c5cc4;
+
+  color-scheme: light;
 }
 
 .dark {
-  --color-background: #050508;
-  --color-foreground: #d4d4dc;
-  --color-card: #0c0c12;
-  --color-card-foreground: #d4d4dc;
-  --color-muted: #101018;
-  --color-muted-foreground: #6b6b7b;
-  --color-border: #1a1a26;
-  --color-accent: #16161f;
-  --color-primary: #6366f1;
-  --color-threat: #ef4444;
-  --color-objective: #3b82f6;
-  --color-signal: #f59e0b;
-  --color-rule: #22c55e;
+  --tide-bg: #000000;
+  --tide-band: #0a0a0b;
+  --tide-panel: #0e0e10;
+  --tide-sunken: #070708;
+  --tide-ink: #fafafa;
+  --tide-muted: #c4c4cc;
+  --tide-subtle: #9a9aa3;
+  --tide-dim: #6b6b74;
+  --tide-accent: var(--eu-yellow);
+  --tide-accent-lift: var(--yellow-lift);
+  --tide-accent-fg: #000000;
+  --tide-border: rgb(255 255 255 / 0.1);
+  --tide-border-subtle: rgb(255 255 255 / 0.07);
+  --tide-hover: rgb(255 255 255 / 0.05);
+  --tide-btn-shadow: rgb(255 204 0 / 0.35);
+  --tide-float: 0 18px 40px -18px rgb(0 0 0 / 0.9), 0 0 0 1px rgb(255 255 255 / 0.02);
+  --tide-glow: #ffcc00;
+
+  --type-threat: #aab2c5;
+  --type-objective: #8aa4ff;
+  --type-signal: #6cc6e6;
+  --type-rule: #ffcc00;
+  --type-vocab: #b9a3f5;
+
+  color-scheme: dark;
+}
+
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, "JetBrains Mono", monospace;
+}
+
+@theme inline {
+  --color-bg: var(--tide-bg);
+  --color-band: var(--tide-band);
+  --color-panel: var(--tide-panel);
+  --color-sunken: var(--tide-sunken);
+  --color-ink: var(--tide-ink);
+  --color-muted: var(--tide-muted);
+  --color-subtle: var(--tide-subtle);
+  --color-dim: var(--tide-dim);
+  --color-accent: var(--tide-accent);
+  --color-accent-lift: var(--tide-accent-lift);
+  --color-accent-fg: var(--tide-accent-fg);
+  --color-line: var(--tide-border);
+  --color-line-subtle: var(--tide-border-subtle);
+  --color-hover: var(--tide-hover);
+  --color-glow: var(--tide-glow);
+  --color-code: var(--tide-code-bg);
+  --color-code-ink: var(--tide-code-ink);
+  --color-code-dim: var(--tide-code-dim);
+  --color-code-key: var(--tide-code-key);
+  --color-code-str: var(--tide-code-str);
+  --color-code-num: var(--tide-code-num);
+  --color-threat: var(--type-threat);
+  --color-objective: var(--type-objective);
+  --color-signal: var(--type-signal);
+  --color-rule: var(--type-rule);
+  --color-vocab: var(--type-vocab);
+  --shadow-float: var(--tide-float);
 }
 
 @layer base {
   * {
-    @apply border-border;
+    border-color: var(--tide-border);
+  }
+
+  html,
+  body {
+    background-color: var(--tide-band);
+    color: var(--tide-ink);
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: color-mix(in srgb, var(--tide-accent) 22%, transparent);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--tide-accent);
+    outline-offset: 2px;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: default;
   }
 }
 
 @layer components {
-  .explorer-interactive {
+  /* Panels: content that needs a frame. */
+  .tide-panel {
+    border-radius: 1rem;
+    border: 1px solid var(--tide-border);
+    background-color: var(--tide-panel);
+  }
+
+  /* The header: a glass pill, as on opentide.org. */
+  .tide-pill {
+    border-radius: 1.625rem;
+    border: 1px solid var(--tide-border);
+    background-color: color-mix(in srgb, var(--tide-bg) 82%, transparent);
+    -webkit-backdrop-filter: blur(18px) saturate(1.6);
+    backdrop-filter: blur(18px) saturate(1.6);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.5),
+      0 10px 30px -20px rgb(0 20 80 / 0.35);
+  }
+
+  .dark .tide-pill {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.07),
+      0 18px 40px -22px rgb(0 0 0 / 0.9);
+  }
+
+  .tide-pill-icon {
+    display: inline-flex;
+    width: 2.25rem;
+    height: 2.25rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    color: var(--tide-muted);
     transition:
-      opacity var(--motion-fast) var(--motion-ease),
-      border-color var(--motion-fast) var(--motion-ease),
-      background-color var(--motion-fast) var(--motion-ease),
-      color var(--motion-fast) var(--motion-ease),
-      box-shadow var(--motion-fast) var(--motion-ease);
+      background-color 0.2s,
+      color 0.2s;
   }
 
-  .explorer-view-switcher-pill {
+  .tide-pill-icon:hover,
+  .tide-pill-icon[aria-pressed="true"],
+  .tide-pill-icon[aria-expanded="true"] {
+    background-color: var(--tide-hover);
+    color: var(--tide-ink);
+  }
+
+  .tide-pill-cta {
+    display: inline-flex;
+    height: 2.25rem;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: 9999px;
+    background-color: var(--tide-accent);
+    padding: 0 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--tide-accent-fg);
+    box-shadow: 0 8px 18px -10px var(--tide-btn-shadow);
+    transition: background-color 0.2s;
+  }
+
+  .tide-pill-cta:hover {
+    background-color: var(--tide-accent-lift);
+  }
+
+  /* A segmented control; the highlight slides under the chosen option. */
+  .tide-segment {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    background-color: color-mix(in srgb, var(--tide-ink) 5%, transparent);
+    padding: 0.1875rem;
+  }
+
+  .tide-segment-mark {
+    position: absolute;
+    top: 0.1875rem;
+    bottom: 0.1875rem;
+    left: 0;
+    border-radius: 9999px;
+    background-color: var(--tide-panel);
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.08),
+      0 0 0 1px var(--tide-border);
     transition:
-      transform var(--motion-fast) ease-out,
-      width var(--motion-fast) ease-out;
+      transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+      width 0.35s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  .explorer-view-panel {
-    animation: explorer-view-fade-in var(--motion-fast) ease-out forwards;
+  .dark .tide-segment-mark {
+    background-color: color-mix(in srgb, var(--tide-ink) 12%, var(--tide-panel));
+    box-shadow: 0 0 0 1px var(--tide-border);
   }
 
-  @keyframes explorer-view-fade-in {
-    from {
-      opacity: 0;
-    }
-
-    to {
-      opacity: 1;
-    }
+  .tide-segment-option {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-radius: 9999px;
+    color: var(--tide-subtle);
+    transition: color 0.2s;
   }
 
-  /* LIST view — solid panels so dotted grid never bleeds through */
-  .explorer-list-view {
-    background-color: var(--color-background);
+  .tide-segment-option:hover,
+  .tide-segment-option[aria-selected="true"],
+  .tide-segment-option[aria-pressed="true"] {
+    color: var(--tide-ink);
   }
 
-  /* ATT&CK matrix — solid panels so dotted grid never bleeds through */
-  .explorer-attack-view {
-    background-color: var(--color-background);
+  .tide-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 0.5rem;
+    background-color: var(--tide-accent);
+    padding: 0.5rem 0.875rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--tide-accent-fg);
+    box-shadow: 0 0 0 1px var(--tide-btn-shadow);
+    transition: background-color 0.2s cubic-bezier(0.25, 1, 0.5, 1);
   }
 
-  .explorer-attack-column {
-    background-color: var(--color-card);
-    border-color: var(--color-border);
+  .tide-btn-primary:hover {
+    background-color: var(--tide-accent-lift);
   }
 
-  .explorer-attack-column-header {
-    background-color: var(--color-card);
-    border-color: var(--color-border);
-    color: var(--color-foreground);
+  .tide-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--tide-border);
+    background-color: var(--tide-panel);
+    padding: 0.375rem 0.7rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--tide-muted);
+    transition:
+      border-color 0.2s,
+      color 0.2s,
+      background-color 0.2s;
   }
 
-  .explorer-attack-technique-covered {
-    background-color: color-mix(in srgb, var(--color-primary) 14%, var(--color-card));
-    border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-border));
+  .tide-btn-secondary:hover {
+    border-color: color-mix(in srgb, var(--tide-accent) 45%, transparent);
+    color: var(--tide-ink);
   }
 
-  .explorer-attack-technique-covered:hover {
-    background-color: color-mix(in srgb, var(--color-primary) 20%, var(--color-card));
-    border-color: color-mix(in srgb, var(--color-primary) 55%, var(--color-border));
+  /* Real artefacts: deep-tide navy in both themes. */
+  .tide-code {
+    border-radius: 0.875rem;
+    background-color: var(--tide-code-bg);
+    color: var(--tide-code-ink);
+    box-shadow: 0 0 0 1px var(--tide-border);
   }
 
-  .explorer-attack-technique-uncovered {
-    background-color: var(--color-muted);
-    border-color: var(--color-border);
+  .tide-code .tok-key {
+    color: var(--tide-code-key);
+  }
+  .tide-code .tok-str {
+    color: var(--tide-code-str);
+  }
+  .tide-code .tok-num {
+    color: var(--tide-code-num);
+  }
+  .tide-code .tok-kw {
+    color: var(--tide-code-key);
+    font-weight: 600;
+  }
+  .tide-code .tok-fn {
+    color: #c9b6ff;
+  }
+  .tide-code .tok-op,
+  .tide-code .tok-punct {
+    color: var(--tide-code-dim);
+  }
+  .tide-code .tok-comment {
+    color: color-mix(in srgb, var(--tide-code-dim) 75%, transparent);
+    font-style: italic;
   }
 
-  .explorer-attack-technique-uncovered:hover {
-    background-color: color-mix(in srgb, var(--color-muted-foreground) 10%, var(--color-muted));
+  /* Thin themed scrollbars. */
+  .tide-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--tide-ink) 22%, transparent) transparent;
   }
 
-  .explorer-attack-expand {
-    background-color: var(--color-background);
-    border-color: var(--color-border);
+  .tide-scroll::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
   }
 
-  .explorer-attack-object-btn:hover {
-    background-color: var(--color-muted);
+  .tide-scroll::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    background-color: color-mix(in srgb, var(--tide-ink) 22%, transparent);
   }
 
-  .explorer-list-column {
-    background-color: var(--color-background);
+  .tide-scroll::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in srgb, var(--tide-ink) 38%, transparent);
   }
 
-  .explorer-list-column-scroll {
-    background-color: var(--color-background);
+  .tide-code .tide-scroll,
+  .tide-code.tide-scroll {
+    scrollbar-color: rgb(232 240 255 / 0.25) transparent;
   }
 
-  .list-row-default {
-    border-color: var(--color-border);
-    background-color: var(--color-card);
-  }
-
-  .list-row-default:hover {
-    border-color: var(--color-border);
-    background-color: var(--color-muted);
-  }
-
-  .list-row-muted {
-    border-color: var(--color-border);
-    background-color: var(--color-muted);
-    color: var(--color-muted-foreground);
-  }
-
-  .list-row-dimmed {
-    border-color: var(--color-border);
-    background-color: var(--color-muted);
-  }
-
-  .list-row-preview {
-    border-color: var(--color-border);
-    background-color: var(--color-accent);
-  }
-
-  .list-row-hover-target {
-    border-color: var(--color-primary);
-    background-color: var(--color-muted);
-    @apply ring-1 ring-primary;
-  }
-
-  .list-row-selected-threat {
-    background-color: color-mix(in srgb, var(--color-threat) 22%, var(--color-card));
-    border-color: color-mix(in srgb, var(--color-threat) 55%, var(--color-border));
-    @apply ring-1 ring-primary;
-  }
-
-  .list-row-selected-objective {
-    background-color: color-mix(in srgb, var(--color-objective) 22%, var(--color-card));
-    border-color: color-mix(in srgb, var(--color-objective) 55%, var(--color-border));
-    @apply ring-1 ring-primary;
-  }
-
-  .list-row-selected-signal {
-    background-color: color-mix(in srgb, var(--color-signal) 22%, var(--color-card));
-    border-color: color-mix(in srgb, var(--color-signal) 55%, var(--color-border));
-    @apply ring-1 ring-primary;
-  }
-
-  .list-row-selected-rule {
-    background-color: color-mix(in srgb, var(--color-rule) 22%, var(--color-card));
-    border-color: color-mix(in srgb, var(--color-rule) 55%, var(--color-border));
-    @apply ring-1 ring-primary;
-  }
-
-  /* Radix ScrollArea defaults to display:table on inner wrapper — clips wrapped text */
-  [data-radix-scroll-area-viewport] > div {
-    display: block !important;
-    min-width: 0 !important;
-    max-width: 100%;
-  }
-
-  .explorer-grid-overview {
-    grid-template-columns: 1fr auto;
-    grid-template-rows: 1fr auto;
-    grid-template-areas:
-      "graph graph"
-      "search controls";
-  }
-
-  .explorer-area-graph {
-    grid-area: graph;
-  }
-
-  .explorer-area-search {
-    grid-area: search;
-  }
-
-  .explorer-area-controls {
-    grid-area: controls;
-  }
-
-  /* Selected layout uses flex in explorer-layout.tsx */
-  .explorer-grid-bg {
-    background-color: var(--color-background);
+  /* A soft wash of the band behind the graph, with a faint grid of the sea's glyph rows. */
+  .tide-stage-grid {
+    background-color: var(--tide-panel);
     background-image: radial-gradient(
       circle,
-      color-mix(in srgb, var(--color-border) 45%, transparent) 1px,
-      transparent 1px
+      color-mix(in srgb, var(--tide-ink) 12%, transparent) 1px,
+      transparent 1.2px
     );
     background-size: 22px 22px;
+    background-position: -11px -11px;
   }
 
-  .explorer-graph-grid-bg {
-    @apply bg-background;
-    background-image: radial-gradient(
-      circle,
-      color-mix(in srgb, var(--color-muted-foreground) 32%, transparent) 1px,
-      transparent 1px
-    );
-    background-size: 20px 20px;
-  }
-
-  /* Sigma defaults to opaque white — keep transparent so parent dots show through */
-  .explorer-graph-grid-bg .react-sigma {
-    --sigma-background-color: transparent;
-    --graph-chaining-color: #e8a838;
-    --graph-canvas-bg: var(--color-background);
-    --graph-card-bg: var(--color-card);
-    --graph-card-border: var(--color-border);
-    --graph-foreground: var(--color-foreground);
-    background-color: transparent;
-  }
-
-  .explorer-graph-grid-bg .sigma-container,
-  .explorer-graph-grid-bg .sigma-container canvas {
-    background: transparent !important;
-  }
-
-  /* SVG overlays (chaining edges, killchain boxes) sit behind the WebGL canvas */
-  .explorer-graph-grid-bg .react-sigma.sigma-graph > .sigma-container {
-    position: relative;
-    z-index: 2;
-  }
-
-  .explorer-graph-grid-bg .react-sigma.sigma-graph > .graph-canvas-underlay {
-    z-index: 1;
-  }
-
-  .edge-dash-animate {
-    animation: edge-dash-march 0.75s linear infinite;
-  }
-
-  .markdown-content {
-    @apply max-w-full break-words;
+  .markdown {
     overflow-wrap: anywhere;
+    color: var(--tide-muted);
+    font-size: 0.875rem;
+    line-height: 1.65;
   }
 
-  .markdown-content p {
-    @apply mb-2 last:mb-0;
+  .markdown p {
+    margin-bottom: 0.65em;
   }
 
-  .markdown-content ul {
-    @apply mb-2 list-disc space-y-1 pl-4 last:mb-0;
+  .markdown p:last-child,
+  .markdown ul:last-child,
+  .markdown ol:last-child {
+    margin-bottom: 0;
   }
 
-  .markdown-content ol {
-    @apply mb-2 list-decimal space-y-1 pl-4 last:mb-0;
+  .markdown ul {
+    margin-bottom: 0.65em;
+    list-style: disc;
+    padding-left: 1.1rem;
   }
 
-  .markdown-content code {
-    @apply rounded bg-muted px-1 py-0.5 font-mono text-[0.85em];
+  .markdown ol {
+    margin-bottom: 0.65em;
+    list-style: decimal;
+    padding-left: 1.1rem;
   }
 
-  .markdown-content pre {
-    @apply mb-2 max-w-full overflow-x-auto rounded-lg border border-border bg-muted/40 p-3 font-mono text-xs whitespace-pre-wrap break-words last:mb-0;
+  .markdown li + li {
+    margin-top: 0.2em;
   }
 
-  .markdown-content pre code {
-    @apply whitespace-pre-wrap break-words;
+  .markdown strong {
+    color: var(--tide-ink);
+    font-weight: 600;
   }
 
-  .markdown-content a {
-    @apply text-primary underline-offset-2 hover:underline;
+  .markdown code {
+    border-radius: 0.3rem;
+    background-color: color-mix(in srgb, var(--tide-ink) 6%, transparent);
+    padding: 0.05rem 0.3rem;
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    color: var(--tide-ink);
   }
 
-  .markdown-content h1,
-  .markdown-content h2,
-  .markdown-content h3 {
-    @apply mb-2 font-semibold last:mb-0;
+  .markdown pre {
+    margin-bottom: 0.65em;
+    overflow-x: auto;
+    border-radius: 0.6rem;
+    background-color: var(--tide-code-bg);
+    padding: 0.75rem;
+    color: var(--tide-code-ink);
+    font-size: 0.75rem;
+  }
+
+  .markdown pre code {
+    background: none;
+    padding: 0;
+    color: inherit;
+  }
+
+  .markdown a {
+    color: var(--tide-accent);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--tide-accent) 35%, transparent);
+    text-underline-offset: 2px;
+  }
+
+  .markdown h1,
+  .markdown h2,
+  .markdown h3,
+  .markdown h4 {
+    margin-bottom: 0.4em;
+    color: var(--tide-ink);
+    font-weight: 600;
   }
 }
 
-@keyframes edge-dash-march {
+/* Motion. Every endless animation stops, and every reveal shows its end state, for reduced
+   motion. */
+
+@keyframes tide-fade-slide {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
   to {
-    stroke-dashoffset: -22;
+    opacity: 1;
+    transform: none;
   }
 }
 
-/* Dialog — opacity + transform only; backdrop blur stays static on overlay */
+.tide-fade-slide {
+  animation: tide-fade-slide 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes tide-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.tide-slide-in {
+  animation: tide-slide-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes tide-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+.tide-sheet-in {
+  animation: tide-sheet-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Edges draw in once; the links of the focus carry a moving dash. */
+.tide-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: tide-draw 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes tide-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes tide-flow {
+  to {
+    stroke-dashoffset: -18;
+  }
+}
+
+.tide-flow {
+  stroke-dasharray: 4 14;
+  stroke-linecap: round;
+  animation: tide-flow 0.8s linear infinite;
+}
+
+@keyframes tide-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  80%,
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.tide-ping {
+  animation: tide-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes tide-ripple {
+  0% {
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 0.85;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.2);
+    opacity: 0;
+  }
+}
+
+.tide-ripple {
+  animation: tide-ripple 2.2s cubic-bezier(0.2, 0.6, 0.35, 1) infinite;
+}
+
+@keyframes tide-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+.tide-shimmer {
+  animation: tide-shimmer 1.4s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+
+@keyframes tide-wave {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.35;
+  }
+  50% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+
+.tide-wave {
+  animation: tide-wave 1.6s ease-in-out infinite;
+}
+
+/* Dialogs: opacity and transform only. */
 @keyframes dialog-overlay-in {
   from {
     opacity: 0;
@@ -325,43 +597,19 @@
   }
 }
 
-@keyframes dialog-overlay-out {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
-}
-
 @keyframes dialog-content-in {
   from {
     opacity: 0;
-    transform: translate(-50%, calc(-50% + 8px)) scale(0.96);
+    transform: translate(-50%, calc(-50% + 8px)) scale(0.97);
   }
   to {
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
-  }
-}
-
-@keyframes dialog-content-out {
-  from {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: translate(-50%, calc(-50% + 8px)) scale(0.96);
   }
 }
 
 .dialog-overlay[data-state="open"] {
-  animation: dialog-overlay-in var(--motion-fast) ease-out forwards;
-}
-
-.dialog-overlay[data-state="closed"] {
-  animation: dialog-overlay-out var(--motion-fast) ease-out forwards;
+  animation: dialog-overlay-in 160ms ease-out both;
 }
 
 .dialog-content {
@@ -369,18 +617,73 @@
 }
 
 .dialog-content[data-state="open"] {
-  animation: dialog-content-in var(--motion-fast) ease-out forwards;
+  animation: dialog-content-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.dialog-content[data-state="closed"] {
-  animation: dialog-content-out var(--motion-fast) ease-out forwards;
+@keyframes dialog-top-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+.dialog-content-top {
+  transform: translate(-50%, 0);
+}
+
+.dialog-content-top[data-state="open"] {
+  animation: dialog-top-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
+  .tide-fade-slide,
+  .tide-slide-in,
+  .tide-sheet-in,
+  .tide-draw,
+  .dialog-overlay[data-state="open"],
+  .dialog-content[data-state="open"],
+  .dialog-content-top[data-state="open"] {
+    animation: none;
   }
+
+  .tide-draw {
+    stroke-dashoffset: 0;
+  }
+
+  .tide-flow,
+  .tide-ping,
+  .tide-ripple,
+  .tide-shimmer,
+  .tide-wave {
+    animation: none;
+  }
+
+  .tide-segment-mark {
+    transition: none;
+  }
+}
+
+/* Sigma draws on transparent canvases over the stage grid. */
+.sigma-stage .sigma-container,
+.sigma-stage .sigma-container canvas {
+  background: transparent !important;
+}
+
+.sigma-stage .react-sigma {
+  --sigma-background-color: transparent;
+  background-color: transparent;
+}
+
+/* Overlays (pulse ring, kill chain bands) sit with the canvas, not above the controls. */
+.sigma-stage .graph-underlay {
+  z-index: 1;
+}
+
+.sigma-stage .react-sigma > .sigma-container {
+  position: relative;
+  z-index: 2;
 }

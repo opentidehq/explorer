@@ -1,10 +1,15 @@
-import { Data } from "effect";
 import type { ModelsIndex, ObjectBody, ObjectType } from "./types";
 
-class GraphError extends Data.TaggedError("GraphError")<{
-  readonly message: string;
+export class GraphError extends Error {
+  readonly _tag = "GraphError";
   readonly uuid?: string;
-}> {}
+
+  constructor({ message, uuid }: { message: string; uuid?: string }) {
+    super(uuid ? `${message}: ${uuid}` : message);
+    this.name = "GraphError";
+    this.uuid = uuid;
+  }
+}
 
 export interface GraphContext {
   readonly models: ModelsIndex;
@@ -53,6 +58,9 @@ function asStringArray(value: unknown): string[] {
   }
   return [];
 }
+
+/** ATT&CK keys across schema generations: specifications pin `mitre_attack`. */
+export const ATTACK_KEYS = ["mitre_attack", "att&ck", "attack"];
 
 function ownTechniqueIds(
   section: ObjectBody | undefined,
@@ -144,38 +152,64 @@ function embeddedObjectiveSignals(
   return ids;
 }
 
-export function childs(ctx: GraphContext, modelId: string): string[] {
-  const modelType = getType(ctx, modelId);
-  if (!modelType) return [];
+/**
+ * Reverse references, per parent type: who names this object as a parent. Built once per
+ * context (contexts are snapshots of an immutable bundle), so `childs` is a lookup instead of
+ * a scan of every model.
+ */
+const childIndexCache = new WeakMap<
+  GraphContext,
+  Map<ObjectType, Map<string, string[]>>
+>();
 
-  const mapping = CHILD_MAPPINGS[modelType];
-  if (!mapping) return [];
+function childIndex(ctx: GraphContext): Map<ObjectType, Map<string, string[]>> {
+  let index = childIndexCache.get(ctx);
+  if (index) return index;
 
-  const implementations: string[] = [];
+  index = new Map();
+  for (const [parentType, mapping] of Object.entries(CHILD_MAPPINGS) as Array<
+    [ObjectType, (typeof CHILD_MAPPINGS)[string]]
+  >) {
+    const byParent = new Map<string, string[]>();
+    const link = (parentId: string, childId: string) => {
+      const list = byParent.get(parentId);
+      if (!list) byParent.set(parentId, [childId]);
+      else if (!list.includes(childId)) list.push(childId);
+    };
 
-  for (const childType of mapping.child_types) {
-    const childIndex = ctx.models[childType as ObjectType] ?? {};
-    for (const childId of Object.keys(childIndex)) {
-      const childData = childIndex[childId];
-      if (!childData) continue;
-
-      if (mapping.data_sections) {
-        for (const section of mapping.data_sections) {
-          const sectionData = childData[section] as ObjectBody | undefined;
+    for (const childType of mapping.child_types) {
+      const models = ctx.models[childType as ObjectType] ?? {};
+      for (const [childId, childData] of Object.entries(models)) {
+        if (!childData) continue;
+        const sources = mapping.data_sections
+          ? mapping.data_sections.map(
+              (section) => childData[section] as ObjectBody | undefined,
+            )
+          : [childData];
+        for (const source of sources) {
           for (const reference of mapping.references) {
-            const refs = asStringArray(sectionData?.[reference]);
-            if (new Set(refs).has(modelId)) implementations.push(childId);
+            for (const parentId of asStringArray(source?.[reference])) {
+              link(parentId, childId);
+            }
           }
-        }
-      } else {
-        for (const reference of mapping.references) {
-          const refs = asStringArray(childData[reference]);
-          if (new Set(refs).has(modelId)) implementations.push(childId);
         }
       }
     }
+    index.set(parentType, byParent);
   }
 
+  childIndexCache.set(ctx, index);
+  return index;
+}
+
+export function childs(ctx: GraphContext, modelId: string): string[] {
+  const modelType = getType(ctx, modelId);
+  if (!modelType) return [];
+  if (!CHILD_MAPPINGS[modelType]) return [];
+
+  const implementations = [
+    ...(childIndex(ctx).get(modelType)?.get(modelId) ?? []),
+  ];
   if (modelType === "objective") {
     implementations.push(...embeddedObjectiveSignals(ctx, modelId));
   }
@@ -302,7 +336,7 @@ export function techniquesResolver(
 
   if (modelType === "objective") {
     const objective = modelBody["objective"] as ObjectBody | undefined;
-    const own = ownTechniqueIds(objective, ["attack", "att&ck"]);
+    const own = ownTechniqueIds(objective, ATTACK_KEYS);
     if (own.length > 0) {
       techniques = own;
     } else {
@@ -317,7 +351,7 @@ export function techniquesResolver(
 
   if (modelType === "threat") {
     const threat = modelBody["threat"] as ObjectBody | undefined;
-    techniques = ownTechniqueIds(threat, ["att&ck", "attack"]);
+    techniques = ownTechniqueIds(threat, ATTACK_KEYS);
   }
 
   return [...new Set(techniques)];

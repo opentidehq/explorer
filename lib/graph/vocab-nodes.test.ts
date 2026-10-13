@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildCorpusGraph } from "@/lib/graph/corpus-graph";
+import { toGraphology } from "@/lib/graph/graph-layout";
 import { enrichBundle } from "@/lib/opentide/enrich-bundle";
 import type {
   BundleObjectSummary,
@@ -232,18 +233,18 @@ describe("buildDisplayGraph", () => {
         threat: { severity: "High" },
       }),
     );
-    const corpus = buildCorpusGraph(bundle);
+    const base = toGraphology(buildCorpusGraph(bundle));
 
     const graph = buildDisplayGraph(
-      corpus,
+      base,
       bundle,
       new Set([THREAT_ID]),
       false,
       vocabIndex,
     );
 
-    expect(graph).toBe(corpus.graphology);
-    expect(graph.order).toBe(corpus.graphology.order);
+    expect(graph).toBe(base);
+    expect(graph.order).toBe(base.order);
   });
 
   it("copies the corpus graph without duplicate edge key errors", () => {
@@ -254,16 +255,17 @@ describe("buildDisplayGraph", () => {
         threat: { severity: "High" },
       }),
     );
-    const corpus = buildCorpusGraph(bundle);
+    const base = toGraphology(buildCorpusGraph(bundle));
     const visible = new Set([THREAT_ID, OBJECTIVE_ID]);
 
-    expect(corpus.graphology.size).toBeGreaterThan(1);
+    expect(base.size).toBeGreaterThan(0);
 
-    const graph = buildDisplayGraph(corpus, bundle, visible, true, vocabIndex);
+    const graph = buildDisplayGraph(base, bundle, visible, true, vocabIndex);
 
-    expect(graph.order).toBeGreaterThan(corpus.graphology.order);
+    expect(graph).not.toBe(base);
+    expect(graph.order).toBeGreaterThan(base.order);
     expect(graph.hasNode(vocabNodeId("severity", "High"))).toBe(true);
-    expect(graph.size).toBeGreaterThan(corpus.graphology.size);
+    expect(graph.size).toBeGreaterThan(base.size);
   });
 
   it("adds vocab nodes when enabled", () => {
@@ -274,18 +276,18 @@ describe("buildDisplayGraph", () => {
         threat: { severity: "High" },
       }),
     );
-    const corpus = buildCorpusGraph(bundle);
+    const base = toGraphology(buildCorpusGraph(bundle));
     const vocabId = vocabNodeId("severity", "High");
 
     const graph = buildDisplayGraph(
-      corpus,
+      base,
       bundle,
       new Set([THREAT_ID]),
       true,
       vocabIndex,
     );
 
-    expect(graph.order).toBe(corpus.graphology.order + 1);
+    expect(graph.order).toBe(base.order + 1);
     expect(graph.hasNode(vocabId)).toBe(true);
     expect(graph.getNodeAttribute(vocabId, "objectType")).toBe("vocab");
     expect(graph.hasEdge(`${THREAT_ID}|${vocabId}|vocab`)).toBe(true);

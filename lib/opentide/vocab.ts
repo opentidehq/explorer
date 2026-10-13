@@ -11,6 +11,69 @@ export interface VocabTerm {
 
 export type VocabIndex = Record<string, Record<string, VocabTerm>>;
 
+/**
+ * `explorer.vocab.json`: each term once, keys pointing at it by position.
+ * Written by scripts/lib/slim-vocab.mjs.
+ */
+export interface SlimVocab {
+  version: number;
+  vocabs: Record<string, { terms: VocabTerm[]; keys: Record<string, number> }>;
+}
+
+export function isSlimVocab(value: unknown): value is SlimVocab {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    "vocabs" in value &&
+    typeof (value as { vocabs: unknown }).vocabs === "object"
+  );
+}
+
+/** Expand a slim vocab into the keyed index; aliases share one term object. */
+export function expandSlimVocab(slim: SlimVocab): VocabIndex {
+  const index: VocabIndex = {};
+  for (const [bucket, { terms, keys }] of Object.entries(slim.vocabs)) {
+    const entries: Record<string, VocabTerm> = {};
+    for (const [key, position] of Object.entries(keys)) {
+      const term = terms[position];
+      if (term) entries[key] = term;
+    }
+    index[bucket] = entries;
+  }
+  return index;
+}
+
+/**
+ * Case-insensitive handles per bucket — key, name, the name's last `::` segment, aliases —
+ * in the order the original linear scan tried them, so the first match wins as before.
+ */
+const lookupCache = new WeakMap<
+  Record<string, VocabTerm>,
+  Map<string, VocabTerm>
+>();
+
+function bucketHandles(
+  bucket: Record<string, VocabTerm>,
+): Map<string, VocabTerm> {
+  let handles = lookupCache.get(bucket);
+  if (handles) return handles;
+  handles = new Map();
+  for (const [key, term] of Object.entries(bucket)) {
+    const candidates = [
+      key,
+      term.name,
+      term.name.split("::").pop() ?? "",
+      ...(term.aliases ?? []),
+    ];
+    for (const candidate of candidates) {
+      const handle = candidate.toLowerCase();
+      if (handle && !handles.has(handle)) handles.set(handle, term);
+    }
+  }
+  lookupCache.set(bucket, handles);
+  return handles;
+}
+
 export function lookupVocabTerm(
   index: VocabIndex,
   vocab: string,
@@ -21,19 +84,7 @@ export function lookupVocabTerm(
   const trimmed = value.trim();
   const direct = bucket[value] ?? bucket[trimmed];
   if (direct) return direct;
-
-  const lower = trimmed.toLowerCase();
-  for (const [key, term] of Object.entries(bucket)) {
-    if (key.toLowerCase() === lower) return term;
-    if (term.name.toLowerCase() === lower) return term;
-    const leaf = term.name.split("::").pop();
-    if (leaf?.toLowerCase() === lower) return term;
-    if (term.aliases?.some((alias) => alias.toLowerCase() === lower)) {
-      return term;
-    }
-  }
-
-  return undefined;
+  return bucketHandles(bucket).get(trimmed.toLowerCase());
 }
 
 /** Strip ATT&CK matrix prefixes for compact pill labels. */

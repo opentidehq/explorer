@@ -55,7 +55,7 @@ function parseRelationValue(raw: string): RelationMode | undefined {
 }
 
 const FILTER_FIELD_KEYS =
-  "type|platform|status|technique|actor|uuid|schema|tlp|relation|mode|deploy|staging|production";
+  "type|platform|status|technique|att&ck|attack|actor|uuid|schema|tlp|relation|mode|deploy|staging|production";
 
 /** Strip boolean joiners; implicit AND between adjacent clauses is unchanged. */
 function stripBooleanJoiners(text: string): string {
@@ -99,6 +99,8 @@ function applyClause(
       if (value === "production") acc.productionOnly = true;
       break;
     case "technique":
+    case "attack":
+    case "att&ck":
       acc.techniques.push(raw.toUpperCase());
       break;
     case "actor":
@@ -249,4 +251,76 @@ export function formatFilterTokens(filters: CatalogFilters): string {
   if (filters.query.trim()) parts.push(filters.query.trim());
 
   return parts.join(" ");
+}
+
+const FIELD_ALIASES: Record<string, string[]> = {
+  technique: ["technique", "attack", "att&ck"],
+  relation: ["relation", "mode"],
+};
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Matches `field:value` (any alias of the field, quoted or not) as a whole token. */
+function clausePattern(field: string, value: string): RegExp {
+  const names = (FIELD_ALIASES[field] ?? [field]).map(escapeRegExp).join("|");
+  const v = escapeRegExp(value);
+  return new RegExp(`(^|\\s)(?:${names})(?::)(?:"${v}"|${v})(?=\\s|$)`, "i");
+}
+
+export function hasClause(
+  query: string,
+  field: string,
+  value: string,
+): boolean {
+  return clausePattern(field, value).test(query);
+}
+
+/** Add `field:value` to a search, or take it out when it is already there. */
+export function toggleClause(
+  query: string,
+  field: string,
+  value: string,
+): string {
+  const pattern = clausePattern(field, value);
+  if (pattern.test(query)) {
+    return query
+      .replace(new RegExp(pattern.source, "gi"), " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+  const quoted = /\s/.test(value) ? `"${value}"` : value;
+  return `${query.trim()} ${field}:${quoted}`.trim();
+}
+
+/** Remove the free-text part of a search and keep its clauses. */
+export function withoutFreeText(
+  query: string,
+  filters: CatalogFilters,
+): string {
+  const free = filters.query.trim();
+  if (!free) return query;
+  let next = query;
+  for (const word of free.split(/\s+/)) {
+    next = next.replace(
+      new RegExp(`(^|\\s)${escapeRegExp(word)}(?=\\s|$)`, "i"),
+      " ",
+    );
+  }
+  return next.replace(/\s+/g, " ").trim();
+}
+
+/** Remove a deployment filter however it was written: bare word, `deploy:` or `status:`. */
+export function withoutDeploy(
+  query: string,
+  which: "staging" | "production",
+): string {
+  return query
+    .replace(
+      new RegExp(`(^|\\s)(?:(?:deploy|status):)?${which}(?=\\s|$)`, "gi"),
+      " ",
+    )
+    .replace(/\s+/g, " ")
+    .trim();
 }

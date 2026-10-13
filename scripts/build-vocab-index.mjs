@@ -21,7 +21,7 @@ export function buildVocabIndex(specsDir, outFile) {
   );
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1] ?? "")) {
   const specsDir = process.argv[2] ?? path.resolve(ROOT, "../specifications");
   const outFile =
     process.argv[3] ?? path.join(ROOT, "public/data/vocab.index.json");
