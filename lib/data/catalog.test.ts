@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { catalogDataUrl, normalizeExplorerBundle } from "@/lib/data/catalog";
-import { collectFilterOptions } from "@/lib/search/orama";
+import { collectFilterOptions } from "@/lib/search/engine";
 import type { ExplorerBundle } from "@/lib/opentide/types";
 
 describe("catalogDataUrl", () => {

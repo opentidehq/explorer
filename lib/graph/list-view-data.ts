@@ -28,9 +28,17 @@ export interface ListViewObjectiveRow {
   ruleIds: string[];
 }
 
+/** A signal shown on its own: in view while the objective that holds it is not. */
+export interface ListViewLooseSignal extends ListViewItem {
+  objectiveId: string | null;
+}
+
 export interface ListViewModel {
   threats: ListViewItem[];
   objectives: ListViewObjectiveRow[];
+  /** Visible signals whose objective is out of view. */
+  looseSignals: ListViewLooseSignal[];
+  /** Every visible rule, whether or not an objective in view leads to it. */
   rules: ListViewItem[];
   links: ListViewLink[];
 }
@@ -89,13 +97,16 @@ function signalsForObjective(ctx: GraphContext, objectiveId: string): string[] {
   );
 }
 
-/** Build sorted three-column list model and connector edges for visible corpus objects. */
+/**
+ * Build the sorted three-column model and connector edges for the visible objects. Every
+ * visible object has a place: rules stand on their own (one may implement a signal whose
+ * objective is out of view), and so do signals whose objective is out of view.
+ */
 export function buildListViewModel(
   ctx: GraphContext,
   summaries: BundleObjectSummary[],
   visibleIds: Set<string>,
 ): ListViewModel {
-  const summaryById = new Map(summaries.map((s) => [s.uuid, s]));
   const threats = sortByName(
     visibleSummaries(summaries, visibleIds, "threat").map(toItem),
   );
@@ -106,7 +117,7 @@ export function buildListViewModel(
   );
 
   const objectives: ListViewObjectiveRow[] = [];
-  const ruleIdSet = new Set<string>();
+  const nestedSignals = new Set<string>();
   const links: ListViewLink[] = [];
 
   for (const summary of objectiveSummaries) {
@@ -121,7 +132,7 @@ export function buildListViewModel(
       visibleIds.has(id),
     );
 
-    for (const ruleId of ruleIds) ruleIdSet.add(ruleId);
+    for (const signalId of signalIds) nestedSignals.add(signalId);
 
     const objective = toItem(summary);
     objectives.push({
@@ -154,14 +165,23 @@ export function buildListViewModel(
     }
   }
 
-  const rules = sortByName(
-    [...ruleIdSet]
-      .map((id) => summaryById.get(id))
-      .filter((s): s is BundleObjectSummary => s != null)
-      .map(toItem),
+  const looseSignals = sortByName(
+    visibleSummaries(summaries, visibleIds, "signal")
+      .filter((s) => !nestedSignals.has(s.uuid))
+      .map((s) => ({
+        ...toItem(s),
+        objectiveId:
+          parents(ctx, s.uuid).find(
+            (id) => getType(ctx, id, true) === "objective",
+          ) ?? null,
+      })),
   );
 
-  return { threats, objectives, rules, links };
+  const rules = sortByName(
+    visibleSummaries(summaries, visibleIds, "rule").map(toItem),
+  );
+
+  return { threats, objectives, looseSignals, rules, links };
 }
 
 function isObjectiveRowInFocus(

@@ -7,6 +7,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { buildVocabIndexFromDir } from "./lib/spec-toml.mjs";
+import { isMain } from "./lib/is-main.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -21,7 +22,7 @@ export function buildVocabIndex(specsDir, outFile) {
   );
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMain(import.meta.url)) {
   const specsDir = process.argv[2] ?? path.resolve(ROOT, "../specifications");
   const outFile =
     process.argv[3] ?? path.join(ROOT, "public/data/vocab.index.json");

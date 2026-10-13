@@ -2,28 +2,25 @@
 
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import { Button } from "@/components/ui/button";
-import { useIsClient } from "@/lib/hooks/use-is-client";
 
+/** One button; the icon follows the theme in CSS, so it is right before hydration. */
 export function ThemeToggle() {
-  const { theme, setTheme, resolvedTheme } = useTheme();
-  const mounted = useIsClient();
-
-  if (!mounted) {
-    return <div className="h-9 w-9 shrink-0 rounded-md" aria-hidden />;
-  }
-
-  const isDark = (resolvedTheme ?? theme) === "dark";
-
+  const { resolvedTheme, setTheme } = useTheme();
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="h-9 w-9"
-      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      onClick={() => setTheme(isDark ? "light" : "dark")}
+    <button
+      type="button"
+      aria-label="Toggle theme"
+      onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+      className="tide-pill-icon relative"
     >
-      {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-    </Button>
+      <Sun
+        className="size-4 transition-[opacity,rotate,scale] duration-500 dark:rotate-90 dark:scale-50 dark:opacity-0"
+        aria-hidden
+      />
+      <Moon
+        className="absolute size-4 -rotate-90 scale-50 opacity-0 transition-[opacity,rotate,scale] duration-500 dark:rotate-0 dark:scale-100 dark:opacity-100"
+        aria-hidden
+      />
+    </button>
   );
 }

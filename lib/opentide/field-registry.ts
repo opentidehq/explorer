@@ -50,7 +50,16 @@ function getValueAtPath(body: Record<string, unknown>, path: string): unknown {
   return current;
 }
 
+/**
+ * Corpus files and pin tables do not always agree on a path: specifications pin
+ * `threat.mitre_attack` while catalogues still write `att&ck` (threats) and `attack`
+ * (objectives). Each path falls back to its other spellings.
+ */
 const FIELD_PATH_FALLBACKS: Record<string, string[]> = {
+  "threat.mitre_attack": ["threat.att&ck", "threat.attack"],
+  "threat.att&ck": ["threat.mitre_attack", "threat.attack"],
+  "objective.mitre_attack": ["objective.attack", "objective.att&ck"],
+  "objective.attack": ["objective.mitre_attack", "objective.att&ck"],
   "objective.composition.strategy": ["composition.strategy"],
   "objective.composition.description": ["composition.description"],
   author: ["metadata.author"],

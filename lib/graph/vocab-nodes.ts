@@ -1,4 +1,4 @@
-import Graph from "graphology";
+import type Graph from "graphology";
 import {
   FIELD_REGISTRY,
   resolveFieldValue,
@@ -10,18 +10,9 @@ import type {
   ObjectBody,
   ObjectType,
 } from "@/lib/opentide/types";
-import type {
-  CorpusEdge,
-  CorpusGraph,
-  CorpusNode,
-} from "@/lib/graph/corpus-graph";
+import type { CorpusEdge, CorpusNode } from "@/lib/graph/corpus-graph";
 import { stableCoord } from "@/lib/graph/corpus-graph";
-import { nodeIconUrl } from "@/lib/graph/node-icons";
-import {
-  GRAPH_CANVAS_BG,
-  VOCAB_NODE_COLOR,
-  VOCAB_NODE_SIZE,
-} from "@/lib/graph/render-styles";
+import { VOCAB_NODE_SIZE } from "@/lib/graph/render-styles";
 import { buildEnrichedBody } from "@/lib/opentide/metadata-fields";
 import {
   findSurfaceTermsInText,
@@ -145,7 +136,6 @@ export function buildVocabGraphLayer(
       label,
       type: "vocab",
       vocabBucket: bucket,
-      color: VOCAB_NODE_COLOR,
       size: VOCAB_NODE_SIZE,
     });
     return id;
@@ -188,81 +178,72 @@ export function buildVocabGraphLayer(
   return { nodes: [...nodes.values()], edges };
 }
 
-function copyGraph(source: Graph): Graph {
-  return source.copy();
-}
-
-function positionVocabNodeNearSource(
-  graph: Graph,
-  vocabId: string,
-  sourceId: string,
-): void {
-  if (!graph.hasNode(sourceId)) {
-    graph.setNodeAttribute(vocabId, "x", stableCoord(vocabId, 0));
-    graph.setNodeAttribute(vocabId, "y", stableCoord(vocabId, 1));
-    return;
-  }
-
+/** Beside the object that names it: the same spot every time, in either layout. */
+function placeNearSource(graph: Graph, vocabId: string, sourceId: string) {
   const source = graph.getNodeAttributes(sourceId);
-  const sx = (source.x as number) ?? 0;
-  const sy = (source.y as number) ?? 0;
   const angle = stableCoord(vocabId, 0) * Math.PI * 2;
   const dist = 0.65 + (stableCoord(vocabId, 1) * 0.5 + 0.5) * 0.35;
-
-  graph.setNodeAttribute(vocabId, "x", sx + dist * Math.cos(angle));
-  graph.setNodeAttribute(vocabId, "y", sy + dist * Math.sin(angle));
+  const dx = dist * Math.cos(angle);
+  const dy = dist * Math.sin(angle);
+  const point: Record<string, number> = {
+    x: ((source.x as number | undefined) ?? 0) + dx,
+    y: ((source.y as number | undefined) ?? 0) + dy,
+  };
+  // Where it returns to when kill chain grouping ends.
+  if (typeof source.baseX === "number" && typeof source.baseY === "number") {
+    point.baseX = source.baseX + dx;
+    point.baseY = source.baseY + dy;
+  }
+  graph.mergeNodeAttributes(vocabId, point);
 }
 
-/** Merge an optional vocab layer onto a copy of the corpus graph for display. */
-export function buildDisplayGraph(
-  corpus: CorpusGraph,
-  bundle: ExplorerBundle,
-  visibleObjectIds: Set<string>,
-  showVocabNodes: boolean,
-  vocabIndex: VocabIndex,
-): Graph {
-  if (!showVocabNodes || visibleObjectIds.size === 0) {
-    return corpus.graphology;
-  }
+/**
+ * Bring a graph's vocabulary nodes in line with a layer, in place: add what is missing beside
+ * the object that names it, drop what the layer no longer has. Object nodes keep their
+ * positions, so a layout survives the vocabulary being shown, searched and hidden.
+ */
+export function syncVocabLayer(graph: Graph, layer: VocabGraphLayer): void {
+  const wantedNodes = new Set(layer.nodes.map((node) => node.id));
+  const wantedEdges = new Set(layer.edges.map((edge) => edge.id));
 
-  const layer = buildVocabGraphLayer(bundle, visibleObjectIds, vocabIndex);
-  if (layer.nodes.length === 0) {
-    return corpus.graphology;
-  }
+  const staleNodes: string[] = [];
+  graph.forEachNode((node) => {
+    if (isVocabNodeId(node) && !wantedNodes.has(node)) staleNodes.push(node);
+  });
+  for (const node of staleNodes) graph.dropNode(node);
 
-  const graph = copyGraph(corpus.graphology);
+  const staleEdges: string[] = [];
+  graph.forEachEdge((edge, attrs) => {
+    if (attrs.kind === "vocab" && !wantedEdges.has(edge)) staleEdges.push(edge);
+  });
+  for (const edge of staleEdges) graph.dropEdge(edge);
 
+  const added = new Set<string>();
   for (const node of layer.nodes) {
     if (graph.hasNode(node.id)) continue;
     graph.addNode(node.id, {
       label: node.label,
-      type: "image",
       objectType: "vocab",
       vocabBucket: node.vocabBucket,
-      color: GRAPH_CANVAS_BG,
       size: node.size,
-      image: nodeIconUrl("vocab"),
       x: stableCoord(node.id, 0),
       y: stableCoord(node.id, 1),
     });
+    added.add(node.id);
   }
 
   for (const edge of layer.edges) {
     if (!graph.hasNode(edge.source) || !graph.hasNode(edge.target)) continue;
+    if (added.delete(edge.target)) {
+      placeNearSource(graph, edge.target, edge.source);
+    }
     if (graph.hasEdge(edge.id)) continue;
-
-    positionVocabNodeNearSource(graph, edge.target, edge.source);
-
     graph.addDirectedEdgeWithKey(edge.id, edge.source, edge.target, {
       label: edge.label,
       kind: edge.kind,
-      type: "curvedArrow",
       size: 0.75,
-      color: "#a78bfa66",
     });
   }
-
-  return graph;
 }
 
 /** Visible ids including vocab nodes linked to visible objects. */

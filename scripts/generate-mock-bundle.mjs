@@ -2,17 +2,31 @@
 /**
  * Generates explorer export JSON from a local OpenTide corpus.
  * Used for dev builds and CI when `opentide generate explorer` is unavailable.
+ *
+ * Writes to public/data:
+ *   explorer.bundle.json  objects (once, in `flatIndex`), summaries, chaining, deployments
+ *   explorer.vocab.json   the vocabulary terms the client reads (see lib/slim-vocab.mjs)
  */
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
 import { codegenFromSpecs } from "./codegen-from-specs.mjs";
 import { resolveCodegenPolicy } from "./lib/codegen-policy.mjs";
-import { collectActorNames, techniqueList } from "./lib/corpus-fields.mjs";
+import {
+  collectActorNames,
+  normalizeRepoUrl,
+  techniqueList,
+} from "./lib/corpus-fields.mjs";
+import { collectCorpusValues, slimVocabIndex } from "./lib/slim-vocab.mjs";
+import { isMain } from "./lib/is-main.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
+
+/** Bundle layout version: 0.2 drops the `models` and `signals` copies of `flatIndex`. */
+const BUNDLE_VERSION = "0.2.0";
 
 function resolveCorpusRoot() {
   if (process.env.OPENTIDE_USE_FIXTURE === "1") {
@@ -35,7 +49,9 @@ function resolveCorpusRoot() {
 function walkYamlFiles(dir) {
   const files = [];
   if (!fs.existsSync(dir)) return files;
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+  for (const entry of fs
+    .readdirSync(dir, { withFileTypes: true })
+    .sort((a, b) => a.name.localeCompare(b.name))) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) files.push(...walkYamlFiles(full));
     else if (entry.name.endsWith(".yaml") || entry.name.endsWith(".yml"))
@@ -77,9 +93,9 @@ function getActors(body, type) {
   return collectActorNames(body?.threat?.actors ?? body?.actors ?? []);
 }
 
-function buildChainingIndex(models) {
+function buildChainingIndex(threats) {
   const chaining = {};
-  for (const threat of Object.values(models.threat)) {
+  for (const threat of threats) {
     const uuid = threat.metadata?.uuid;
     const links = threat.threat?.chaining ?? [];
     if (!uuid || !links.length) continue;
@@ -97,28 +113,43 @@ function buildChainingIndex(models) {
   return chaining;
 }
 
-function resolveTechniques(uuid, flatIndex, cache = new Map()) {
+/** ATT&CK keys across schema generations: `mitre_attack` (specs), `att&ck`, `attack`. */
+function ownTechniques(section) {
+  return techniqueList(
+    section?.mitre_attack,
+    section?.["att&ck"],
+    section?.attack,
+  );
+}
+
+function resolveTechniques(
+  uuid,
+  flatIndex,
+  cache = new Map(),
+  seen = new Set(),
+) {
   if (cache.has(uuid)) return cache.get(uuid);
+  // Malformed corpora can reference themselves; never recurse forever.
+  if (seen.has(uuid)) return [];
+  seen.add(uuid);
+
   const body = flatIndex[uuid];
   const type = inferType(body);
   let techniques = [];
 
   if (type === "threat") {
-    techniques = techniqueList(body?.threat?.["att&ck"], body?.threat?.attack);
+    techniques = ownTechniques(body?.threat);
   } else if (type === "objective") {
-    techniques = techniqueList(
-      body?.objective?.attack,
-      body?.objective?.["att&ck"],
-    );
+    techniques = ownTechniques(body?.objective);
     if (!techniques.length) {
       for (const parent of body?.objective?.threats ?? []) {
-        techniques.push(...resolveTechniques(parent, flatIndex, cache));
+        techniques.push(...resolveTechniques(parent, flatIndex, cache, seen));
       }
     }
   } else if (type === "rule") {
     const parent = body?.detection_model ?? body?.tags?.coretide;
     if (parent) {
-      techniques = resolveTechniques(parent, flatIndex, cache);
+      techniques = resolveTechniques(parent, flatIndex, cache, seen);
     }
   }
 
@@ -127,37 +158,43 @@ function resolveTechniques(uuid, flatIndex, cache = new Map()) {
   return techniques;
 }
 
-function countRelations(uuid, flatIndex) {
-  let count = 0;
-  const body = flatIndex[uuid];
-  const type = inferType(body);
-  if (type === "objective") {
-    count += (body?.objective?.threats ?? []).length;
-  }
-  if (type === "signal" || type === "rule") {
-    const parent = body?.parent ?? body?.detection_model;
-    if (parent) count += 1;
-  }
-  for (const [, obj] of Object.entries(flatIndex)) {
-    const t = inferType(obj);
-    if (t === "objective" && (obj?.objective?.threats ?? []).includes(uuid))
-      count += 1;
-    if (
-      (t === "signal" || t === "rule") &&
-      (obj?.parent === uuid || obj?.detection_model === uuid)
-    )
-      count += 1;
-  }
-  return count;
+function asList(value) {
+  if (value == null) return [];
+  return Array.isArray(value) ? value : [value];
 }
 
-function buildStagingIndex(models) {
+/** Direct parent and child links per object, counted once across the corpus. */
+function countRelations(flatIndex) {
+  const counts = new Map(Object.keys(flatIndex).map((uuid) => [uuid, 0]));
+  const bump = (uuid) => {
+    if (counts.has(uuid)) counts.set(uuid, counts.get(uuid) + 1);
+  };
+
+  for (const [uuid, body] of Object.entries(flatIndex)) {
+    const type = inferType(body);
+    if (type === "objective") {
+      for (const threat of asList(body?.objective?.threats)) {
+        bump(uuid);
+        bump(threat);
+      }
+    }
+    if (type === "signal" || type === "rule") {
+      for (const parent of asList(body?.parent ?? body?.detection_model)) {
+        bump(uuid);
+        bump(parent);
+      }
+    }
+  }
+  return counts;
+}
+
+function buildStagingIndex(rules) {
   const deployments = {};
   const platformSummary = {};
   const stagingObjects = new Set();
   const productionObjects = new Set();
 
-  for (const [uuid, body] of Object.entries(models.rule)) {
+  for (const [uuid, body] of rules) {
     const configs = body?.configurations ?? {};
     deployments[uuid] = {};
     for (const [platform, config] of Object.entries(configs)) {
@@ -189,21 +226,28 @@ function buildStagingIndex(models) {
   };
 }
 
-function buildSearchDocuments(summaries, flatIndex) {
-  return summaries.map((s) => ({
-    id: s.uuid,
-    uuid: s.uuid,
-    type: s.type,
-    name: s.name,
-    techniques: s.techniques,
-    actors: s.actors,
-    platforms: s.platforms,
-    schema: s.schema ?? "",
-    tlp: s.tlp ?? "",
-    status: s.status ?? "",
-    relatedCount: s.relatedCount,
-    content: JSON.stringify(flatIndex[s.uuid] ?? {}).slice(0, 4000),
-  }));
+function git(cwd, args) {
+  try {
+    return execFileSync("git", ["-C", cwd, ...args], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return "";
+  }
+}
+
+/** Where the corpus lives, so the explorer can link each object to its file. */
+function resolveSource(corpusRoot) {
+  const repository = normalizeRepoUrl(
+    process.env.EXPLORER_SOURCE_REPO ??
+      git(corpusRoot, ["config", "--get", "remote.origin.url"]),
+  );
+  if (!repository) return undefined;
+  const ref =
+    process.env.EXPLORER_SOURCE_REF ??
+    (git(corpusRoot, ["rev-parse", "HEAD"]) || "main");
+  return { repository, ref };
 }
 
 function runSchemaCodegen(corpusRoot) {
@@ -232,16 +276,39 @@ function runSchemaCodegen(corpusRoot) {
   codegenFromSpecs(specsDir);
 }
 
+function writeSlimVocab(outDir, objects) {
+  const fullPath = path.join(outDir, "vocab.index.json");
+  const slimPath = path.join(outDir, "explorer.vocab.json");
+  if (!fs.existsSync(fullPath)) {
+    console.warn(
+      "vocab.index.json not found — explorer.vocab.json not written (run pnpm codegen:specs)",
+    );
+    fs.rmSync(slimPath, { force: true });
+    return;
+  }
+  const index = JSON.parse(fs.readFileSync(fullPath, "utf8"));
+  const slim = slimVocabIndex(index, collectCorpusValues(objects));
+  fs.writeFileSync(slimPath, JSON.stringify(slim));
+  const kb = (bytes) => `${Math.round(bytes / 1024)} KB`;
+  console.log(
+    `Wrote explorer.vocab.json (${kb(fs.statSync(slimPath).size)} from ${kb(fs.statSync(fullPath).size)})`,
+  );
+}
+
 async function main() {
   const corpusRoot = resolveCorpusRoot();
   const outDir = path.join(ROOT, "public", "data");
   fs.mkdirSync(outDir, { recursive: true });
+  // Earlier layouts shipped these; the client derives search and coverage itself now.
+  for (const stale of [
+    "explorer.search.json",
+    "explorer.coverage.json",
+    "vocab.att&ck.json",
+  ]) {
+    fs.rmSync(path.join(outDir, stale), { force: true });
+  }
 
   runSchemaCodegen(corpusRoot);
-
-  const models = { threat: {}, objective: {}, signal: {}, rule: {} };
-  const flatIndex = {};
-  const signals = {};
 
   if (!corpusRoot) {
     console.warn("No corpus found — writing minimal fixture bundle");
@@ -250,8 +317,17 @@ async function main() {
     for (const [name, data] of Object.entries(fixture)) {
       fs.writeFileSync(path.join(outDir, name), JSON.stringify(data, null, 2));
     }
+    // A slim vocabulary from an earlier corpus run would describe the wrong corpus.
+    writeSlimVocab(
+      outDir,
+      Object.values(fixture["explorer.bundle.json"]?.flatIndex ?? {}),
+    );
     return;
   }
+
+  const flatIndex = {};
+  const paths = {};
+  const byType = { threat: [], objective: [], signal: [], rule: [] };
 
   const objectFiles = walkYamlFiles(path.join(corpusRoot, "objects"));
   console.log(`Loading ${objectFiles.length} objects from ${corpusRoot}`);
@@ -260,32 +336,41 @@ async function main() {
     const body = parseYaml(fs.readFileSync(file, "utf8"));
     const type = inferType(body);
     const uuid = body?.metadata?.uuid;
-    if (!type || !uuid) continue;
-    if (!(type in models)) continue;
-    models[type][uuid] = body;
+    if (!type || !uuid || !(type in byType)) continue;
+    if (flatIndex[uuid]) {
+      console.warn(`Duplicate uuid ${uuid} in ${file} — keeping the first`);
+      continue;
+    }
     flatIndex[uuid] = body;
-    if (type === "signal") signals[uuid] = body;
+    paths[uuid] = path.relative(corpusRoot, file).split(path.sep).join("/");
+    byType[type].push(uuid);
   }
 
-  for (const [objectiveUuid, body] of Object.entries(models.objective)) {
-    const embedded = body?.objective?.signals ?? [];
-    for (const signal of embedded) {
+  // Objectives embed their signals; promote each to an object of its own.
+  for (const objectiveUuid of byType.objective) {
+    const body = flatIndex[objectiveUuid];
+    for (const signal of body?.objective?.signals ?? []) {
       const signalUuid = signal?.uuid;
-      if (!signalUuid || models.signal[signalUuid]) continue;
-      const signalBody = {
+      if (!signalUuid || flatIndex[signalUuid]) continue;
+      flatIndex[signalUuid] = {
         ...signal,
         name: signal.name ?? signalUuid,
         metadata: { uuid: signalUuid, schema: "signal::1.0" },
         parent: objectiveUuid,
       };
-      models.signal[signalUuid] = signalBody;
-      flatIndex[signalUuid] = signalBody;
-      signals[signalUuid] = signalBody;
+      paths[signalUuid] = paths[objectiveUuid];
+      byType.signal.push(signalUuid);
     }
   }
 
-  const chaining = buildChainingIndex(models);
-  const stagingIndex = buildStagingIndex(models);
+  const chaining = buildChainingIndex(
+    byType.threat.map((uuid) => flatIndex[uuid]),
+  );
+  const stagingIndex = buildStagingIndex(
+    byType.rule.map((uuid) => [uuid, flatIndex[uuid]]),
+  );
+  const relationCounts = countRelations(flatIndex);
+  const techniqueCache = new Map();
 
   const summaries = Object.keys(flatIndex).map((uuid) => {
     const body = flatIndex[uuid];
@@ -298,51 +383,38 @@ async function main() {
       version: body.metadata?.version,
       tlp: body.metadata?.tlp,
       status: getStatus(body, type),
-      techniques: resolveTechniques(uuid, flatIndex),
+      techniques: resolveTechniques(uuid, flatIndex, techniqueCache),
       actors: getActors(body, type),
-      relatedCount: countRelations(uuid, flatIndex),
+      relatedCount: relationCounts.get(uuid) ?? 0,
       platforms: getPlatforms(body, type),
+      path: paths[uuid],
     };
   });
 
   const bundle = {
-    version: "0.1.0",
+    version: BUNDLE_VERSION,
     generatedAt: new Date().toISOString(),
-    models,
+    source: resolveSource(corpusRoot),
     flatIndex,
     chaining,
-    signals,
     summaries,
     stagingIndex,
   };
-
-  const search = { documents: buildSearchDocuments(summaries, flatIndex) };
 
   fs.writeFileSync(
     path.join(outDir, "explorer.bundle.json"),
     JSON.stringify(bundle),
   );
-  fs.writeFileSync(
-    path.join(outDir, "explorer.search.json"),
-    JSON.stringify(search),
-  );
-
-  const vocabPath = path.join(
-    corpusRoot,
-    ".opentide",
-    "exports",
-    "vocab.att&ck.json",
-  );
-  if (fs.existsSync(vocabPath)) {
-    fs.copyFileSync(vocabPath, path.join(outDir, "vocab.att&ck.json"));
-  }
+  writeSlimVocab(outDir, Object.values(flatIndex));
 
   console.log(
     `Wrote exports to ${outDir} (${summaries.length} objects, staging index: ${stagingIndex.stagingObjects.length} staging rules)`,
   );
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+if (isMain(import.meta.url)) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

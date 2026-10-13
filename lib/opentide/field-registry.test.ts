@@ -19,6 +19,27 @@ describe("flattenReferences", () => {
 });
 
 describe("resolveFieldValue", () => {
+  it("resolves ATT&CK pins across schema generations", () => {
+    expect(
+      resolveFieldValue(
+        { threat: { "att&ck": ["T1556"] } },
+        "threat.mitre_attack",
+      ),
+    ).toEqual(["T1556"]);
+    expect(
+      resolveFieldValue(
+        { objective: { attack: ["T1110"] } },
+        "objective.mitre_attack",
+      ),
+    ).toEqual(["T1110"]);
+    expect(
+      resolveFieldValue(
+        { threat: { mitre_attack: ["T1078"] } },
+        "threat.att&ck",
+      ),
+    ).toEqual(["T1078"]);
+  });
+
   it("reads metadata.author for author paths", () => {
     expect(
       resolveFieldValue(

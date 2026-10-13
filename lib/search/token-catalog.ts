@@ -1,5 +1,5 @@
 import type { ExplorerBundle, ObjectType } from "@/lib/opentide/types";
-import { collectFilterOptions } from "@/lib/search/orama";
+import { collectFilterOptions } from "@/lib/search/engine";
 import {
   formatVocabDisplayName,
   lookupVocabTerm,
@@ -57,44 +57,33 @@ export const SEARCH_FIELDS: SearchFieldDef[] = [
     description: "Traffic Light Protocol label",
   },
   {
-    key: "relation",
-    label: "relation",
-    description: "Graph expansion (neighbors, chain, match-only)",
-    aliases: ["mode"],
+    key: "reach",
+    label: "reach",
+    description: "How far matches reach (matches, neighbours, chains)",
+    aliases: ["relation", "mode"],
   },
   {
     key: "deploy",
     label: "deploy",
-    description: "Deployment filter (staging, production)",
-  },
-  {
-    key: "staging",
-    label: "staging",
-    description: "Objects with staging deployments",
-  },
-  {
-    key: "production",
-    label: "production",
-    description: "Objects with production deployments",
+    description: "Deployment (staging, production)",
   },
 ];
 
 export const RELATION_VALUES = [
   {
-    value: "neighbors",
-    label: "neighbors",
-    description: "Include direct neighbors",
-  },
-  { value: "chain", label: "chain", description: "Include detection chain" },
-  {
-    value: "match-only",
-    label: "match-only",
-    description: "Matches only, no expansion",
+    value: "matches",
+    label: "matches",
+    description: "Only what the search matches",
   },
   {
-    value: "detection-chain",
-    label: "detection-chain",
-    description: "Alias for chain",
+    value: "neighbours",
+    label: "neighbours",
+    description: "Matches and the objects they link to directly",
+  },
+  {
+    value: "chains",
+    label: "chains",
+    description: "Matches with their whole detection chain",
   },
 ] as const;
 
@@ -228,6 +217,7 @@ export function valuesForField(
       return vocab.schemas.map((v) => ({ value: v }));
     case "tlp":
       return vocab.tlps.map((v) => ({ value: v }));
+    case "reach":
     case "relation":
     case "mode":
       return RELATION_VALUES.map((r) => ({
@@ -236,9 +226,6 @@ export function valuesForField(
       }));
     case "deploy":
       return vocab.deploy.map((v) => ({ value: v }));
-    case "staging":
-    case "production":
-      return [];
     default:
       return [];
   }

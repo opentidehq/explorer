@@ -50,3 +50,29 @@ export function techniqueList(...candidates) {
   }
   return [];
 }
+
+/**
+ * `git@github.com:Org/repo.git` and `https://…/repo.git` → `https://github.com/Org/repo`.
+ * @param {string | undefined} remote
+ * @returns {string}
+ */
+export function normalizeRepoUrl(remote) {
+  if (!remote) return "";
+  let url = remote.trim();
+  const scp = url.match(/^git@([^:]+):(.+)$/);
+  if (scp) url = `https://${scp[1]}/${scp[2]}`;
+  url = url.replace(/^ssh:\/\/git@/, "https://");
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return "";
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return "";
+  // Credentials in a checkout's remote (CI tokens) must never reach the bundle.
+  parsed.username = "";
+  parsed.password = "";
+  parsed.search = "";
+  parsed.hash = "";
+  return parsed.href.replace(/\/$/, "").replace(/\.git$/, "");
+}

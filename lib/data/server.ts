@@ -1,32 +1,46 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { ExplorerBundle, ExplorerSearchIndex } from "@/lib/opentide/types";
-import type { VocabIndex } from "@/lib/opentide/vocab";
+import { normalizeExplorerBundle } from "@/lib/data/catalog";
+import { extractObjectDescription } from "@/lib/opentide/object-description";
+import type {
+  BundleObjectSummary,
+  ExplorerBundle,
+  RawExplorerBundle,
+} from "@/lib/opentide/types";
 
 const DATA_DIR = path.join(process.cwd(), "public", "data");
 
-function readJson<T>(filename: string): T {
-  const filePath = path.join(DATA_DIR, filename);
-  return JSON.parse(fs.readFileSync(filePath, "utf8")) as T;
-}
+let cached: ExplorerBundle | null = null;
 
-/** Build-time only. Do not pass these values into client providers — they are fetched from `/data`. */
+/**
+ * Build-time only: route params and per-object metadata. Never pass this into client
+ * components — the client fetches the catalogue from `/data`.
+ */
 export function loadBundleSync(): ExplorerBundle {
-  return readJson<ExplorerBundle>("explorer.bundle.json");
+  if (!cached) {
+    const file = path.join(DATA_DIR, "explorer.bundle.json");
+    cached = normalizeExplorerBundle(
+      JSON.parse(fs.readFileSync(file, "utf8")) as RawExplorerBundle,
+    );
+  }
+  return cached;
 }
 
-export function loadSearchSync(): ExplorerSearchIndex {
-  try {
-    return readJson<ExplorerSearchIndex>("explorer.search.json");
-  } catch {
-    return { documents: [] };
-  }
-}
-
-export function loadVocabSync(): VocabIndex {
-  try {
-    return readJson<VocabIndex>("vocab.index.json");
-  } catch {
-    return {};
-  }
+/** A summary and a one-paragraph plain-text description, for page metadata. */
+export function objectMetadataSync(
+  uuid: string,
+): { summary: BundleObjectSummary; description: string | null } | null {
+  const bundle = loadBundleSync();
+  const summary = bundle.summaries.find((s) => s.uuid === uuid);
+  if (!summary) return null;
+  const raw = extractObjectDescription(bundle.flatIndex[uuid]);
+  const description = raw
+    ? raw
+        .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+        .replace(/[*_`#>]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 280)
+    : null;
+  return { summary, description };
 }

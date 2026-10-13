@@ -1,39 +1,51 @@
-import { ObjectDetailPage } from "@/components/objects/object-detail-page";
-import { loadBundleSync } from "@/lib/data/server";
+import type { Metadata } from "next";
+import { ExplorerApp } from "@/components/explorer/explorer-app";
+import { loadBundleSync, objectMetadataSync } from "@/lib/data/server";
+import { TYPE_LABELS, TYPE_PLURALS } from "@/lib/graph/type-icons";
+import type { ObjectType } from "@/lib/opentide/types";
 
-const ROUTE_TYPES = ["threats", "objectives", "signals", "rules"] as const;
+const ROUTE_TYPES: Record<string, ObjectType> = {
+  threats: "threat",
+  objectives: "objective",
+  signals: "signal",
+  rules: "rule",
+};
 
-type RouteType = (typeof ROUTE_TYPES)[number];
+type Params = { type: string; uuid: string };
 
-const TYPE_MAP: Record<RouteType, "threat" | "objective" | "signal" | "rule"> =
-  {
-    threats: "threat",
-    objectives: "objective",
-    signals: "signal",
-    rules: "rule",
+// Permalinks exist for every object in the bundle, and only for those.
+export const dynamicParams = false;
+
+export function generateStaticParams(): Params[] {
+  return loadBundleSync().summaries.map((summary) => ({
+    type: TYPE_PLURALS[summary.type],
+    uuid: summary.uuid,
+  }));
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<Params>;
+}): Promise<Metadata> {
+  const { type, uuid } = await params;
+  const found = objectMetadataSync(uuid);
+  if (!found || ROUTE_TYPES[type] !== found.summary.type) return {};
+  const { summary, description } = found;
+  const title = `${summary.name}`;
+  const lead = `${TYPE_LABELS[summary.type]} in the opentide library`;
+  return {
+    title,
+    description: description ?? lead,
+    openGraph: { title, description: description ?? lead },
   };
-
-export function generateStaticParams() {
-  const bundle = loadBundleSync();
-  const params: Array<{ type: RouteType; uuid: string }> = [];
-
-  for (const routeType of ROUTE_TYPES) {
-    const objectType = TYPE_MAP[routeType];
-    for (const summary of bundle.summaries.filter(
-      (s) => s.type === objectType,
-    )) {
-      params.push({ type: routeType, uuid: summary.uuid });
-    }
-  }
-
-  return params;
 }
 
 export default async function ObjectRoutePage({
   params,
 }: {
-  params: Promise<{ type: RouteType; uuid: string }>;
+  params: Promise<Params>;
 }) {
   const { uuid } = await params;
-  return <ObjectDetailPage uuid={uuid} />;
+  return <ExplorerApp initialId={uuid} />;
 }

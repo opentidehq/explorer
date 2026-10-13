@@ -177,16 +177,20 @@ const SKIP_PIN_PATHS = new Set(["threat.chaining"]);
 
 const FORMAT_OVERRIDES = {
   "threat.att&ck": "attack",
+  "threat.mitre_attack": "attack",
   techniques: "attack",
   "objective.attack": "attack",
+  "objective.mitre_attack": "attack",
   references: "references",
 };
 
 const LABEL_OVERRIDES = {
   "threat.terrain": "Surface",
   "threat.att&ck": "ATT&CK",
+  "threat.mitre_attack": "ATT&CK",
   techniques: "ATT&CK",
   "objective.attack": "ATT&CK",
+  "objective.mitre_attack": "ATT&CK",
   "objective.composition.strategy": "Composition",
   "objective.composition.description": "Composition details",
   "composition.strategy": "Composition",
@@ -209,7 +213,7 @@ const LABEL_OVERRIDES = {
 export function pathToLabel(pathKey) {
   if (LABEL_OVERRIDES[pathKey]) return LABEL_OVERRIDES[pathKey];
   const leaf = pathKey.split(".").pop() ?? pathKey;
-  if (leaf === "att&ck") return "ATT&CK";
+  if (leaf === "att&ck" || leaf === "mitre_attack") return "ATT&CK";
   return leaf.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 

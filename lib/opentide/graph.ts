@@ -1,10 +1,15 @@
-import { Data } from "effect";
 import type { ModelsIndex, ObjectBody, ObjectType } from "./types";
 
-class GraphError extends Data.TaggedError("GraphError")<{
-  readonly message: string;
+export class GraphError extends Error {
+  readonly _tag = "GraphError";
   readonly uuid?: string;
-}> {}
+
+  constructor({ message, uuid }: { message: string; uuid?: string }) {
+    super(uuid ? `${message}: ${uuid}` : message);
+    this.name = "GraphError";
+    this.uuid = uuid;
+  }
+}
 
 export interface GraphContext {
   readonly models: ModelsIndex;
@@ -53,6 +58,9 @@ function asStringArray(value: unknown): string[] {
   }
   return [];
 }
+
+/** ATT&CK keys across schema generations: specifications pin `mitre_attack`. */
+export const ATTACK_KEYS = ["mitre_attack", "att&ck", "attack"];
 
 function ownTechniqueIds(
   section: ObjectBody | undefined,
@@ -144,38 +152,66 @@ function embeddedObjectiveSignals(
   return ids;
 }
 
-export function childs(ctx: GraphContext, modelId: string): string[] {
-  const modelType = getType(ctx, modelId);
-  if (!modelType) return [];
+/**
+ * Reverse references, per parent type: who names this object as a parent. Built once per
+ * context (contexts are snapshots of an immutable bundle), so `childs` is a lookup instead of
+ * a scan of every model.
+ */
+const childIndexCache = new WeakMap<
+  GraphContext,
+  Map<ObjectType, Map<string, string[]>>
+>();
 
-  const mapping = CHILD_MAPPINGS[modelType];
-  if (!mapping) return [];
+function childIndex(ctx: GraphContext): Map<ObjectType, Map<string, string[]>> {
+  let index = childIndexCache.get(ctx);
+  if (index) return index;
 
-  const implementations: string[] = [];
+  index = new Map();
+  for (const [parentType, mapping] of Object.entries(CHILD_MAPPINGS) as Array<
+    [ObjectType, (typeof CHILD_MAPPINGS)[string]]
+  >) {
+    const byParent = new Map<string, string[]>();
+    const link = (parentId: string, childId: string) => {
+      const list = byParent.get(parentId);
+      if (!list) byParent.set(parentId, [childId]);
+      else if (!list.includes(childId)) list.push(childId);
+    };
 
-  for (const childType of mapping.child_types) {
-    const childIndex = ctx.models[childType as ObjectType] ?? {};
-    for (const childId of Object.keys(childIndex)) {
-      const childData = childIndex[childId];
-      if (!childData) continue;
-
-      if (mapping.data_sections) {
-        for (const section of mapping.data_sections) {
-          const sectionData = childData[section] as ObjectBody | undefined;
+    for (const childType of mapping.child_types) {
+      const models = ctx.models[childType as ObjectType] ?? {};
+      for (const [childId, childData] of Object.entries(models)) {
+        if (!childData) continue;
+        const sources = mapping.data_sections
+          ? mapping.data_sections.map(
+              (section) => childData[section] as ObjectBody | undefined,
+            )
+          : [childData];
+        for (const source of sources) {
           for (const reference of mapping.references) {
-            const refs = asStringArray(sectionData?.[reference]);
-            if (new Set(refs).has(modelId)) implementations.push(childId);
+            for (const parentId of asStringArray(source?.[reference])) {
+              link(parentId, childId);
+            }
           }
-        }
-      } else {
-        for (const reference of mapping.references) {
-          const refs = asStringArray(childData[reference]);
-          if (new Set(refs).has(modelId)) implementations.push(childId);
         }
       }
     }
+    index.set(parentType, byParent);
   }
 
+  childIndexCache.set(ctx, index);
+  return index;
+}
+
+export function childs(ctx: GraphContext, modelId: string): string[] {
+  // A dangling reference (a filtered export, a broken link) has no children; the explorer
+  // must not stop drawing over it.
+  const modelType = getType(ctx, modelId, true);
+  if (!modelType) return [];
+  if (!CHILD_MAPPINGS[modelType]) return [];
+
+  const implementations = [
+    ...(childIndex(ctx).get(modelType)?.get(modelId) ?? []),
+  ];
   if (modelType === "objective") {
     implementations.push(...embeddedObjectiveSignals(ctx, modelId));
   }
@@ -278,11 +314,15 @@ export function techniquesResolver(
   ctx: GraphContext,
   modelId: string,
   recursive = true,
+  seen = new Set<string>(),
 ): string[] {
-  const modelType = getType(ctx, modelId);
+  // References can dangle or loop in a hand-edited corpus: resolve what exists, once.
+  if (seen.has(modelId)) return [];
+  seen.add(modelId);
+  const modelType = getType(ctx, modelId, true);
   if (!modelType) return [];
 
-  const modelBody = ctx.models[modelType]?.[modelId];
+  const modelBody = ctx.models[modelType]?.[modelId] ?? ctx.flatIndex[modelId];
   if (!modelBody) return [];
 
   let techniques: string[] = [];
@@ -295,21 +335,32 @@ export function techniquesResolver(
         | undefined);
     if (!parentId) return [];
     if (recursive) {
-      techniques = techniquesResolver(ctx, parentId, true);
+      techniques = techniquesResolver(ctx, parentId, true, seen);
     }
     return techniques;
   }
 
+  if (modelType === "signal") {
+    // A signal detects what its objective does.
+    if (!recursive) return [];
+    for (const parentId of parents(ctx, modelId)) {
+      if (getType(ctx, parentId, true) === "objective") {
+        return techniquesResolver(ctx, parentId, true, seen);
+      }
+    }
+    return [];
+  }
+
   if (modelType === "objective") {
     const objective = modelBody["objective"] as ObjectBody | undefined;
-    const own = ownTechniqueIds(objective, ["attack", "att&ck"]);
+    const own = ownTechniqueIds(objective, ATTACK_KEYS);
     if (own.length > 0) {
       techniques = own;
     } else {
       const parentIds = asStringArray(objective?.["threats"]);
       if (recursive) {
         for (const parentId of parentIds) {
-          techniques.push(...techniquesResolver(ctx, parentId, true));
+          techniques.push(...techniquesResolver(ctx, parentId, true, seen));
         }
       }
     }
@@ -317,7 +368,7 @@ export function techniquesResolver(
 
   if (modelType === "threat") {
     const threat = modelBody["threat"] as ObjectBody | undefined;
-    techniques = ownTechniqueIds(threat, ["att&ck", "attack"]);
+    techniques = ownTechniqueIds(threat, ATTACK_KEYS);
   }
 
   return [...new Set(techniques)];
@@ -330,7 +381,7 @@ interface RelationTree {
 type RelationsResult = RelationTree | string[];
 
 function relationsDownstream(ctx: GraphContext, id: string): RelationsResult {
-  const type = getType(ctx, id);
+  const type = getType(ctx, id, true);
   if (!type) return {};
 
   if (type === "signal") {
@@ -340,7 +391,7 @@ function relationsDownstream(ctx: GraphContext, id: string): RelationsResult {
   if (type === "objective") {
     const tree: RelationTree = {};
     for (const child of childs(ctx, id)) {
-      const childType = getType(ctx, child);
+      const childType = getType(ctx, child, true);
       if (childType === "signal") {
         tree[child] = relationsDownstream(ctx, child);
       } else if (childType === "rule") {
@@ -358,7 +409,7 @@ function relationsDownstream(ctx: GraphContext, id: string): RelationsResult {
 }
 
 function relationsUpstream(ctx: GraphContext, id: string): RelationsResult {
-  const type = getType(ctx, id);
+  const type = getType(ctx, id, true);
   if (!type || type === "threat") return {};
 
   const tree: RelationTree = {};
@@ -420,7 +471,7 @@ export function relationsList(
   if (Array.isArray(relations) && relations.length > 0) {
     const first = relations[0];
     if (first) {
-      const t = getType(ctx, first);
+      const t = getType(ctx, first, true);
       if (t) flat[t] = relations;
     }
   }
@@ -429,21 +480,21 @@ export function relationsList(
     for (const [k, v] of recursiveItems(relations)) {
       if (k) {
         if (Array.isArray(k)) {
-          const kType = k[0] ? getType(ctx, k[0]) : null;
+          const kType = k[0] ? getType(ctx, k[0], true) : null;
           if (kType) {
             flat[kType] = [...(flat[kType] ?? []), ...k];
           }
         } else if (typeof k === "string") {
-          const kType = getType(ctx, k);
+          const kType = getType(ctx, k, true);
           if (kType) flat[kType] = [...(flat[kType] ?? []), k];
         }
       }
       if (v) {
         if (Array.isArray(v)) {
-          const vType = v[0] ? getType(ctx, v[0]) : null;
+          const vType = v[0] ? getType(ctx, v[0], true) : null;
           if (vType) flat[vType] = [...(flat[vType] ?? []), ...v];
         } else if (typeof v === "string") {
-          const vType = getType(ctx, v);
+          const vType = getType(ctx, v, true);
           if (vType) flat[vType] = [...(flat[vType] ?? []), v];
         }
       }

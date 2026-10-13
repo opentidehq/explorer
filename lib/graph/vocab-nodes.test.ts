@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildCorpusGraph } from "@/lib/graph/corpus-graph";
+import { toGraphology } from "@/lib/graph/graph-layout";
 import { enrichBundle } from "@/lib/opentide/enrich-bundle";
 import type {
   BundleObjectSummary,
@@ -8,11 +9,11 @@ import type {
 } from "@/lib/opentide/types";
 import type { VocabIndex } from "@/lib/opentide/vocab";
 import {
-  buildDisplayGraph,
   buildVocabGraphLayer,
   collectObjectVocabReferences,
   expandVisibleIdsWithVocab,
   isVocabNodeId,
+  syncVocabLayer,
   vocabNodeId,
 } from "@/lib/graph/vocab-nodes";
 
@@ -223,71 +224,70 @@ describe("expandVisibleIdsWithVocab", () => {
   });
 });
 
-describe("buildDisplayGraph", () => {
-  it("returns the base graph when vocab layer is disabled", () => {
-    const bundle = enrichBundle(
-      makeThreatBundle({
-        name: "Test Threat",
-        metadata: { uuid: THREAT_ID, schema: "threat::1.0" },
-        threat: { severity: "High" },
-      }),
-    );
-    const corpus = buildCorpusGraph(bundle);
-
-    const graph = buildDisplayGraph(
-      corpus,
-      bundle,
-      new Set([THREAT_ID]),
-      false,
-      vocabIndex,
-    );
-
-    expect(graph).toBe(corpus.graphology);
-    expect(graph.order).toBe(corpus.graphology.order);
-  });
-
-  it("copies the corpus graph without duplicate edge key errors", () => {
-    const bundle = enrichBundle(
+describe("syncVocabLayer", () => {
+  const threatBundle = () =>
+    enrichBundle(
       makeLinkedThreatObjectiveBundle({
         name: "Test Threat",
         metadata: { uuid: THREAT_ID, schema: "threat::1.0" },
         threat: { severity: "High" },
       }),
     );
-    const corpus = buildCorpusGraph(bundle);
-    const visible = new Set([THREAT_ID, OBJECTIVE_ID]);
+  const vocabId = vocabNodeId("severity", "High");
 
-    expect(corpus.graphology.size).toBeGreaterThan(1);
+  it("adds vocab nodes beside the object that names them, in place", () => {
+    const bundle = threatBundle();
+    const graph = toGraphology(buildCorpusGraph(bundle));
+    const objects = graph.order;
+    const edges = graph.size;
 
-    const graph = buildDisplayGraph(corpus, bundle, visible, true, vocabIndex);
-
-    expect(graph.order).toBeGreaterThan(corpus.graphology.order);
-    expect(graph.hasNode(vocabNodeId("severity", "High"))).toBe(true);
-    expect(graph.size).toBeGreaterThan(corpus.graphology.size);
-  });
-
-  it("adds vocab nodes when enabled", () => {
-    const bundle = enrichBundle(
-      makeThreatBundle({
-        name: "Test Threat",
-        metadata: { uuid: THREAT_ID, schema: "threat::1.0" },
-        threat: { severity: "High" },
-      }),
-    );
-    const corpus = buildCorpusGraph(bundle);
-    const vocabId = vocabNodeId("severity", "High");
-
-    const graph = buildDisplayGraph(
-      corpus,
-      bundle,
-      new Set([THREAT_ID]),
-      true,
-      vocabIndex,
+    syncVocabLayer(
+      graph,
+      buildVocabGraphLayer(bundle, [THREAT_ID, OBJECTIVE_ID], vocabIndex),
     );
 
-    expect(graph.order).toBe(corpus.graphology.order + 1);
-    expect(graph.hasNode(vocabId)).toBe(true);
+    expect(graph.order).toBe(objects + 1);
+    expect(graph.size).toBeGreaterThan(edges);
     expect(graph.getNodeAttribute(vocabId, "objectType")).toBe("vocab");
     expect(graph.hasEdge(`${THREAT_ID}|${vocabId}|vocab`)).toBe(true);
+    const threat = graph.getNodeAttributes(THREAT_ID);
+    const vocab = graph.getNodeAttributes(vocabId);
+    expect(Math.hypot(vocab.x - threat.x, vocab.y - threat.y)).toBeLessThan(
+      1.1,
+    );
+  });
+
+  it("drops what the layer no longer has and leaves object positions alone", () => {
+    const bundle = threatBundle();
+    const graph = toGraphology(buildCorpusGraph(bundle));
+    graph.mergeNodeAttributes(THREAT_ID, { x: 40, y: -12 });
+    const before = graph.order;
+
+    syncVocabLayer(
+      graph,
+      buildVocabGraphLayer(bundle, [THREAT_ID], vocabIndex),
+    );
+    syncVocabLayer(graph, { nodes: [], edges: [] });
+
+    expect(graph.order).toBe(before);
+    expect(graph.hasNode(vocabId)).toBe(false);
+    expect(graph.getNodeAttribute(THREAT_ID, "x")).toBe(40);
+    expect(graph.getNodeAttribute(THREAT_ID, "y")).toBe(-12);
+  });
+
+  it("keeps a vocab node's place across syncs and gives it a base position", () => {
+    const bundle = threatBundle();
+    const graph = toGraphology(buildCorpusGraph(bundle));
+    graph.mergeNodeAttributes(THREAT_ID, { baseX: 3, baseY: 4 });
+    const layer = buildVocabGraphLayer(bundle, [THREAT_ID], vocabIndex);
+
+    syncVocabLayer(graph, layer);
+    const first = graph.getNodeAttributes(vocabId);
+    graph.mergeNodeAttributes(vocabId, { x: 99 });
+    syncVocabLayer(graph, layer);
+
+    expect(graph.getNodeAttribute(vocabId, "x")).toBe(99);
+    expect(typeof first.baseX).toBe("number");
+    expect(Math.hypot(first.baseX - 3, first.baseY - 4)).toBeLessThan(1.1);
   });
 });

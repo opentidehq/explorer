@@ -21,6 +21,16 @@ export interface BundleObjectSummary {
   actors: string[];
   relatedCount: number;
   platforms: string[];
+  /** Corpus-relative file path (`objects/threats/….yaml`); embedded signals carry their objective's. */
+  path?: string;
+}
+
+/** Where the corpus lives, so objects can link to their file. */
+export interface BundleSource {
+  /** Repository web URL, e.g. `https://github.com/OpenTideHQ/library`. */
+  repository: string;
+  /** Commit or branch the bundle was generated from. */
+  ref: string;
 }
 
 export interface StagingPlatformSummary {
@@ -49,7 +59,17 @@ export interface ExplorerBundle {
   signals: Record<string, ObjectBody>;
   summaries: BundleObjectSummary[];
   stagingIndex?: StagingIndex;
+  source?: BundleSource;
 }
+
+/**
+ * A bundle as served. Since 0.2 the generator ships each object once, in `flatIndex`;
+ * `models` and `signals` are rebuilt on load (see normalizeExplorerBundle).
+ */
+export type RawExplorerBundle = Omit<ExplorerBundle, "models" | "signals"> & {
+  models?: Partial<ModelsIndex>;
+  signals?: Record<string, ObjectBody>;
+};
 
 export interface SearchDocument {
   id: string;
@@ -70,9 +90,9 @@ export interface ExplorerSearchIndex {
   documents: SearchDocument[];
 }
 
-export const TYPE_COLORS: Record<ObjectType, string> = {
-  threat: "#ef4444",
-  objective: "#3b82f6",
-  signal: "#f59e0b",
-  rule: "#22c55e",
-};
+export const OBJECT_TYPES: readonly ObjectType[] = [
+  "threat",
+  "objective",
+  "signal",
+  "rule",
+];

@@ -1,5 +1,16 @@
-import type { ExplorerBundle, ExplorerSearchIndex } from "@/lib/opentide/types";
-import type { VocabIndex } from "@/lib/opentide/vocab";
+import type {
+  BundleObjectSummary,
+  ExplorerBundle,
+  ModelsIndex,
+  ObjectBody,
+  ObjectType,
+  RawExplorerBundle,
+} from "@/lib/opentide/types";
+import {
+  expandSlimVocab,
+  isSlimVocab,
+  type VocabIndex,
+} from "@/lib/opentide/vocab";
 
 export function catalogDataUrl(filename: string): string {
   const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
@@ -12,39 +23,65 @@ function asStringArray(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === "string");
 }
 
-/** Older bundles omit `actors` / `platforms` on summaries. */
-export function normalizeExplorerBundle(
-  bundle: ExplorerBundle,
-): ExplorerBundle {
-  return {
-    ...bundle,
-    summaries: bundle.summaries.map((summary) => ({
-      ...summary,
-      techniques: asStringArray(summary.techniques),
-      actors: asStringArray(summary.actors),
-      platforms: asStringArray(summary.platforms),
-    })),
+const TYPES: ObjectType[] = ["threat", "objective", "signal", "rule"];
+
+/** Rebuild the per-type model index from `flatIndex` and the summaries' types. */
+function modelsFromSummaries(
+  flatIndex: Record<string, ObjectBody>,
+  summaries: BundleObjectSummary[],
+): ModelsIndex {
+  const models: ModelsIndex = {
+    threat: {},
+    objective: {},
+    signal: {},
+    rule: {},
   };
+  for (const summary of summaries) {
+    const body = flatIndex[summary.uuid];
+    if (body && TYPES.includes(summary.type)) {
+      models[summary.type][summary.uuid] = body;
+    }
+  }
+  return models;
 }
 
-export function normalizeSearchIndex(
-  search: ExplorerSearchIndex,
-): ExplorerSearchIndex {
+/**
+ * Accept both bundle layouts: 0.1 ships `models` and `signals` beside `flatIndex`, 0.2 ships
+ * `flatIndex` alone. Older bundles also omit `actors` / `platforms` on summaries.
+ */
+export function normalizeExplorerBundle(
+  bundle: RawExplorerBundle | ExplorerBundle,
+): ExplorerBundle {
+  const flatIndex = bundle.flatIndex ?? {};
+  const summaries = (bundle.summaries ?? []).map((summary) => ({
+    ...summary,
+    techniques: asStringArray(summary.techniques),
+    actors: asStringArray(summary.actors),
+    platforms: asStringArray(summary.platforms),
+  }));
+
+  const raw = bundle.models;
+  const models: ModelsIndex =
+    raw && TYPES.every((type) => raw[type])
+      ? (raw as ModelsIndex)
+      : modelsFromSummaries(flatIndex, summaries);
+
   return {
-    documents: search.documents.map((doc) => ({
-      ...doc,
-      techniques: asStringArray(doc.techniques),
-      actors: asStringArray(doc.actors),
-      platforms: asStringArray(doc.platforms),
-    })),
+    ...bundle,
+    flatIndex,
+    chaining: bundle.chaining ?? {},
+    summaries,
+    models,
+    signals: bundle.signals ?? { ...models.signal },
   };
 }
 
 export interface CatalogPayload {
   bundle: ExplorerBundle;
-  search: ExplorerSearchIndex;
   vocabIndex: VocabIndex;
 }
+
+export type CatalogStage = "fetching" | "indexing";
 
 async function fetchJson<T>(url: string): Promise<T | null> {
   try {
@@ -56,21 +93,35 @@ async function fetchJson<T>(url: string): Promise<T | null> {
   }
 }
 
+/**
+ * The slim vocabulary when the build wrote one; the full index otherwise (bundles from
+ * `opentide generate explorer`, local dev before codegen).
+ */
+async function loadVocab(): Promise<VocabIndex> {
+  const slim = await fetchJson<unknown>(catalogDataUrl("explorer.vocab.json"));
+  if (isSlimVocab(slim)) return expandSlimVocab(slim);
+  return (
+    (await fetchJson<VocabIndex>(catalogDataUrl("vocab.index.json"))) ?? {}
+  );
+}
+
 /** Load catalogue JSON once from `/data`. Pages must not inline these files. */
-export async function loadCatalog(): Promise<CatalogPayload> {
-  const [bundle, search, vocabIndex] = await Promise.all([
-    fetchJson<ExplorerBundle>(catalogDataUrl("explorer.bundle.json")),
-    fetchJson<ExplorerSearchIndex>(catalogDataUrl("explorer.search.json")),
-    fetchJson<VocabIndex>(catalogDataUrl("vocab.index.json")),
+export async function loadCatalog(
+  onStage?: (stage: CatalogStage) => void,
+): Promise<CatalogPayload> {
+  onStage?.("fetching");
+  const [bundle, vocabIndex] = await Promise.all([
+    fetchJson<RawExplorerBundle>(catalogDataUrl("explorer.bundle.json")),
+    loadVocab(),
   ]);
 
   if (!bundle) {
     throw new Error("Catalogue bundle is unavailable");
   }
 
+  onStage?.("indexing");
   return {
     bundle: normalizeExplorerBundle(bundle),
-    search: normalizeSearchIndex(search ?? { documents: [] }),
-    vocabIndex: vocabIndex ?? {},
+    vocabIndex,
   };
 }

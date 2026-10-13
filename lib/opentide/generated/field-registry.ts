@@ -27,21 +27,15 @@ const OBJECTIVE_FIELDS: FieldDefinition[] = [
     vocab: "tlp",
   },
   {
-    path: "objective.attack",
-    label: "ATT&CK",
-    format: "attack",
-  },
-  {
     path: "objective.composition.strategy",
     label: "Composition",
     format: "pills",
     vocab: "detection.composition",
   },
   {
-    path: "objective.signals.data.logsources",
-    label: "Data sources",
-    format: "pills",
-    vocab: "datasources",
+    path: "objective.mitre_attack",
+    label: "ATT&CK",
+    format: "attack",
   },
   {
     path: "objective.signals.effort",
@@ -65,7 +59,7 @@ const OBJECTIVE_FIELDS: FieldDefinition[] = [
     path: "objective.signals.severity",
     label: "Severity",
     format: "pills",
-    vocab: "severity",
+    vocab: "alert_severity",
   },
   {
     path: "objective.type",
@@ -180,12 +174,6 @@ const RULE_FIELDS: FieldDefinition[] = [
 
 const SIGNAL_FIELDS: FieldDefinition[] = [
   {
-    path: "data.logsources",
-    label: "Data sources",
-    format: "pills",
-    vocab: "datasources",
-  },
-  {
     path: "effort",
     label: "Effort",
     format: "pills",
@@ -207,7 +195,7 @@ const SIGNAL_FIELDS: FieldDefinition[] = [
     path: "severity",
     label: "Severity",
     format: "pills",
-    vocab: "severity",
+    vocab: "alert_severity",
   },
   {
     path: "data.availability",
@@ -241,11 +229,6 @@ const THREAT_FIELDS: FieldDefinition[] = [
     vocab: "actors",
   },
   {
-    path: "threat.att&ck",
-    label: "ATT&CK",
-    format: "attack",
-  },
-  {
     path: "threat.impact",
     label: "Impact",
     format: "pills",
@@ -262,6 +245,11 @@ const THREAT_FIELDS: FieldDefinition[] = [
     label: "Leverage",
     format: "pills",
     vocab: "leverage",
+  },
+  {
+    path: "threat.mitre_attack",
+    label: "ATT&CK",
+    format: "attack",
   },
   {
     path: "threat.severity",

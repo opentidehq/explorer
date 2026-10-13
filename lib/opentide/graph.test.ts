@@ -124,6 +124,40 @@ describe("graph engine", () => {
     expect(childs(ctx, SIGNAL_ID)).toContain(SIGNAL_RULE_ID);
   });
 
+  it("resolves a signal's techniques, and its rules', through its objective", () => {
+    expect(techniquesResolver(ctx, SIGNAL_ID)).toEqual([
+      "T1195.001",
+      "T1059.007",
+    ]);
+    expect(techniquesResolver(ctx, SIGNAL_RULE_ID)).toEqual([
+      "T1195.001",
+      "T1059.007",
+    ]);
+  });
+
+  it("treats a dangling reference as nothing rather than throw", () => {
+    const missing = "00000000-0000-4000-8000-000000000000";
+    const orphan: ObjectBody = {
+      name: "Orphan Rule",
+      metadata: { uuid: RULE_ID, schema: "rule::1.0" },
+      detection_model: missing,
+      configurations: { sentinel: { status: "STAGING" } },
+    };
+    const broken = createGraphContext({
+      models: {
+        threat: {},
+        objective: {},
+        signal: {},
+        rule: { [RULE_ID]: orphan },
+      },
+      flatIndex: { [RULE_ID]: orphan },
+      chaining: {},
+    });
+    expect(techniquesResolver(broken, RULE_ID)).toEqual([]);
+    expect(childs(broken, missing)).toEqual([]);
+    expect(() => getType(broken, missing)).toThrow("UUID not in index");
+  });
+
   it("resolves techniques recursively", () => {
     expect(techniquesResolver(ctx, RULE_ID)).toEqual([
       "T1195.001",

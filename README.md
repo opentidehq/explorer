@@ -1,6 +1,6 @@
 # OpenTide Explorer
 
-Deployable static application for interactively exploring OpenTide objects — threats, objectives, signals, rules, and threat chains.
+Deployable static application for interactively exploring OpenTide objects — threats, objectives, signals, rules, and threat chains — in the opentide.org design language: white and Pantone Reflex Blue in light mode, black and EU Yellow in dark, Inter and JetBrains Mono.
 
 Distribution is **git-based** during development: the Python `opentide` CLI resolves this repository from a local path, sibling checkout, or shallow git clone. npm publish (`@opentide/explorer`) remains optional for future releases.
 
@@ -37,7 +37,7 @@ When `library` and `explorer` are siblings, `opentide explorer build` and `dev` 
 
 ## Development
 
-**Requirements:** Node ≥ 20.19, pnpm 9+, Next.js **16.3.3**
+**Requirements:** Node ≥ 20.19, pnpm 9+, Next.js **16.3**
 
 ```bash
 pnpm install
@@ -83,9 +83,14 @@ Version-accurate Next.js docs ship in `node_modules/next/dist/docs/` (Next.js 16
 
 Data is loaded from `public/data/*.json`. During local dev, `scripts/generate-mock-bundle.mjs` reads the sibling `library/objects/` corpus when present.
 
-### Typography
+### Design
 
-The UI uses [Geist](https://vercel.com/font) (sans) and [Geist Mono](https://vercel.com/font) via `next/font`. No external font CDN is required at runtime.
+The UI follows [opentide.org](https://opentide.org): tokens in `app/globals.css` mirror the site's
+`--landing-*` set, the header is the site's floating glass pill with the official logotype
+(`components/brand/opentide-mark.tsx`, inlined so it follows the theme), content sits in 1px-bordered
+panels on the band colour, and real artefacts (YAML, queries) render in deep-tide navy code panels.
+Object types read as depth: threats are the slate landscape, objectives blue, signals foam, and
+rules the amber light of a detection firing. Fonts load through `next/font` (Inter, JetBrains Mono).
 
 ### Build CLI
 
@@ -148,26 +153,45 @@ When using `opentide explorer serve`, detection content is resolved separately:
 
 ## Features
 
-- **Catalog** — sortable tables with ATT&CK tags, platform badges, related counts
-- **Graph** — react-flow detection chain (TB) + threat chaining (LR) with focus-context detail panel
-- **Coverage** — ATT&CK matrix from Navigator export, gap dashboard, platform rollup
-- **Search** — cmdk palette with Orama full-text + structured filters (`type:rule`, `T1548.002`)
-- **Detail panels** — per-type structured sections, platform query viewers (Shiki), YAML raw tab
-- **Permalinks** — `/threats/[uuid]`, `/objectives/[uuid]`, `/rules/[uuid]`, `/signals/[uuid]`
+- **Graph** — the corpus on a WebGL canvas (sigma.js): detection edges down the ontology, threat
+  chaining between threats. Hover or pick an object and its chain lights up with moving dashes and
+  the field each link travels on (`threats`, `signals[]`, `detection_model`). ForceAtlas2 runs in a
+  web worker, so the layout never blocks the page; kill-chain bands and vocabulary values are layers.
+- **Catalogue** — threats, the objectives that cover them (with their signals) and the rules that
+  implement them, in three columns. Threats with an objective come first; the rest are the gaps.
+  Selecting an object pulls its chain to the top and draws connectors across the columns.
+- **ATT&CK** — Enterprise, ICS and Mobile matrices as a heatmap: techniques filled by how many
+  objectives, signals and rules detect them, threat-only techniques marked as gaps.
+- **Search** — free text plus `field:value` clauses (`type:rule technique:T1059 platform:sentinel`)
+  and `field!=value` exclusions (`type!=rule`), with suggestions from the corpus and its
+  vocabularies. Reach and deployment are clauses too (`reach:chains`, `deploy:staging`), set by the
+  rail's reach control; any other word is text. ⌘K jumps to any object.
+- **Inspector** — each object's description, facts, ATT&CK techniques, vocabulary values with their
+  definitions, rule queries per integration, its links read from the fields that hold them, and its
+  YAML with a link to the file at the bundle's commit. With nothing selected it shows the library's
+  coverage, integrations and most-chained threats.
+- **Permalinks** — `/threats/[uuid]/`, `/objectives/[uuid]/`, `/signals/[uuid]/`, `/rules/[uuid]/`
+  open the explorer on that object, with per-object titles and descriptions for link previews. The
+  address bar tracks the selection (`?o=`), view (`?v=`) and search (`?q=`); Back returns to the
+  previous object.
+
+## Data
+
+The client fetches two files from `public/data/`, both preloaded with the HTML:
+
+| File | Written by | Contents |
+|------|------------|----------|
+| `explorer.bundle.json` | `scripts/generate-mock-bundle.mjs` | Every object once (`flatIndex`), summaries, chaining, deployments, and the corpus repository and commit |
+| `explorer.vocab.json` | `scripts/generate-mock-bundle.mjs` | The vocabulary terms the client reads: every ATT&CK technique, the small vocabularies whole, and of the large catalogues (actors, groups, malware) only the terms the corpus names, each stored once |
+
+`vocab.index.json` (the full index from `pnpm codegen:specs`, ~15 MB) is the fallback when
+`explorer.vocab.json` is absent; bundles from older generators that ship `models` and `signals`
+beside `flatIndex` still load.
 
 ## Upstream exports
 
-Explorer consumes exports from `opentide generate explorer`:
-
-| Export | Purpose |
-|--------|---------|
-| `explorer.bundle.json` | Object index + chaining adjacency |
-| `explorer.coverage.json` | Technique matrix, signal gaps |
-| `explorer.search.json` | Orama document list |
-| `attack-navigator.json` | ATT&CK Navigator layer |
-| `vocab.att&ck.json` | Slim ATT&CK vocabulary |
-
-Until that phase ships in all environments, the mock generator builds compatible JSON from `library/objects/`.
+`opentide explorer build` (see `bin/build.mjs`) copies `explorer.bundle.json` from the exports
+directory, and `explorer.vocab.json` or `vocab.index.json` when present.
 
 ## npm publish (optional)
 

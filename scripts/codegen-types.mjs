@@ -3,6 +3,7 @@ import { compileFromFile } from "json-schema-to-typescript";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { isMain } from "./lib/is-main.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -47,7 +48,7 @@ export async function codegenTypes(schemasDir) {
   );
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMain(import.meta.url)) {
   const schemasDir =
     process.argv[2] ?? path.resolve(ROOT, "../library/.opentide/schemas");
   codegenTypes(schemasDir).catch((err) => {

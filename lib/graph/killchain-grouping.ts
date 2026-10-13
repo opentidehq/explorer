@@ -94,16 +94,15 @@ export function computeKillchainLayout(
 
   const positions = new Map<string, { x: number; y: number }>();
   const groups: KillchainGroupLayout[] = [];
+  const names = new Map(bundle.summaries.map((s) => [s.uuid, s.name]));
 
   KILLCHAIN_STAGE_ORDER.forEach((stage, stageIndex) => {
     const nodeIds = byStage.get(stage) ?? [];
     if (!nodeIds.length) return;
 
-    nodeIds.sort((a, b) => {
-      const nameA = bundle.summaries.find((s) => s.uuid === a)?.name ?? a;
-      const nameB = bundle.summaries.find((s) => s.uuid === b)?.name ?? b;
-      return nameA.localeCompare(nameB);
-    });
+    nodeIds.sort((a, b) =>
+      (names.get(a) ?? a).localeCompare(names.get(b) ?? b),
+    );
 
     const centerX =
       (stageIndex - (KILLCHAIN_STAGE_ORDER.length - 1) / 2) * STAGE_GAP;
