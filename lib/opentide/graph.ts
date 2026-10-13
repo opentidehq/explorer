@@ -203,7 +203,9 @@ function childIndex(ctx: GraphContext): Map<ObjectType, Map<string, string[]>> {
 }
 
 export function childs(ctx: GraphContext, modelId: string): string[] {
-  const modelType = getType(ctx, modelId);
+  // A dangling reference (a filtered export, a broken link) has no children; the explorer
+  // must not stop drawing over it.
+  const modelType = getType(ctx, modelId, true);
   if (!modelType) return [];
   if (!CHILD_MAPPINGS[modelType]) return [];
 
@@ -312,11 +314,15 @@ export function techniquesResolver(
   ctx: GraphContext,
   modelId: string,
   recursive = true,
+  seen = new Set<string>(),
 ): string[] {
-  const modelType = getType(ctx, modelId);
+  // References can dangle or loop in a hand-edited corpus: resolve what exists, once.
+  if (seen.has(modelId)) return [];
+  seen.add(modelId);
+  const modelType = getType(ctx, modelId, true);
   if (!modelType) return [];
 
-  const modelBody = ctx.models[modelType]?.[modelId];
+  const modelBody = ctx.models[modelType]?.[modelId] ?? ctx.flatIndex[modelId];
   if (!modelBody) return [];
 
   let techniques: string[] = [];
@@ -329,9 +335,20 @@ export function techniquesResolver(
         | undefined);
     if (!parentId) return [];
     if (recursive) {
-      techniques = techniquesResolver(ctx, parentId, true);
+      techniques = techniquesResolver(ctx, parentId, true, seen);
     }
     return techniques;
+  }
+
+  if (modelType === "signal") {
+    // A signal detects what its objective does.
+    if (!recursive) return [];
+    for (const parentId of parents(ctx, modelId)) {
+      if (getType(ctx, parentId, true) === "objective") {
+        return techniquesResolver(ctx, parentId, true, seen);
+      }
+    }
+    return [];
   }
 
   if (modelType === "objective") {
@@ -343,7 +360,7 @@ export function techniquesResolver(
       const parentIds = asStringArray(objective?.["threats"]);
       if (recursive) {
         for (const parentId of parentIds) {
-          techniques.push(...techniquesResolver(ctx, parentId, true));
+          techniques.push(...techniquesResolver(ctx, parentId, true, seen));
         }
       }
     }
@@ -364,7 +381,7 @@ interface RelationTree {
 type RelationsResult = RelationTree | string[];
 
 function relationsDownstream(ctx: GraphContext, id: string): RelationsResult {
-  const type = getType(ctx, id);
+  const type = getType(ctx, id, true);
   if (!type) return {};
 
   if (type === "signal") {
@@ -374,7 +391,7 @@ function relationsDownstream(ctx: GraphContext, id: string): RelationsResult {
   if (type === "objective") {
     const tree: RelationTree = {};
     for (const child of childs(ctx, id)) {
-      const childType = getType(ctx, child);
+      const childType = getType(ctx, child, true);
       if (childType === "signal") {
         tree[child] = relationsDownstream(ctx, child);
       } else if (childType === "rule") {
@@ -392,7 +409,7 @@ function relationsDownstream(ctx: GraphContext, id: string): RelationsResult {
 }
 
 function relationsUpstream(ctx: GraphContext, id: string): RelationsResult {
-  const type = getType(ctx, id);
+  const type = getType(ctx, id, true);
   if (!type || type === "threat") return {};
 
   const tree: RelationTree = {};
@@ -454,7 +471,7 @@ export function relationsList(
   if (Array.isArray(relations) && relations.length > 0) {
     const first = relations[0];
     if (first) {
-      const t = getType(ctx, first);
+      const t = getType(ctx, first, true);
       if (t) flat[t] = relations;
     }
   }
@@ -463,21 +480,21 @@ export function relationsList(
     for (const [k, v] of recursiveItems(relations)) {
       if (k) {
         if (Array.isArray(k)) {
-          const kType = k[0] ? getType(ctx, k[0]) : null;
+          const kType = k[0] ? getType(ctx, k[0], true) : null;
           if (kType) {
             flat[kType] = [...(flat[kType] ?? []), ...k];
           }
         } else if (typeof k === "string") {
-          const kType = getType(ctx, k);
+          const kType = getType(ctx, k, true);
           if (kType) flat[kType] = [...(flat[kType] ?? []), k];
         }
       }
       if (v) {
         if (Array.isArray(v)) {
-          const vType = v[0] ? getType(ctx, v[0]) : null;
+          const vType = v[0] ? getType(ctx, v[0], true) : null;
           if (vType) flat[vType] = [...(flat[vType] ?? []), ...v];
         } else if (typeof v === "string") {
-          const vType = getType(ctx, v);
+          const vType = getType(ctx, v, true);
           if (vType) flat[vType] = [...(flat[vType] ?? []), v];
         }
       }

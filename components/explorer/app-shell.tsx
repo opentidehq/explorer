@@ -4,11 +4,13 @@ import dynamic from "next/dynamic";
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import {
   EXPLORER_VIEWS,
@@ -22,6 +24,7 @@ import { LibraryOverview } from "@/components/explorer/inspector/library-overvie
 import { ObjectInspector } from "@/components/explorer/inspector/object-inspector";
 import { Rail } from "@/components/explorer/rail";
 import { Stage } from "@/components/explorer/stage";
+import { ViewBoundary } from "@/components/explorer/view-boundary";
 import { cn } from "@/lib/utils";
 
 const CommandPalette = dynamic(
@@ -102,18 +105,47 @@ function ResizeEdge({ onResize }: { onResize: (delta: number) => void }) {
   );
 }
 
+/**
+ * Radix gives focus back to a `Dialog.Trigger`; the drawer and the sheet open from anywhere
+ * (a row, a graph node, a key), so give it back to whatever held it.
+ */
+function useReturnFocus() {
+  const holder = useRef<HTMLElement | null>(null);
+  return useMemo(
+    () => ({
+      onOpenAutoFocus: () => {
+        const active = document.activeElement;
+        holder.current = active instanceof HTMLElement ? active : null;
+      },
+      onCloseAutoFocus: (event: Event) => {
+        event.preventDefault();
+        const target = holder.current;
+        holder.current = null;
+        if (target?.isConnected) target.focus({ preventScroll: true });
+      },
+    }),
+    [],
+  );
+}
+
 function InspectorBody({ onClose }: { onClose: () => void }) {
   const catalog = useCatalog();
   const selectedId = useExplorer((s) => s.selectedId);
   const summary = selectedId ? catalog.summaries.get(selectedId) : undefined;
-  if (summary) {
-    return (
-      <div key={summary.uuid} className="tide-slide-in h-full">
-        <ObjectInspector summary={summary} onClose={onClose} />
-      </div>
-    );
-  }
-  return <LibraryOverview />;
+  return (
+    <ViewBoundary
+      what={summary ? "this object" : "the overview"}
+      resetKey={selectedId}
+    >
+      {summary ? (
+        <div key={summary.uuid} className="tide-slide-in h-full">
+          <ObjectInspector summary={summary} onClose={onClose} />
+        </div>
+      ) : (
+        <LibraryOverview />
+      )}
+    </ViewBoundary>
+  );
 }
 
 /**
@@ -132,6 +164,8 @@ export function AppShell() {
   const [width, setWidth] = useState(readWidth);
   const [paletteUsed, setPaletteUsed] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const drawerFocus = useReturnFocus();
+  const sheetFocus = useReturnFocus();
 
   useEffect(() => {
     if (paletteOpen) setPaletteUsed(true);
@@ -207,7 +241,8 @@ export function AppShell() {
         actions.setView(view);
         return;
       }
-      if (event.key === "Escape") {
+      // A dialog that closed on this Escape has handled it.
+      if (event.key === "Escape" && !event.defaultPrevented) {
         const state = store.get();
         if (state.paletteOpen) return;
         if (state.railOpen) actions.setRailOpen(false);
@@ -262,66 +297,75 @@ export function AppShell() {
         ) : null}
       </div>
 
-      {!desktop && railOpen ? (
-        <div
-          className="fixed inset-0 z-40"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Library filters"
-        >
-          <button
-            type="button"
-            aria-label="Close filters"
-            className="absolute inset-0 bg-band/60 backdrop-blur-sm"
-            onClick={() => actions.setRailOpen(false)}
-          />
-          <div className="tide-slide-in absolute inset-y-3 left-3 flex w-[min(320px,calc(100vw-1.5rem))] flex-col">
-            <button
-              type="button"
+      {/* Below the desktop breakpoint the rail and the inspector cover the stage: modal
+          dialogs that take focus, keep it, and give it back on close. */}
+      <DialogPrimitive.Root
+        open={!desktop && railOpen}
+        onOpenChange={actions.setRailOpen}
+      >
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-band/60 backdrop-blur-sm" />
+          <DialogPrimitive.Content
+            aria-describedby={undefined}
+            {...drawerFocus}
+            // Escape in the search box closes its suggestions, then clears it, before it
+            // closes the drawer.
+            onEscapeKeyDown={(event) => {
+              const field = event.target;
+              if (
+                field instanceof HTMLInputElement &&
+                (field.getAttribute("aria-expanded") === "true" || field.value)
+              ) {
+                event.preventDefault();
+              }
+            }}
+            className="tide-slide-in fixed inset-y-3 left-3 z-40 flex w-[min(320px,calc(100vw-1.5rem))] flex-col outline-none"
+          >
+            <DialogPrimitive.Title className="sr-only">
+              Library filters
+            </DialogPrimitive.Title>
+            <DialogPrimitive.Close
               aria-label="Close filters"
-              onClick={() => actions.setRailOpen(false)}
               className="tide-pill-icon absolute right-2 top-2 z-10 size-8"
             >
               <X className="size-4" />
-            </button>
+            </DialogPrimitive.Close>
             <Rail searchRef={searchRef} className="shadow-float" />
-          </div>
-        </div>
-      ) : null}
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
 
-      {sheetOpen ? (
-        <div
-          className="fixed inset-0 z-40"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Inspector"
-        >
-          <button
-            type="button"
-            aria-label="Close"
-            className="absolute inset-0 bg-band/60 backdrop-blur-sm"
-            onClick={closeInspector}
-          />
-          <div
+      <DialogPrimitive.Root
+        open={sheetOpen}
+        onOpenChange={(open) => {
+          if (!open) closeInspector();
+        }}
+      >
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-band/60 backdrop-blur-sm" />
+          <DialogPrimitive.Content
+            aria-describedby={undefined}
+            {...sheetFocus}
             className={cn(
-              "tide-sheet-in absolute inset-x-2 bottom-2 top-16 overflow-hidden",
+              "tide-sheet-in fixed inset-x-2 bottom-2 top-16 z-40 overflow-hidden outline-none",
               "tide-panel shadow-float sm:inset-x-auto sm:right-3 sm:top-3 sm:bottom-3 sm:w-[min(440px,calc(100vw-1.5rem))]",
             )}
           >
+            <DialogPrimitive.Title className="sr-only">
+              {selectedId ? "Inspector" : "Library overview"}
+            </DialogPrimitive.Title>
             {!selectedId ? (
-              <button
-                type="button"
+              <DialogPrimitive.Close
                 aria-label="Close the overview"
-                onClick={closeInspector}
                 className="tide-pill-icon absolute right-2 top-2 z-10 size-8"
               >
                 <X className="size-4" />
-              </button>
+              </DialogPrimitive.Close>
             ) : null}
             <InspectorBody onClose={closeInspector} />
-          </div>
-        </div>
-      ) : null}
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
 
       {paletteUsed || paletteOpen ? <CommandPalette /> : null}
     </div>

@@ -7,6 +7,7 @@ import {
   useExplorer,
   useExplorerActions,
 } from "@/components/explorer/explorer-state";
+import { ViewBoundary } from "@/components/explorer/view-boundary";
 
 function ViewLoading({ label }: { label: string }) {
   return (
@@ -83,9 +84,11 @@ export function Stage() {
   const view = useExplorer((s) => s.view);
   return (
     <div key={view} className="tide-fade-slide absolute inset-0">
-      {view === "graph" ? <GraphView /> : null}
-      {view === "catalogue" ? <CatalogueView /> : null}
-      {view === "attack" ? <AttackView /> : null}
+      <ViewBoundary what="this view" resetKey={view}>
+        {view === "graph" ? <GraphView /> : null}
+        {view === "catalogue" ? <CatalogueView /> : null}
+        {view === "attack" ? <AttackView /> : null}
+      </ViewBoundary>
     </div>
   );
 }
