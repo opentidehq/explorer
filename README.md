@@ -162,9 +162,10 @@ When using `opentide explorer serve`, detection content is resolved separately:
   Selecting an object pulls its chain to the top and draws connectors across the columns.
 - **ATT&CK** — Enterprise, ICS and Mobile matrices as a heatmap: techniques filled by how many
   objectives, signals and rules detect them, threat-only techniques marked as gaps.
-- **Search** — free text plus `field:value` clauses (`type:rule technique:T1059 platform:sentinel`),
-  with suggestions from the corpus and its vocabularies, and a reach control (matches, neighbours,
-  whole chains). ⌘K jumps to any object.
+- **Search** — free text plus `field:value` clauses (`type:rule technique:T1059 platform:sentinel`)
+  and `field!=value` exclusions (`type!=rule`), with suggestions from the corpus and its
+  vocabularies. Reach and deployment are clauses too (`reach:chains`, `deploy:staging`), set by the
+  rail's reach control; any other word is text. ⌘K jumps to any object.
 - **Inspector** — each object's description, facts, ATT&CK techniques, vocabulary values with their
   definitions, rule queries per integration, its links read from the fields that hold them, and its
   YAML with a link to the file at the bundle's commit. With nothing selected it shows the library's

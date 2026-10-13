@@ -28,7 +28,16 @@ export function createStore<S extends object>(initial: S): Store<S> {
       }
       if (!changed) return;
       state = { ...state, ...next };
-      for (const listener of listeners) listener();
+      // A listener that throws must not keep the others, or the caller, from running.
+      for (const listener of listeners) {
+        try {
+          listener();
+        } catch (error) {
+          queueMicrotask(() => {
+            throw error;
+          });
+        }
+      }
     },
     subscribe(listener) {
       listeners.add(listener);

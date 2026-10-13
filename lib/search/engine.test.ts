@@ -127,9 +127,17 @@ describe("search engine", () => {
   it("applies structured filters", () => {
     expect(search("type:rule")).toEqual([R1]);
     expect(search("platform:sentinel")).toEqual([R1]);
-    expect(search("production")).toEqual([R1]);
+    expect(search("deploy:production")).toEqual([R1]);
     expect(search("actor:G0007")).toEqual([T1]);
     expect(search(`uuid:${O1}`)).toEqual([O1]);
+  });
+
+  it("leaves out what != names", () => {
+    expect(search("type!=threat")).toEqual([O1, R1]);
+    expect(search("technique!=T1110")).toEqual([T1]);
+    expect(search("deploy!=production")).toEqual([T1, T2, O1]);
+    expect(search("password type!=objective")).toEqual([T2]);
+    expect(search(`uuid!=${T1} type:threat`)).toEqual([T2]);
   });
 
   it("looks up a pasted uuid directly", () => {

@@ -18,7 +18,9 @@ import {
   activeFilterCount,
   parseFilterTokens,
   toggleClause,
+  withReach,
   type CatalogFilters,
+  type ClauseOperator,
   type RelationMode,
 } from "@/lib/search/filters";
 
@@ -142,6 +144,31 @@ function urlFor(state: Pick<ExplorerState, "selectedId" | "view" | "query">) {
   return `${basePath()}/${search ? `?${search}` : ""}`;
 }
 
+function isExplorerView(value: unknown): value is ExplorerView {
+  return EXPLORER_VIEWS.includes(value as ExplorerView);
+}
+
+/**
+ * Search and view changes reach the address bar after a pause: typing would otherwise write
+ * on every key (Next.js adds a write of its own to each), and Safari throws once a page
+ * makes 100 history calls in 30 seconds.
+ */
+const URL_WRITE_DELAY = 400;
+
+/** Each entry records its view too, for entries whose address has no `v` (the first one). */
+function writeHistory(
+  mode: "push" | "replace",
+  view: ExplorerView,
+  url?: string,
+) {
+  try {
+    if (mode === "push") window.history.pushState({ view }, "", url);
+    else window.history.replaceState({ view }, "", url);
+  } catch {
+    // Safari's rate limit (a SecurityError): the address catches up on the next write.
+  }
+}
+
 /* Actions ------------------------------------------------------------------------------ */
 
 export interface ExplorerActions {
@@ -149,8 +176,8 @@ export interface ExplorerActions {
   hover: (id: string | null) => void;
   setView: (view: ExplorerView) => void;
   setQuery: (query: string) => void;
-  /** Add or remove one `field:value` token in the search. */
-  toggleToken: (field: string, value: string) => void;
+  /** Add or remove one `field:value` (or `field!=value`) clause in the search. */
+  toggleToken: (field: string, value: string, op?: ClauseOperator) => void;
   setRelationMode: (mode: RelationMode) => void;
   resetFilters: () => void;
   setInspectorTab: (tab: InspectorTab) => void;
@@ -161,12 +188,6 @@ export interface ExplorerActions {
   setRailOpen: (open: boolean) => void;
   setPaletteOpen: (open: boolean) => void;
 }
-
-const RELATION_TOKENS: Record<RelationMode, string | null> = {
-  "include-neighbors": null,
-  "match-only": "match-only",
-  "include-chain": "chain",
-};
 
 function createActions(
   store: Store<ExplorerState>,
@@ -204,20 +225,11 @@ function createActions(
       store.set({ view, hoveredId: null });
     },
     setQuery: (query) => setQuery(query),
-    toggleToken(field, value) {
-      setQuery(toggleClause(store.get().query, field, value), true);
+    toggleToken(field, value, op) {
+      setQuery(toggleClause(store.get().query, field, value, op), true);
     },
     setRelationMode(mode) {
-      const stripped = store
-        .get()
-        .query.replace(
-          /(^|\s)(match-only|matches|match|neighbors?|chain|detection-chain|(relation|mode):\S+)(?=\s|$)/gi,
-          " ",
-        )
-        .replace(/\s+/g, " ")
-        .trim();
-      const token = RELATION_TOKENS[mode];
-      setQuery(token ? `${stripped} ${token}`.trim() : stripped, true);
+      setQuery(withReach(store.get().query, mode), true);
     },
     resetFilters() {
       setQuery("", true);
@@ -294,41 +306,71 @@ export function ExplorerProvider({
   });
 
   // Keep the address bar in step: a new selection is a history entry (Back returns to the
-  // previous object); view and search changes replace the current one.
+  // previous object); view and search changes update the current one.
   useEffect(() => {
     const { store, actions } = value;
-    let last = store.get();
+    // What the current history entry describes.
+    let entry = store.get();
+    let timer: ReturnType<typeof setTimeout> | undefined;
     let restoring = false;
 
-    const unsubscribe = store.subscribe(() => {
+    // The first entry's address may not say which view it showed (it came from storage).
+    writeHistory("replace", entry.view);
+
+    const write = () => {
+      clearTimeout(timer);
+      timer = undefined;
       const state = store.get();
-      const moved =
-        state.selectedId !== last.selectedId ||
-        state.view !== last.view ||
-        state.query !== last.query;
-      if (moved && !restoring) {
-        const url = urlFor(state);
-        if (url !== `${window.location.pathname}${window.location.search}`) {
-          if (state.selectedId !== last.selectedId) {
-            window.history.pushState({ explorer: true }, "", url);
-          } else {
-            window.history.replaceState({ explorer: true }, "", url);
-          }
-        }
+      const push = state.selectedId !== entry.selectedId;
+      const moved = state.view !== entry.view || state.query !== entry.query;
+      if (!push && !moved) return;
+      if (push && moved) {
+        // A search or view change still waiting to be written belongs to the entry being
+        // left: Back returns to it as it was just before this selection.
+        writeHistory(
+          "replace",
+          state.view,
+          urlFor({ ...state, selectedId: entry.selectedId }),
+        );
       }
-      last = state;
+      entry = state;
+      // Written even when the address stays the same: the entry records the view.
+      writeHistory(push ? "push" : "replace", state.view, urlFor(state));
+    };
+
+    const unsubscribe = store.subscribe(() => {
+      if (restoring) return;
+      const state = store.get();
+      if (state.selectedId !== entry.selectedId) write();
+      else if (state.view !== entry.view || state.query !== entry.query) {
+        clearTimeout(timer);
+        timer = setTimeout(write, URL_WRITE_DELAY);
+      }
     });
 
-    const onPop = () => {
+    const onPop = (event: PopStateEvent) => {
+      // An entry with no state is a fragment (the skip link): the explorer did not change.
+      if (event.state == null) return;
+      clearTimeout(timer);
+      timer = undefined;
       const url = readUrl();
+      const recorded = (event.state as { view?: unknown } | null)?.view;
       restoring = true;
-      actions.select(url.selectedId);
-      if (url.view) actions.setView(url.view);
-      if (url.query !== store.get().query) actions.setQuery(url.query);
-      restoring = false;
+      try {
+        actions.select(url.selectedId);
+        // An address without `v` is the graph, unless its entry recorded another view.
+        actions.setView(
+          url.view ?? (isExplorerView(recorded) ? recorded : "graph"),
+        );
+        if (url.query !== store.get().query) actions.setQuery(url.query);
+      } finally {
+        restoring = false;
+      }
+      entry = store.get();
     };
     window.addEventListener("popstate", onPop);
     return () => {
+      clearTimeout(timer);
       unsubscribe();
       window.removeEventListener("popstate", onPop);
     };

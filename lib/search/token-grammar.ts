@@ -1,14 +1,14 @@
 /**
  * Structured search grammar (tokenized filters):
  *
- *   query   := clause ( ( WS | AND | OR ) clause | WS bare_relation )*
+ *   query   := ( clause | word ) ( ( WS | AND | OR ) ( clause | word ) )*
  *   clause  := field ( ":" | "!=" ) value
  *   field   := identifier
  *   value   := quoted_string | unquoted_token
  *
  * Implicit AND between adjacent clauses (`type:rule platform:sentinel`).
  * Explicit AND/OR are equivalent clause separators for filter parsing.
- * Bare `neighbors` / `chain` set relation mode (legacy).
+ * Every other word is free text; reach and deployment are clauses too.
  */
 
 import {
@@ -57,16 +57,6 @@ export const BOOLEAN_OPERATORS = [
     description: "Add another filter (all must match)",
   },
   { op: "OR" as const, label: "OR", description: "Add alternative filter" },
-] as const;
-
-export const BARE_RELATION_TOKENS = [
-  "neighbors",
-  "neighbor",
-  "chain",
-  "detection-chain",
-  "match-only",
-  "matches",
-  "match",
 ] as const;
 
 const FIELD_KEYS = new Set(

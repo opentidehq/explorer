@@ -95,7 +95,7 @@ describe("getQueryParseState phases", () => {
 });
 
 describe("lexSegments", () => {
-  it("parses clauses, booleans, and bare relation tokens", () => {
+  it("parses clauses, booleans, and bare words", () => {
     const segments = lexSegments("type:threat AND platform:sentinel neighbors");
     expect(segments.map((s) => s.kind)).toEqual([
       "clause",
@@ -126,7 +126,25 @@ describe("getTokenSuggestions by phase", () => {
     const { context, suggestions } = getTokenSuggestions("type", 4, vocab);
     expect(context.phase).toBe("after_field");
     expect(suggestions.every((s) => s.kind === "operator")).toBe(true);
-    expect(suggestions.some((s) => s.label === ":")).toBe(true);
+    expect(suggestions.map((s) => s.label)).toEqual([":", "!="]);
+  });
+
+  it("offers != only where it excludes something", () => {
+    const { suggestions } = getTokenSuggestions("reach", 5, vocab);
+    expect(suggestions.map((s) => s.label)).toEqual([":"]);
+  });
+
+  it("suggests reach values, not bare relation words", () => {
+    const after = getTokenSuggestions("type:rule ", 10, vocab).suggestions;
+    expect(
+      after.some((s) => s.label === "chain" || s.label === "neighbors"),
+    ).toBe(false);
+    const values = getTokenSuggestions("reach:", 6, vocab).suggestions;
+    expect(values.map((s) => s.label)).toEqual([
+      "matches",
+      "neighbours",
+      "chains",
+    ]);
   });
 
   it("suggests values after field: prefix", () => {
@@ -200,11 +218,11 @@ describe("parseFilterTokens AND/OR", () => {
     expect(filters.techniques).toContain("T1059");
   });
 
-  it("keeps legacy implicit AND and bare neighbors", () => {
+  it("keeps implicit AND, and a bare word is text", () => {
     const filters = parseFilterTokens("type:rule platform:sentinel neighbors");
     expect(filters.types).toContain("rule");
     expect(filters.platforms).toContain("sentinel");
     expect(filters.relationMode).toBe("include-neighbors");
-    expect(filters.query).toBe("");
+    expect(filters.query).toBe("neighbors");
   });
 });

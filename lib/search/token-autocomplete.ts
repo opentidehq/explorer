@@ -1,11 +1,10 @@
 import {
   matchFields,
-  RELATION_VALUES,
   valuesForField,
   type TokenVocabulary,
 } from "@/lib/search/token-catalog";
+import { supportsNegation } from "@/lib/search/filters";
 import {
-  BARE_RELATION_TOKENS,
   BOOLEAN_OPERATORS,
   SEARCH_OPERATORS,
   getQueryParseState,
@@ -53,9 +52,13 @@ function fieldSuggestions(partial: string): TokenSuggestion[] {
   return suggestions.sort((a, b) => b.score - a.score);
 }
 
-function operatorSuggestions(partial: string): TokenSuggestion[] {
+function operatorSuggestions(
+  partial: string,
+  field: string | null,
+): TokenSuggestion[] {
   const suggestions: TokenSuggestion[] = [];
   for (const { op, label, description } of SEARCH_OPERATORS) {
+    if (op === "!=" && !(field && supportsNegation(field))) continue;
     const score = scoreMatch(label, partial);
     if (score === 0 && partial) continue;
     suggestions.push({
@@ -111,35 +114,6 @@ function valueSuggestions(
   return suggestions.sort((a, b) => b.score - a.score);
 }
 
-function relationSuggestions(partial: string): TokenSuggestion[] {
-  const suggestions: TokenSuggestion[] = [];
-  for (const rel of RELATION_VALUES) {
-    const score =
-      scoreMatch(rel.label, partial) || scoreMatch(rel.value, partial);
-    if (score === 0 && partial) continue;
-    suggestions.push({
-      kind: "value",
-      label: rel.label,
-      insert: rel.value,
-      description: rel.description,
-      score,
-    });
-  }
-  for (const bare of BARE_RELATION_TOKENS) {
-    if (RELATION_VALUES.some((r) => r.value === bare)) continue;
-    const score = scoreMatch(bare, partial);
-    if (score === 0 && partial) continue;
-    suggestions.push({
-      kind: "value",
-      label: bare,
-      insert: bare,
-      description: "Graph expansion mode",
-      score,
-    });
-  }
-  return suggestions.sort((a, b) => b.score - a.score);
-}
-
 function suggestionsForPhase(
   state: QueryParseState,
   vocab: TokenVocabulary,
@@ -152,7 +126,7 @@ function suggestionsForPhase(
       return fieldSuggestions(partial);
 
     case "after_field":
-      return operatorSuggestions("");
+      return operatorSuggestions("", field);
 
     case "after_operator":
       return field
@@ -167,18 +141,14 @@ function suggestionsForPhase(
       if (partial && boolean.some((b) => b.score >= 40)) {
         return boolean;
       }
-      const relations = relationSuggestions(partial);
       const fields = fieldSuggestions(partial);
       if (!partial) {
         return [
           ...boolean.map((b) => ({ ...b, score: b.score + 50 })),
-          ...relations.slice(0, 3),
           ...fields,
         ].sort((a, b) => b.score - a.score);
       }
-      return [...boolean, ...relations, ...fields].sort(
-        (a, b) => b.score - a.score,
-      );
+      return [...boolean, ...fields].sort((a, b) => b.score - a.score);
     }
 
     default:

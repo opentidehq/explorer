@@ -108,82 +108,78 @@ function includesTechnique(techniques: string[], wanted: string): boolean {
   return techniques.some((t) => t === id || t.startsWith(`${id}.`));
 }
 
-function matchesFilters(
-  entry: IndexedDocument,
+type DeploySets = { staging?: Set<string>; production?: Set<string> };
+
+/** Whether an object has one clause value, per field; `:` needs one, `!=` needs none. */
+const HAS_VALUE = {
+  types: (entry: IndexedDocument, type: string) => entry.doc.type === type,
+  uuids: (entry: IndexedDocument, uuid: string) =>
+    entry.doc.uuid.toLowerCase() === uuid.toLowerCase(),
+  platforms: (entry: IndexedDocument, platform: string) =>
+    entry.doc.platforms.some((p) =>
+      p.toLowerCase().includes(platform.toLowerCase()),
+    ),
+  statuses: (entry: IndexedDocument, status: string) =>
+    (entry.doc.status ?? "").toUpperCase().includes(status.toUpperCase()),
+  techniques: (entry: IndexedDocument, technique: string) =>
+    includesTechnique(entry.techniques, technique),
+  actors: (entry: IndexedDocument, actor: string) =>
+    entry.actors.some((a) => a.includes(actor.toLowerCase())),
+  schemas: (entry: IndexedDocument, schema: string) =>
+    (entry.doc.schema ?? "").toLowerCase().includes(schema.toLowerCase()),
+  tlps: (entry: IndexedDocument, tlp: string) =>
+    (entry.doc.tlp ?? "").toUpperCase().includes(tlp.toUpperCase()),
+} satisfies Record<string, (entry: IndexedDocument, value: string) => boolean>;
+
+type ValueField = keyof typeof HAS_VALUE;
+
+/** The structured part of a search as one test, built once per search. */
+function filterPredicate(
   filters: CatalogFilters,
-  deploy: { staging?: Set<string>; production?: Set<string> },
-): boolean {
-  const { doc } = entry;
-  if (filters.types.length && !filters.types.includes(doc.type)) return false;
+  deploy: DeploySets,
+): (entry: IndexedDocument) => boolean {
+  const wanted: Record<ValueField, string[]> = {
+    types: filters.types,
+    uuids: filters.uuid ? [filters.uuid] : [],
+    platforms: filters.platforms,
+    statuses: filters.statuses,
+    techniques: filters.techniques,
+    actors: filters.actors,
+    schemas: filters.schemas,
+    tlps: filters.tlps,
+  };
+  const fields = (Object.keys(HAS_VALUE) as ValueField[]).filter(
+    (field) => wanted[field].length || filters.exclude[field].length,
+  );
 
-  if (filters.uuid && doc.uuid.toLowerCase() !== filters.uuid.toLowerCase()) {
-    return false;
-  }
+  return (entry) => {
+    const { uuid } = entry.doc;
+    for (const field of fields) {
+      const has = HAS_VALUE[field];
+      const values = wanted[field];
+      if (values.length && !values.some((value) => has(entry, value))) {
+        return false;
+      }
+      if (filters.exclude[field].some((value) => has(entry, value))) {
+        return false;
+      }
+    }
 
-  if (
-    filters.platforms.length &&
-    !filters.platforms.some((p) =>
-      doc.platforms.some((dp) => dp.toLowerCase().includes(p.toLowerCase())),
-    )
-  ) {
-    return false;
-  }
-
-  if (
-    filters.statuses.length &&
-    !filters.statuses.some((s) =>
-      (doc.status ?? "").toUpperCase().includes(s.toUpperCase()),
-    )
-  ) {
-    return false;
-  }
-
-  if (
-    filters.techniques.length &&
-    !filters.techniques.some((t) => includesTechnique(entry.techniques, t))
-  ) {
-    return false;
-  }
-
-  if (
-    filters.actors.length &&
-    !filters.actors.some((a) =>
-      entry.actors.some((da) => da.includes(a.toLowerCase())),
-    )
-  ) {
-    return false;
-  }
-
-  if (
-    filters.schemas.length &&
-    !filters.schemas.some((s) =>
-      (doc.schema ?? "").toLowerCase().includes(s.toLowerCase()),
-    )
-  ) {
-    return false;
-  }
-
-  if (
-    filters.tlps.length &&
-    !filters.tlps.some((t) =>
-      (doc.tlp ?? "").toUpperCase().includes(t.toUpperCase()),
-    )
-  ) {
-    return false;
-  }
-
-  if (filters.stagingOnly && deploy.staging && !deploy.staging.has(doc.uuid)) {
-    return false;
-  }
-  if (
-    filters.productionOnly &&
-    deploy.production &&
-    !deploy.production.has(doc.uuid)
-  ) {
-    return false;
-  }
-
-  return true;
+    if (filters.stagingOnly && deploy.staging && !deploy.staging.has(uuid)) {
+      return false;
+    }
+    if (
+      filters.productionOnly &&
+      deploy.production &&
+      !deploy.production.has(uuid)
+    ) {
+      return false;
+    }
+    for (const target of filters.exclude.deploy) {
+      if (deploy[target]?.has(uuid)) return false;
+    }
+    return true;
+  };
 }
 
 /** How well one term matches; 0 means it does not. */
@@ -224,18 +220,16 @@ export function searchCatalog(
   options?: { stagingIndex?: StagingIndex; limit?: number },
 ): SearchDocument[] {
   const limit = options?.limit ?? 500;
-  const deploy = deployFor(options?.stagingIndex);
+  const matches = filterPredicate(filters, deployFor(options?.stagingIndex));
   const term = filters.query.trim().toLowerCase();
 
   if (UUID_RE.test(term)) {
     const doc = index.byId.get(term);
     const entry = doc && index.entries.find((e) => e.doc === doc);
-    return entry && matchesFilters(entry, filters, deploy) ? [entry.doc] : [];
+    return entry && matches(entry) ? [entry.doc] : [];
   }
 
-  const candidates = index.entries.filter((entry) =>
-    matchesFilters(entry, filters, deploy),
-  );
+  const candidates = index.entries.filter(matches);
   if (!term) return candidates.slice(0, limit).map((entry) => entry.doc);
 
   // Every word must match somewhere; the name counts most.

@@ -102,7 +102,8 @@ describe("parseFilterTokens schema/tlp", () => {
 
 describe("formatFilterTokens", () => {
   it("round-trips structured filters for command palette sync", () => {
-    const input = "type:rule uuid:abc-123 neighbors staging";
+    const input =
+      'type:rule uuid:abc-123 reach:chains deploy:staging type!=signal actor!="APT 29" powershell';
     const filters = parseFilterTokens(input);
     const serialized = formatFilterTokens(filters);
     expect(parseFilterTokens(serialized)).toEqual(filters);

@@ -2,6 +2,23 @@ import type { ObjectType } from "@/lib/opentide/types";
 
 export type RelationMode = "match-only" | "include-neighbors" | "include-chain";
 
+export type ClauseOperator = ":" | "!=";
+
+export type DeployTarget = "staging" | "production";
+
+/** What `field!=value` clauses leave out: an object with any of these values is dropped. */
+export interface ExcludedValues {
+  types: ObjectType[];
+  platforms: string[];
+  statuses: string[];
+  techniques: string[];
+  actors: string[];
+  schemas: string[];
+  tlps: string[];
+  uuids: string[];
+  deploy: DeployTarget[];
+}
+
 export interface CatalogFilters {
   query: string;
   types: ObjectType[];
@@ -15,6 +32,21 @@ export interface CatalogFilters {
   relationMode: RelationMode;
   stagingOnly: boolean;
   productionOnly: boolean;
+  exclude: ExcludedValues;
+}
+
+function emptyExclusions(): ExcludedValues {
+  return {
+    types: [],
+    platforms: [],
+    statuses: [],
+    techniques: [],
+    actors: [],
+    schemas: [],
+    tlps: [],
+    uuids: [],
+    deploy: [],
+  };
 }
 
 export const DEFAULT_FILTERS: CatalogFilters = {
@@ -30,6 +62,7 @@ export const DEFAULT_FILTERS: CatalogFilters = {
   relationMode: "include-neighbors",
   stagingOnly: false,
   productionOnly: false,
+  exclude: emptyExclusions(),
 };
 
 const OBJECT_TYPES = new Set<ObjectType>([
@@ -39,23 +72,55 @@ const OBJECT_TYPES = new Set<ObjectType>([
   "rule",
 ]);
 
-const RELATION_ALIASES: Record<string, RelationMode> = {
+/** `reach:` values, with the spellings earlier versions and the docs used. */
+const REACH_ALIASES: Record<string, RelationMode> = {
+  matches: "match-only",
   match: "match-only",
   "match-only": "match-only",
-  matches: "match-only",
-  neighbor: "include-neighbors",
+  neighbours: "include-neighbors",
+  neighbour: "include-neighbors",
   neighbors: "include-neighbors",
+  neighbor: "include-neighbors",
+  chains: "include-chain",
   chain: "include-chain",
   "detection-chain": "include-chain",
 };
 
-function parseRelationValue(raw: string): RelationMode | undefined {
-  const key = raw.toLowerCase().replace(/_/g, "-");
-  return RELATION_ALIASES[key];
+/** How each reach is written in a search. */
+export const REACH_VALUE: Record<RelationMode, string> = {
+  "match-only": "matches",
+  "include-neighbors": "neighbours",
+  "include-chain": "chains",
+};
+
+function parseReach(raw: string): RelationMode | undefined {
+  return REACH_ALIASES[raw.toLowerCase().replace(/_/g, "-")];
 }
 
-const FILTER_FIELD_KEYS =
-  "type|platform|status|technique|att&ck|attack|actor|uuid|schema|tlp|relation|mode|deploy|staging|production";
+/** Field names that may appear before `:` or `!=`, aliases included. */
+const FIELD_ALIASES: Record<string, string[]> = {
+  technique: ["technique", "attack", "att&ck"],
+  reach: ["reach", "relation", "mode"],
+};
+
+const FILTER_FIELD_KEYS = [
+  "type",
+  "platform",
+  "status",
+  ...FIELD_ALIASES.technique!,
+  "actor",
+  "uuid",
+  "schema",
+  "tlp",
+  ...FIELD_ALIASES.reach!,
+  "deploy",
+];
+
+/** Fields `!=` applies to; reach is a setting, not a property of an object. */
+export function supportsNegation(field: string): boolean {
+  const key = field.toLowerCase();
+  return FILTER_FIELD_KEYS.includes(key) && !FIELD_ALIASES.reach!.includes(key);
+}
 
 /** Strip boolean joiners; implicit AND between adjacent clauses is unchanged. */
 function stripBooleanJoiners(text: string): string {
@@ -65,23 +130,9 @@ function stripBooleanJoiners(text: string): string {
     .trim();
 }
 
-function applyClause(
-  key: string,
-  raw: string,
-  acc: {
-    types: ObjectType[];
-    platforms: string[];
-    statuses: string[];
-    techniques: string[];
-    actors: string[];
-    schemas: string[];
-    tlps: string[];
-    uuid: string;
-    relationMode: RelationMode;
-    stagingOnly: boolean;
-    productionOnly: boolean;
-  },
-): void {
+type Includes = Omit<CatalogFilters, "query" | "exclude">;
+
+function includeClause(key: string, raw: string, acc: Includes): void {
   const value = raw.toLowerCase();
 
   switch (key) {
@@ -115,9 +166,10 @@ function applyClause(
     case "uuid":
       acc.uuid = raw;
       break;
+    case "reach":
     case "relation":
     case "mode": {
-      const mode = parseRelationValue(raw);
+      const mode = parseReach(raw);
       if (mode) acc.relationMode = mode;
       break;
     }
@@ -125,92 +177,109 @@ function applyClause(
       if (value === "staging") acc.stagingOnly = true;
       if (value === "production") acc.productionOnly = true;
       break;
-    case "staging":
-      acc.stagingOnly = true;
+  }
+}
+
+function excludeClause(key: string, raw: string, ex: ExcludedValues): void {
+  const value = raw.toLowerCase();
+
+  switch (key) {
+    case "type":
+      if (OBJECT_TYPES.has(value as ObjectType)) {
+        ex.types.push(value as ObjectType);
+      }
       break;
-    case "production":
-      acc.productionOnly = true;
+    case "platform":
+      ex.platforms.push(raw);
+      break;
+    case "status":
+      ex.statuses.push(raw.toUpperCase());
+      break;
+    case "technique":
+    case "attack":
+    case "att&ck":
+      ex.techniques.push(raw.toUpperCase());
+      break;
+    case "actor":
+      ex.actors.push(raw);
+      break;
+    case "schema":
+      ex.schemas.push(raw);
+      break;
+    case "tlp":
+      ex.tlps.push(raw.toUpperCase());
+      break;
+    case "uuid":
+      ex.uuids.push(raw);
+      break;
+    case "deploy":
+      if (value === "staging" || value === "production") ex.deploy.push(value);
       break;
   }
 }
 
 /**
- * Parse tokenized search input into structured catalog filters.
- * Supports `field:value`, `field!=value`, quoted values, AND/OR joiners,
- * and legacy bare relation tokens (`neighbors`, `chain`).
+ * Parse search input into structured catalogue filters: `field:value` keeps objects with the
+ * value, `field!=value` drops them, quoted values may hold spaces, and AND/OR join clauses.
+ * Everything else is free text, including words like `chain` or `staging`: reach and
+ * deployment are clauses (`reach:chains`, `deploy:staging`).
  */
 export function parseFilterTokens(input: string): CatalogFilters {
-  const acc = {
-    types: [] as ObjectType[],
-    platforms: [] as string[],
-    statuses: [] as string[],
-    techniques: [] as string[],
-    actors: [] as string[],
-    schemas: [] as string[],
-    tlps: [] as string[],
+  const acc: Includes = {
+    types: [],
+    platforms: [],
+    statuses: [],
+    techniques: [],
+    actors: [],
+    schemas: [],
+    tlps: [],
     uuid: "",
-    relationMode: DEFAULT_FILTERS.relationMode as RelationMode,
+    relationMode: DEFAULT_FILTERS.relationMode,
     stagingOnly: false,
     productionOnly: false,
   };
+  const exclude = emptyExclusions();
 
-  let query = stripBooleanJoiners(input);
-
+  // A clause is a whole space-delimited token: `subtype:rule` is text, not a type.
   const clauseRe = new RegExp(
-    `\\b(${FILTER_FIELD_KEYS})(:|!=)([^\\s"]+|"[^"]+")`,
+    `(^|\\s)(${FILTER_FIELD_KEYS.map(escapeRegExp).join("|")})(:|!=)([^\\s"]+|"[^"]+")(?=\\s|$)`,
     "gi",
   );
 
+  // The free text is what is left once the clauses are cut out.
+  let text = "";
+  let from = 0;
   let match: RegExpExecArray | null;
   while ((match = clauseRe.exec(input)) !== null) {
-    const key = match[1]!.toLowerCase();
-    const op = match[2] as ":" | "!=";
-    const raw = match[3]!.replace(/^"|"$/g, "");
+    const key = match[2]!.toLowerCase();
+    const op = match[3] as ClauseOperator;
+    const raw = match[4]!.replace(/^"|"$/g, "");
 
-    if (op === ":") {
-      applyClause(key, raw, acc);
-    }
-    // != negation is accepted in the grammar; filter application is future work.
+    if (op === ":") includeClause(key, raw, acc);
+    else if (supportsNegation(key)) excludeClause(key, raw, exclude);
+    // `reach!=…` means nothing: leave it in the text, where it matches nothing, rather
+    // than drop it without a word.
+    else continue;
 
-    query = query.replace(match[0], "").trim();
+    text += `${input.slice(from, match.index + match[1]!.length)} `;
+    from = match.index + match[0].length;
   }
-
-  const bareRelationRe = /\b(match-only|neighbors?|chain|detection-chain)\b/gi;
-  let relationMatch: RegExpExecArray | null;
-  while ((relationMatch = bareRelationRe.exec(query)) !== null) {
-    const mode = parseRelationValue(relationMatch[1]!);
-    if (mode) acc.relationMode = mode;
-    query = query.replace(relationMatch[0], "").trim();
-  }
-
-  if (/\bstaging\b/i.test(query)) {
-    acc.stagingOnly = true;
-    query = query.replace(/\bstaging\b/gi, "").trim();
-  }
-  if (/\bproduction\b/i.test(query)) {
-    acc.productionOnly = true;
-    query = query.replace(/\bproduction\b/gi, "").trim();
-  }
-
-  query = stripBooleanJoiners(query);
+  text += input.slice(from);
 
   // Incomplete tokens (field: with no value) stay in the string — strip them.
-  query = query.replace(/\b[\w&]+(:|!=)(?=\s|$)/gi, "").trim();
+  const query = stripBooleanJoiners(text)
+    .replace(/\b[\w&]+(:|!=)(?=\s|$)/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
 
-  return {
-    query: query.trim(),
-    types: acc.types,
-    platforms: acc.platforms,
-    statuses: acc.statuses,
-    techniques: acc.techniques,
-    actors: acc.actors,
-    schemas: acc.schemas,
-    tlps: acc.tlps,
-    uuid: acc.uuid,
-    relationMode: acc.relationMode,
-    stagingOnly: acc.stagingOnly,
-    productionOnly: acc.productionOnly,
-  };
+  return { query, ...acc, exclude };
+}
+
+function exclusionCount(exclude: ExcludedValues): number {
+  return Object.values(exclude).reduce(
+    (sum, values: unknown[]) => sum + values.length,
+    0,
+  );
 }
 
 export function activeFilterCount(filters: CatalogFilters): number {
@@ -227,71 +296,109 @@ export function activeFilterCount(filters: CatalogFilters): number {
   if (filters.relationMode !== DEFAULT_FILTERS.relationMode) count += 1;
   if (filters.stagingOnly) count += 1;
   if (filters.productionOnly) count += 1;
+  count += exclusionCount(filters.exclude);
   return count;
 }
 
-/** Serialize structured filters back into token search input. */
+function clauseText(field: string, op: ClauseOperator, value: string): string {
+  return `${field}${op}${/\s/.test(value) ? `"${value}"` : value}`;
+}
+
+/** Serialize structured filters back into search input that parses to the same filters. */
 export function formatFilterTokens(filters: CatalogFilters): string {
   const parts: string[] = [];
+  const add = (field: string, op: ClauseOperator, values: string[]) => {
+    for (const value of values) parts.push(clauseText(field, op, value));
+  };
 
-  for (const type of filters.types) parts.push(`type:${type}`);
-  for (const platform of filters.platforms) parts.push(`platform:${platform}`);
-  for (const status of filters.statuses) parts.push(`status:${status}`);
-  for (const technique of filters.techniques)
-    parts.push(`technique:${technique}`);
-  for (const actor of filters.actors) parts.push(`actor:${actor}`);
-  for (const schema of filters.schemas) parts.push(`schema:${schema}`);
-  for (const tlp of filters.tlps) parts.push(`tlp:${tlp}`);
-  if (filters.uuid) parts.push(`uuid:${filters.uuid}`);
-  if (filters.stagingOnly) parts.push("staging");
-  if (filters.productionOnly) parts.push("production");
-  if (filters.relationMode !== DEFAULT_FILTERS.relationMode) {
-    parts.push(filters.relationMode);
+  add("type", ":", filters.types);
+  add("platform", ":", filters.platforms);
+  add(
+    "status",
+    ":",
+    filters.statuses.filter(
+      (s) =>
+        !(s === "STAGING" && filters.stagingOnly) &&
+        !(s === "PRODUCTION" && filters.productionOnly),
+    ),
+  );
+  add("technique", ":", filters.techniques);
+  add("actor", ":", filters.actors);
+  add("schema", ":", filters.schemas);
+  add("tlp", ":", filters.tlps);
+  if (filters.uuid) add("uuid", ":", [filters.uuid]);
+  if (filters.stagingOnly) {
+    add(filters.statuses.includes("STAGING") ? "status" : "deploy", ":", [
+      "staging",
+    ]);
   }
+  if (filters.productionOnly) {
+    add(filters.statuses.includes("PRODUCTION") ? "status" : "deploy", ":", [
+      "production",
+    ]);
+  }
+  if (filters.relationMode !== DEFAULT_FILTERS.relationMode) {
+    add("reach", ":", [REACH_VALUE[filters.relationMode]]);
+  }
+
+  const ex = filters.exclude;
+  add("type", "!=", ex.types);
+  add("platform", "!=", ex.platforms);
+  add("status", "!=", ex.statuses);
+  add("technique", "!=", ex.techniques);
+  add("actor", "!=", ex.actors);
+  add("schema", "!=", ex.schemas);
+  add("tlp", "!=", ex.tlps);
+  add("uuid", "!=", ex.uuids);
+  add("deploy", "!=", ex.deploy);
+
   if (filters.query.trim()) parts.push(filters.query.trim());
 
   return parts.join(" ");
 }
-
-const FIELD_ALIASES: Record<string, string[]> = {
-  technique: ["technique", "attack", "att&ck"],
-  relation: ["relation", "mode"],
-};
 
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /** Matches `field:value` (any alias of the field, quoted or not) as a whole token. */
-function clausePattern(field: string, value: string): RegExp {
+function clausePattern(
+  field: string,
+  value: string,
+  op: ClauseOperator,
+): RegExp {
   const names = (FIELD_ALIASES[field] ?? [field]).map(escapeRegExp).join("|");
   const v = escapeRegExp(value);
-  return new RegExp(`(^|\\s)(?:${names})(?::)(?:"${v}"|${v})(?=\\s|$)`, "i");
+  return new RegExp(
+    `(^|\\s)(?:${names})${escapeRegExp(op)}(?:"${v}"|${v})(?=\\s|$)`,
+    "i",
+  );
 }
 
 export function hasClause(
   query: string,
   field: string,
   value: string,
+  op: ClauseOperator = ":",
 ): boolean {
-  return clausePattern(field, value).test(query);
+  return clausePattern(field, value, op).test(query);
 }
 
-/** Add `field:value` to a search, or take it out when it is already there. */
+/** Add `field:value` (or `field!=value`) to a search, or take it out when it is there. */
 export function toggleClause(
   query: string,
   field: string,
   value: string,
+  op: ClauseOperator = ":",
 ): string {
-  const pattern = clausePattern(field, value);
+  const pattern = clausePattern(field, value, op);
   if (pattern.test(query)) {
     return query
       .replace(new RegExp(pattern.source, "gi"), " ")
       .replace(/\s+/g, " ")
       .trim();
   }
-  const quoted = /\s/.test(value) ? `"${value}"` : value;
-  return `${query.trim()} ${field}:${quoted}`.trim();
+  return `${query.trim()} ${clauseText(field, op, value)}`.trim();
 }
 
 /** Remove the free-text part of a search and keep its clauses. */
@@ -311,16 +418,24 @@ export function withoutFreeText(
   return next.replace(/\s+/g, " ").trim();
 }
 
-/** Remove a deployment filter however it was written: bare word, `deploy:` or `status:`. */
-export function withoutDeploy(
-  query: string,
-  which: "staging" | "production",
-): string {
+/** Remove a deployment filter however it was written: `deploy:` or `status:`. */
+export function withoutDeploy(query: string, which: DeployTarget): string {
   return query
     .replace(
-      new RegExp(`(^|\\s)(?:(?:deploy|status):)?${which}(?=\\s|$)`, "gi"),
+      new RegExp(`(^|\\s)(?:deploy|status):${which}(?=\\s|$)`, "gi"),
       " ",
     )
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/** Set how far matches reach: replaces any `reach:` clause; the default needs none. */
+export function withReach(query: string, mode: RelationMode): string {
+  const names = FIELD_ALIASES.reach!.join("|");
+  const stripped = query
+    .replace(new RegExp(`(^|\\s)(?:${names}):\\S+(?=\\s|$)`, "gi"), " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (mode === DEFAULT_FILTERS.relationMode) return stripped;
+  return `${stripped} reach:${REACH_VALUE[mode]}`.trim();
 }

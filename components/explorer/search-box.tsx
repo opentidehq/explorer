@@ -20,6 +20,7 @@ import {
   withoutDeploy,
   withoutFreeText,
   type CatalogFilters,
+  type ClauseOperator,
 } from "@/lib/search/filters";
 import {
   applySuggestion,
@@ -39,17 +40,19 @@ interface Chip {
   key: string;
   label: string;
   field: string | null;
+  op: ClauseOperator;
   value: string;
 }
 
 function filterChips(filters: CatalogFilters): Chip[] {
   const chips: Chip[] = [];
-  const add = (field: string, values: string[]) => {
+  const add = (field: string, values: string[], op: ClauseOperator = ":") => {
     for (const value of values) {
       chips.push({
-        key: `${field}:${value}`,
-        label: `${field}:${value}`,
+        key: `${field}${op}${value}`,
+        label: `${field}${op}${value}`,
         field,
+        op,
         value,
       });
     }
@@ -67,11 +70,22 @@ function filterChips(filters: CatalogFilters): Chip[] {
   if (filters.uuid) add("uuid", [filters.uuid]);
   if (filters.stagingOnly) add("deploy", ["staging"]);
   if (filters.productionOnly) add("deploy", ["production"]);
+  const ex = filters.exclude;
+  add("type", ex.types, "!=");
+  add("platform", ex.platforms, "!=");
+  add("technique", ex.techniques, "!=");
+  add("actor", ex.actors, "!=");
+  add("status", ex.statuses, "!=");
+  add("schema", ex.schemas, "!=");
+  add("tlp", ex.tlps, "!=");
+  add("uuid", ex.uuids, "!=");
+  add("deploy", ex.deploy, "!=");
   if (filters.query.trim()) {
     chips.unshift({
       key: "text",
       label: `“${filters.query.trim()}”`,
       field: null,
+      op: ":",
       value: filters.query.trim(),
     });
   }
@@ -94,6 +108,8 @@ export function SearchBox({
   const [cursor, setCursor] = useState(0);
   const [focused, setFocused] = useState(false);
   const [active, setActive] = useState(0);
+  // Moved through the list with the arrow keys since the last edit; read only on keys.
+  const browsed = useRef(false);
   const ownRef = useRef<HTMLInputElement>(null);
   const ref = inputRef ?? ownRef;
   const listRef = useRef<HTMLDivElement>(null);
@@ -112,6 +128,7 @@ export function SearchBox({
     actions.setQuery(next);
     setCursor(at);
     setActive(0);
+    browsed.current = false;
     requestAnimationFrame(() => {
       ref.current?.setSelectionRange(at, at);
       ref.current?.focus();
@@ -121,6 +138,7 @@ export function SearchBox({
   const move = (step: number) => {
     const next = (activeIndex + step + suggestions.length) % suggestions.length;
     setActive(next);
+    browsed.current = true;
     listRef.current
       ?.querySelector<HTMLElement>(`[data-index="${next}"]`)
       ?.scrollIntoView({ block: "nearest" });
@@ -132,7 +150,14 @@ export function SearchBox({
       move(event.key === "ArrowDown" ? 1 : -1);
       return;
     }
-    if (open && (event.key === "Enter" || event.key === "Tab")) {
+    // Tab completes what is being typed, or the suggestion the arrows reached; with nothing
+    // to complete it moves on, so the field never traps focus.
+    const completes =
+      event.key === "Enter" ||
+      (event.key === "Tab" &&
+        !event.shiftKey &&
+        (browsed.current || context.partial.length > 0));
+    if (open && completes) {
       const suggestion = suggestions[activeIndex];
       if (suggestion) {
         event.preventDefault();
@@ -180,6 +205,7 @@ export function SearchBox({
             actions.setQuery(event.target.value);
             setCursor(event.target.selectionStart ?? event.target.value.length);
             setActive(0);
+            browsed.current = false;
           }}
           onSelect={(event) =>
             setCursor(
@@ -257,7 +283,7 @@ export function SearchBox({
               <button
                 type="button"
                 onClick={() => {
-                  if (chip.field === "deploy") {
+                  if (chip.field === "deploy" && chip.op === ":") {
                     actions.setQuery(
                       withoutDeploy(
                         query,
@@ -265,7 +291,7 @@ export function SearchBox({
                       ),
                     );
                   } else if (chip.field) {
-                    actions.toggleToken(chip.field, chip.value);
+                    actions.toggleToken(chip.field, chip.value, chip.op);
                   } else {
                     actions.setQuery(withoutFreeText(query, filters));
                   }
