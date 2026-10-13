@@ -14,7 +14,9 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "../..");
-const SPECS = path.resolve(ROOT, "../specifications");
+const SPECS =
+  process.env.SPECIFICATIONS_REPO_ROOT ??
+  path.resolve(ROOT, "../specifications");
 
 describe("spec-toml", () => {
   it("parses vocab ref stems", () => {
@@ -107,6 +109,12 @@ describe("spec-toml", () => {
   it("labels threat surface pin as Surface", () => {
     expect(pathToLabel("threat.surface")).toBe("Surface");
     expect(pathToLabel("threat.actors.name")).toBe("Threat actors");
+  });
+
+  it("labels every ATT&CK pin generation as ATT&CK", () => {
+    expect(pathToLabel("threat.att&ck")).toBe("ATT&CK");
+    expect(pathToLabel("threat.mitre_attack")).toBe("ATT&CK");
+    expect(pathToLabel("objective.mitre_attack")).toBe("ATT&CK");
   });
 
   it("builds vocab index from specifications when present", () => {

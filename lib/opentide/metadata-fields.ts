@@ -19,7 +19,9 @@ const METADATA_PATHS: Record<ObjectType, readonly string[]> = {
     "objective.priority",
     "objective.investment",
     "objective.composition.strategy",
+    // One of the two exists in the registry, depending on the pinned schema generation.
     "objective.attack",
+    "objective.mitre_attack",
   ],
   signal: ["metadata.schema", "metadata.version"],
   rule: [
@@ -49,6 +51,7 @@ const SIGNAL_INHERITED_PATHS: readonly string[] = [
   "objective.investment",
   "objective.composition.strategy",
   "objective.attack",
+  "objective.mitre_attack",
 ];
 
 export interface MetadataFieldEntry {
