@@ -18,6 +18,7 @@ import {
   buildVocabIndexFromDir,
   resolveSpecsDir,
 } from "./lib/spec-toml.mjs";
+import { isMain } from "./lib/is-main.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -162,7 +163,7 @@ function main() {
   }
 }
 
-if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1] ?? "")) {
+if (isMain(import.meta.url)) {
   try {
     main();
   } catch (err) {

@@ -8,6 +8,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { codegenTypes } from "../scripts/codegen-types.mjs";
+import { isMain } from "../scripts/lib/is-main.mjs";
+import {
+  collectCorpusValues,
+  slimVocabIndex,
+} from "../scripts/lib/slim-vocab.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = path.resolve(__dirname, "..");
@@ -43,26 +48,47 @@ Options:
   return args;
 }
 
-function copyExports(exportsDir, targetDir) {
+/** Data files the client reads; the first vocabulary present wins. */
+const BUNDLE = "explorer.bundle.json";
+const VOCABULARIES = ["explorer.vocab.json", "vocab.index.json"];
+/** Written by earlier versions; nothing reads them now. */
+const STALE = ["explorer.search.json", "explorer.coverage.json"];
+
+/** Put the exports where `next build` reads them: `<targetDir>/public/data`. */
+export function copyExports(exportsDir, targetDir) {
   const dataDir = path.join(targetDir, "public", "data");
   fs.mkdirSync(dataDir, { recursive: true });
 
-  const required = ["explorer.bundle.json"];
-  // The client reads explorer.vocab.json, falling back to vocab.index.json.
-  const optional = ["explorer.vocab.json", "vocab.index.json"];
+  const bundleSrc = path.join(exportsDir, BUNDLE);
+  if (!fs.existsSync(bundleSrc)) {
+    throw new Error(`Missing required export: ${bundleSrc}`);
+  }
+  fs.copyFileSync(bundleSrc, path.join(dataDir, BUNDLE));
 
-  for (const file of required) {
+  // public/data holds exactly these exports: a vocabulary left by an earlier build would be
+  // served in place of this corpus's.
+  for (const file of [...VOCABULARIES, ...STALE]) {
     const src = path.join(exportsDir, file);
-    if (!fs.existsSync(src)) {
-      throw new Error(`Missing required export: ${src}`);
+    const dest = path.join(dataDir, file);
+    if (VOCABULARIES.includes(file) && fs.existsSync(src)) {
+      fs.copyFileSync(src, dest);
+    } else {
+      fs.rmSync(dest, { force: true });
     }
-    fs.copyFileSync(src, path.join(dataDir, file));
   }
 
-  for (const file of optional) {
-    const src = path.join(exportsDir, file);
-    if (fs.existsSync(src)) {
-      fs.copyFileSync(src, path.join(dataDir, file));
+  // Exports with only the full index (`opentide generate explorer`): derive the slim
+  // vocabulary the client loads, and leave the 15 MB index out of the site.
+  const slimPath = path.join(dataDir, VOCABULARIES[0]);
+  const fullPath = path.join(dataDir, VOCABULARIES[1]);
+  if (!fs.existsSync(slimPath) && fs.existsSync(fullPath)) {
+    const bundle = JSON.parse(fs.readFileSync(bundleSrc, "utf8"));
+    const objects = Object.values(bundle.flatIndex ?? {});
+    if (objects.length) {
+      const index = JSON.parse(fs.readFileSync(fullPath, "utf8"));
+      const slim = slimVocabIndex(index, collectCorpusValues(objects));
+      fs.writeFileSync(slimPath, JSON.stringify(slim));
+      fs.rmSync(fullPath);
     }
   }
 
@@ -129,7 +155,9 @@ async function main() {
   console.log(`Static export written to ${output}`);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+if (isMain(import.meta.url)) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

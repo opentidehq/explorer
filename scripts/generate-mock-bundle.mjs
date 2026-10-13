@@ -20,6 +20,7 @@ import {
   techniqueList,
 } from "./lib/corpus-fields.mjs";
 import { collectCorpusValues, slimVocabIndex } from "./lib/slim-vocab.mjs";
+import { isMain } from "./lib/is-main.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -316,6 +317,11 @@ async function main() {
     for (const [name, data] of Object.entries(fixture)) {
       fs.writeFileSync(path.join(outDir, name), JSON.stringify(data, null, 2));
     }
+    // A slim vocabulary from an earlier corpus run would describe the wrong corpus.
+    writeSlimVocab(
+      outDir,
+      Object.values(fixture["explorer.bundle.json"]?.flatIndex ?? {}),
+    );
     return;
   }
 
@@ -406,7 +412,7 @@ async function main() {
   );
 }
 
-if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1] ?? "")) {
+if (isMain(import.meta.url)) {
   main().catch((err) => {
     console.error(err);
     process.exit(1);
