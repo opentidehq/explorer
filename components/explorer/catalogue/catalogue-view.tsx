@@ -303,6 +303,14 @@ export function CatalogueView() {
     [model.rules, selectedChain, rank],
   );
 
+  const looseSignals = useMemo(
+    () =>
+      selectedChain
+        ? model.looseSignals.toSorted((a, b) => rank(a.id) - rank(b.id))
+        : model.looseSignals,
+    [model.looseSignals, selectedChain, rank],
+  );
+
   const select = useCallback(
     (id: string) => actions.select(id === selectedId ? null : id),
     [actions, selectedId],
@@ -377,17 +385,19 @@ export function CatalogueView() {
   useLayoutEffect(() => {
     schedule();
     return () => cancelAnimationFrame(frame.current);
-  }, [schedule, threats, objectives, rules]);
+  }, [schedule, threats, objectives, looseSignals, rules]);
 
+  // The stage is a new element after a search that matched nothing: observe that one.
+  const empty = displayed.size === 0;
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
     const observer = new ResizeObserver(schedule);
     observer.observe(stage);
     return () => observer.disconnect();
-  }, [schedule]);
+  }, [schedule, empty]);
 
-  if (displayed.size === 0) return <NoMatches />;
+  if (empty) return <NoMatches />;
 
   const ruleBody = (id: string) => catalog.bundle.flatIndex[id];
 
@@ -423,17 +433,7 @@ export function CatalogueView() {
             />
           ))}
           {threats.gaps.length ? (
-            <div className="flex items-center gap-2 px-1 pt-4 pb-1.5 font-mono text-[11px] text-subtle">
-              <span
-                aria-hidden
-                className="h-px flex-1 border-t border-dashed border-ink/20"
-              />
-              not yet covered · {threats.gaps.length}
-              <span
-                aria-hidden
-                className="h-px flex-1 border-t border-dashed border-ink/20"
-              />
-            </div>
+            <Divider>not yet covered · {threats.gaps.length}</Divider>
           ) : null}
           {threats.gaps.map((threat) => (
             <Row
@@ -447,6 +447,9 @@ export function CatalogueView() {
               onHover={actions.hover}
             />
           ))}
+          {model.threats.length === 0 ? (
+            <EmptyColumn>No threats in view.</EmptyColumn>
+          ) : null}
         </Column>
       </div>
 
@@ -501,8 +504,33 @@ export function CatalogueView() {
               ) : null}
             </div>
           ))}
-          {objectives.length === 0 ? (
+          {objectives.length === 0 && looseSignals.length === 0 ? (
             <EmptyColumn>No objectives in view.</EmptyColumn>
+          ) : null}
+          {looseSignals.length ? (
+            <>
+              <Divider>
+                {objectives.length ? "other signals" : "signals"} ·{" "}
+                {looseSignals.length}
+              </Divider>
+              {looseSignals.map((signal) => (
+                <Row
+                  key={signal.id}
+                  id={signal.id}
+                  type="signal"
+                  name={signal.name}
+                  meta={
+                    signal.objectiveId
+                      ? `in ${catalog.summaries.get(signal.objectiveId)?.name ?? signal.objectiveId}`
+                      : null
+                  }
+                  state={stateOf(signal.id)}
+                  nested
+                  onSelect={select}
+                  onHover={actions.hover}
+                />
+              ))}
+            </>
           ) : null}
         </Column>
       </div>
@@ -576,6 +604,23 @@ export function CatalogueView() {
           </g>
         ))}
       </svg>
+    </div>
+  );
+}
+
+/** A dashed rule with a caption, between groups in a column. */
+function Divider({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 px-1 pt-4 pb-1.5 font-mono text-[11px] text-subtle">
+      <span
+        aria-hidden
+        className="h-px flex-1 border-t border-dashed border-ink/20"
+      />
+      {children}
+      <span
+        aria-hidden
+        className="h-px flex-1 border-t border-dashed border-ink/20"
+      />
     </div>
   );
 }

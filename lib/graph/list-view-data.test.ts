@@ -211,6 +211,29 @@ describe("buildListViewModel", () => {
   });
 });
 
+describe("buildListViewModel with partial chains", () => {
+  it("lists every visible rule and the signals whose objective is out of view", () => {
+    const { ctx, summaries } = makeFixture();
+    const model = buildListViewModel(
+      ctx,
+      summaries,
+      new Set([SIGNAL_ID, SIGNAL_RULE_ID]),
+    );
+
+    expect(model.objectives).toHaveLength(0);
+    expect(model.rules.map((rule) => rule.id)).toEqual([SIGNAL_RULE_ID]);
+    expect(
+      model.looseSignals.map(({ id, objectiveId }) => ({ id, objectiveId })),
+    ).toEqual([{ id: SIGNAL_ID, objectiveId: OBJECTIVE_ID }]);
+  });
+
+  it("does not repeat a signal its objective already holds", () => {
+    const { ctx, summaries, visibleIds } = makeFixture();
+    const model = buildListViewModel(ctx, summaries, visibleIds);
+    expect(model.looseSignals).toEqual([]);
+  });
+});
+
 describe("applyListViewFocus", () => {
   it("keeps all rows and moves focus members to the top", () => {
     const { ctx, summaries, visibleIds } = makeFixture();
