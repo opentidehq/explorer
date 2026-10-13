@@ -64,18 +64,33 @@ import {
   type NodeState,
 } from "@/lib/graph/node-images";
 import {
-  buildDisplayGraph,
   buildVocabGraphLayer,
   expandVisibleIdsWithVocab,
   isVocabNodeId,
+  syncVocabLayer,
   type VocabGraphLayer,
 } from "@/lib/graph/vocab-nodes";
 
 /* The base graph: built once per corpus, laid out the first time it is shown. ------- */
 
+/*
+ * One graph per corpus holds every position for the life of the page: the view draws it,
+ * layouts move it, and the vocabulary layer adds and drops its own nodes in it. A copy per
+ * search would lose any layout written to it, and a new WebGL context per keystroke.
+ */
 const baseGraphs = new WeakMap<CorpusGraph, Graph>();
 /** Base graphs whose ForceAtlas2 layout has run; the rest settle on screen when first shown. */
 const settled = new WeakSet<Graph>();
+
+/** The layout a base graph holds, so a view that mounts again knows what to change or undo. */
+interface AppliedLayout {
+  /** `topology:relayouts`, as the store names it. */
+  key: string;
+  killchain: boolean;
+}
+const appliedLayouts = new WeakMap<Graph, AppliedLayout>();
+/** What a fresh base graph holds once ForceAtlas2 settles: the store's first layout. */
+const FIRST_LAYOUT: AppliedLayout = { key: "force:0", killchain: false };
 
 function baseGraphFor(corpus: CorpusGraph): Graph {
   let graph = baseGraphs.get(corpus);
@@ -215,25 +230,6 @@ export function GraphView() {
         : EMPTY_LAYER,
     [showVocabNodes, catalog.bundle, catalog.vocab, displayed],
   );
-  const graph = useMemo(
-    () =>
-      buildDisplayGraph(
-        base,
-        catalog.bundle,
-        displayed,
-        showVocabNodes,
-        catalog.vocab,
-        vocabLayer,
-      ),
-    [
-      base,
-      catalog.bundle,
-      catalog.vocab,
-      displayed,
-      showVocabNodes,
-      vocabLayer,
-    ],
-  );
   const visible = useMemo(
     () =>
       showVocabNodes
@@ -283,8 +279,14 @@ export function GraphView() {
     return () => cancelAnimationFrame(raf);
   }, [resolvedTheme]);
 
-  // One sigma per graph instance (the vocabulary layer swaps the graph).
+  // The vocabulary layer lives in the base graph; sigma redraws as nodes come and go.
   useEffect(() => {
+    syncVocabLayer(base, vocabLayer);
+  }, [base, vocabLayer]);
+
+  // One sigma for the base graph while the view is mounted.
+  useEffect(() => {
+    const graph = base;
     const container = containerRef.current;
     if (!container) return;
     const state = stateRef;
@@ -464,7 +466,7 @@ export function GraphView() {
         frameNodes(instance, state.current.visible, 700);
       }
     };
-    if (graph === base && !settled.has(graph) && graph.order > 1) {
+    if (!settled.has(graph) && graph.order > 1) {
       const reduced = window.matchMedia(
         "(prefers-reduced-motion: reduce)",
       ).matches;
@@ -524,7 +526,7 @@ export function GraphView() {
       instance.kill();
       setSigma(null);
     };
-  }, [graph, base, actions, store]);
+  }, [base, actions, store]);
 
   // Any change to what the reducers read: one refresh.
   useEffect(() => {
@@ -533,33 +535,28 @@ export function GraphView() {
     sigma.refresh();
   }, [sigma, palette, visible, matchIds, focus, selectedId, chain]);
 
-  // Layout: topology, re-runs, and kill chain grouping. Nothing to do on mount: the base
-  // graph already holds the current layout.
+  // Layout: topology, re-runs, and kill chain grouping, written to the base graph. On mount
+  // there is nothing to do unless the store asks for another layout than the graph holds.
   const layoutKey = `${topology}:${layoutNonce}`;
-  const lastLayout = useRef<{
-    key: string;
-    killchain: boolean;
-    sigma: Sigma | null;
-  }>({
-    key: layoutKey,
-    killchain: false,
-    sigma: null,
-  });
   useEffect(() => {
     if (!sigma || sigma !== liveRef.current) return;
-    const g = sigma.getGraph();
-    const last = lastLayout.current;
-    const wasKillchain = last.killchain && last.sigma === sigma;
-    lastLayout.current = {
-      key: layoutKey,
-      killchain: killchainGrouping,
-      sigma,
-    };
+    const applied = appliedLayouts.get(base) ?? FIRST_LAYOUT;
+    const keyChanged = applied.key !== layoutKey;
+    if (!keyChanged && !killchainGrouping && !applied.killchain) return;
 
-    // A layout change while the first layout still runs: stop the worker before it can
-    // overwrite the new positions.
-    if (killchainGrouping || last.key !== layoutKey || wasKillchain) {
-      settleRef.current?.();
+    // A layout change while the first layout still runs: land it first, so the worker
+    // cannot overwrite the new positions.
+    settleRef.current?.();
+
+    // Kill chain positions are a view over the layout; leave them before changing it.
+    if (applied.killchain && (keyChanged || !killchainGrouping)) {
+      restoreBasePositions(base);
+    }
+    if (keyChanged) {
+      applyGraphTopology(base, topology);
+      snapshotBasePositions(base, { force: true });
+    } else if (killchainGrouping && !applied.killchain) {
+      snapshotBasePositions(base, { force: true });
     }
 
     if (killchainGrouping) {
@@ -568,27 +565,20 @@ export function GraphView() {
         visible,
         catalog.vocab.killchain,
       );
-      if (!wasKillchain) snapshotBasePositions(g);
-      applyKillchainLayout(g, positions);
-      positionKillchainSatellites(g, visible, positions);
+      applyKillchainLayout(base, positions);
+      positionKillchainSatellites(base, visible, positions);
       setGroups(next);
-      sigma.setCustomBBox(computeKillchainViewBBox(next, g, visible));
-    } else if (last.key !== layoutKey) {
-      setGroups([]);
-      sigma.setCustomBBox(null);
-      applyGraphTopology(g, topology);
-      snapshotBasePositions(g, { force: true });
-    } else if (wasKillchain) {
-      setGroups([]);
-      sigma.setCustomBBox(null);
-      restoreBasePositions(g);
+      sigma.setCustomBBox(computeKillchainViewBBox(next, base, visible));
     } else {
-      return;
+      setGroups([]);
+      sigma.setCustomBBox(null);
     }
+    appliedLayouts.set(base, { key: layoutKey, killchain: killchainGrouping });
     sigma.refresh();
     void sigma.getCamera().animatedReset({ duration: 450 });
   }, [
     sigma,
+    base,
     killchainGrouping,
     layoutKey,
     topology,
@@ -635,12 +625,14 @@ export function GraphView() {
     }
   }, [sigma, selectedId]);
 
-  if (displayed.size === 0) return <NoMatches />;
+  // The sigma container stays mounted through a search that matches nothing: the instance
+  // is bound to it, and a new element would leave the graph drawing nowhere.
+  const empty = displayed.size === 0;
 
   return (
     <div className="sigma-stage tide-stage-grid relative h-full w-full overflow-hidden">
       <div ref={containerRef} className="absolute inset-0" />
-      {sigma ? (
+      {sigma && !empty ? (
         <>
           <KillchainBands sigma={sigma} groups={groups} palette={palette} />
           <FocusOverlay
@@ -653,8 +645,16 @@ export function GraphView() {
           <GraphControls sigma={sigma} visible={visible} />
         </>
       ) : null}
-      <GraphStatus visible={visible} />
-      <GraphLegend showVocab={showVocabNodes} />
+      {empty ? (
+        <div className="absolute inset-0 z-10 bg-panel">
+          <NoMatches />
+        </div>
+      ) : (
+        <>
+          <GraphStatus visible={visible} />
+          <GraphLegend showVocab={showVocabNodes} />
+        </>
+      )}
     </div>
   );
 }
