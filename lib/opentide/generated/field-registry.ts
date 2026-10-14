@@ -99,12 +99,6 @@ const RULE_FIELDS: FieldDefinition[] = [
     vocab: "alert_severity",
   },
   {
-    path: "response.responders",
-    label: "Responders",
-    format: "pills",
-    vocab: "responders",
-  },
-  {
     path: "severity",
     label: "Severity",
     format: "pills",
