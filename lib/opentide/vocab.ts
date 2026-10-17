@@ -1,3 +1,5 @@
+import { safeHttpUrl } from "@/lib/opentide/safe-href";
+
 export interface VocabTerm {
   name: string;
   description?: string;
@@ -196,7 +198,7 @@ export function flattenReferences(value: unknown): unknown[] {
 /** Normalize string URLs or `{ url, title, name, link, ... }` reference objects. */
 export function normalizeReference(ref: unknown): NormalizedReference | null {
   if (typeof ref === "string") {
-    const url = ref.trim();
+    const url = safeHttpUrl(ref);
     if (!url) return null;
     return { url, label: url };
   }
@@ -209,7 +211,8 @@ export function normalizeReference(ref: unknown): NormalizedReference | null {
   );
   if (typeof urlCandidate !== "string") return null;
 
-  const url = urlCandidate.trim();
+  const url = safeHttpUrl(urlCandidate);
+  if (!url) return null;
   const labelCandidate = [
     record.title,
     record.name,

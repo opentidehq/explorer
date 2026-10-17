@@ -9,6 +9,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { safeHttpUrl } from "@/lib/opentide/safe-href";
 import {
   formatActorFallbackLabel,
   formatVocabDisplayName,
@@ -43,19 +44,20 @@ export function VocabChip({
       ? "border-transparent bg-accent/10 text-accent hover:bg-accent/15"
       : "border-line text-muted hover:border-accent/45 hover:text-ink",
   );
+  const link = term?.link ? safeHttpUrl(term.link) : null;
   const content = (
     <>
       <span className="min-w-0 truncate">
         <VocabValue value={label} />
       </span>
-      {term?.link ? (
+      {link ? (
         <ExternalLink className="size-3 shrink-0 opacity-60" aria-hidden />
       ) : null}
     </>
   );
-  const chip = term?.link ? (
+  const chip = link ? (
     <a
-      href={term.link}
+      href={link}
       target="_blank"
       rel="noopener noreferrer"
       className={className}
