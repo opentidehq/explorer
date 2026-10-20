@@ -1,6 +1,6 @@
-# OpenTide Explorer
+# opentide Explorer
 
-Deployable static application for interactively exploring OpenTide objects — threats, objectives, signals, rules, and threat chains — in the opentide.org design language: white and Pantone Reflex Blue in light mode, black and EU Yellow in dark, Inter and JetBrains Mono.
+Deployable static application for interactively exploring opentide objects — threats, objectives, signals, rules, and threat chains — in the opentide.org design language: white and Pantone Reflex Blue in light mode, black and EU Yellow in dark, Inter and JetBrains Mono.
 
 Distribution is **git-based** during development: the Python `opentide` CLI resolves this repository from a local path, sibling checkout, or shallow git clone. npm publish (`@opentide/explorer`) remains optional for future releases.
 
@@ -22,10 +22,10 @@ website         →  static docs and marketing
 
 ## Monorepo layout
 
-Clone OpenTide repos as siblings:
+Clone opentide repos as siblings:
 
 ```text
-OpenTide/
+opentide/
 ├── opentide/
 ├── library/
 ├── specifications/
@@ -115,7 +115,7 @@ node bin/build.mjs build \
 | 3 | `OPENTIDE_EXPLORER_PATH` / `--explorer-path` | Local checkout |
 | 4 | Sibling `../explorer` | Auto-detected |
 | 5 | `EXPLORER_VERSION` / `--version` | npm `npx @opentide/explorer@…` fallback |
-| 6 | *(default)* | Clone `https://github.com/OpenTideHQ/explorer.git` @ `main` into `~/.cache/opentide/explorer-src/` |
+| 6 | *(default)* | Clone `https://github.com/opentidehq/explorer.git` @ `main` into `~/.cache/opentide/explorer-src/` |
 
 **Local development example:**
 
@@ -131,7 +131,7 @@ opentide explorer build --output ./out/explorer --base-path /library
 ```yaml
 - uses: actions/checkout@v4
   with:
-    repository: OpenTideHQ/explorer
+    repository: opentidehq/explorer
     ref: main
     path: explorer
 - run: opentide explorer build --output ./out/explorer --base-path /library
@@ -195,13 +195,13 @@ directory, and `explorer.vocab.json` or `vocab.index.json` when present.
 
 ## npm publish (optional)
 
-The `publish.yml` workflow publishes to npm on GitHub Release. **Git checkout is the current distribution method** for OpenTideHQ projects; npm is reserved for future public consumption outside the monorepo.
+The `publish.yml` workflow publishes to npm on GitHub Release. **Git checkout is the current distribution method** for opentidehq projects; npm is reserved for future public consumption outside the monorepo.
 
 ## Related projects
 
 | Project | Description |
 |---------|-------------|
-| [opentide](https://github.com/OpenTideHQ/opentide) | DetectionOps engine |
-| [library](https://github.com/OpenTideHQ/library) | Public registry of published detection objects |
-| [specifications](https://github.com/OpenTideHQ/specifications) | Normative schemas and metadata specs |
-| [website](https://github.com/OpenTideHQ/website) | OpenTide documentation and public surfaces |
+| [opentide](https://github.com/opentidehq/opentide) | DetectionOps engine |
+| [library](https://github.com/opentidehq/library) | Public registry of published detection objects |
+| [specifications](https://github.com/opentidehq/specifications) | Normative schemas and metadata specs |
+| [website](https://github.com/opentidehq/website) | opentide documentation and public surfaces |

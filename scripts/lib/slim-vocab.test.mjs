@@ -87,14 +87,14 @@ describe("slimVocabIndex", () => {
 
 describe("normalizeRepoUrl", () => {
   it("normalises ssh and https remotes and strips credentials", () => {
-    expect(normalizeRepoUrl("git@github.com:OpenTideHQ/library.git")).toBe(
-      "https://github.com/OpenTideHQ/library",
+    expect(normalizeRepoUrl("git@github.com:opentidehq/library.git")).toBe(
+      "https://github.com/opentidehq/library",
     );
     expect(
       normalizeRepoUrl(
-        "https://x-access-token:abc@github.com/OpenTideHQ/library",
+        "https://x-access-token:abc@github.com/opentidehq/library",
       ),
-    ).toBe("https://github.com/OpenTideHQ/library");
+    ).toBe("https://github.com/opentidehq/library");
     expect(
       normalizeRepoUrl("https://ci:p@ss@gitlab.com/opentide/library.git/"),
     ).toBe("https://gitlab.com/opentide/library");

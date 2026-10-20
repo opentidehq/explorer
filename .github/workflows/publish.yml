@@ -1,7 +1,7 @@
 name: Publish
 
 # Optional: git checkout via opentide explorer build is the current distribution
-# method for OpenTideHQ repos. This workflow runs only when a GitHub Release is
+# method for opentidehq repos. This workflow runs only when a GitHub Release is
 # published and requires NPM_TOKEN — skip releases until npm publish is desired.
 
 on:

@@ -132,7 +132,7 @@ function parseMatrixFromName(name: string): AttackMatrixKind | null {
     return "Enterprise";
   }
 
-  // OpenTide vocab prefixes from STIX merge: "Industrial : …", "Mobile : …"
+  // opentide vocab prefixes from STIX merge: "Industrial : …", "Mobile : …"
   const colonMatch = name.match(/^(Industrial|Mobile|Enterprise)\s*:/i);
   if (colonMatch?.[1]) {
     const value = colonMatch[1].toLowerCase();

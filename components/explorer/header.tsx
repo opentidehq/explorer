@@ -46,7 +46,7 @@ const VIEW_OPTIONS: SegmentOption<ExplorerView>[] = [
 ];
 
 const QUICKSTART = "https://opentide.org/docs/usage/quickstart/";
-const DEFAULT_REPOSITORY = "https://github.com/OpenTideHQ/library";
+const DEFAULT_REPOSITORY = "https://github.com/opentidehq/library";
 
 /**
  * The explorer's header: opentide.org's floating glass pill. Brand and corpus on the left, the

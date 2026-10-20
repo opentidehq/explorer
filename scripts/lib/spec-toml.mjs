@@ -1,5 +1,5 @@
 /**
- * Parse OpenTide specifications TOML (pins + vocabularies) with smol-toml.
+ * Parse opentide specifications TOML (pins + vocabularies) with smol-toml.
  */
 import fs from "node:fs";
 import path from "node:path";

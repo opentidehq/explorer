@@ -8,10 +8,10 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in OpenTide Explorer, please report it responsibly:
+If you discover a security vulnerability in opentide Explorer, please report it responsibly:
 
 1. **Do not** open a public GitHub issue for security-sensitive findings.
-2. Email the OpenTide security team at [security@opentide.dev](mailto:security@opentide.dev) with:
+2. Email the opentide security team at [security@opentide.dev](mailto:security@opentide.dev) with:
    - A description of the vulnerability
    - Steps to reproduce
    - Potential impact assessment
@@ -21,4 +21,4 @@ We acknowledge valid reports and will coordinate disclosure timelines with repor
 
 ## Scope
 
-This policy covers the `@opentide/explorer` npm package and the OpenTideHQ/explorer repository. Corpus data consumed by Explorer is out of scope — report issues in the relevant registry repository.
+This policy covers the `@opentide/explorer` npm package and the opentidehq/explorer repository. Corpus data consumed by Explorer is out of scope — report issues in the relevant registry repository.

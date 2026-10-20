@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Generates explorer export JSON from a local OpenTide corpus.
+ * Generates explorer export JSON from a local opentide corpus.
  * Used for dev builds and CI when `opentide generate explorer` is unavailable.
  *
  * Writes to public/data:

@@ -265,7 +265,7 @@ describe("buildAttackMatrixModel", () => {
     expect(ATTACK_MATRIX_KINDS).toEqual(["Enterprise", "ICS", "Mobile"]);
   });
 
-  it("classifies OpenTide Industrial/Mobile colon prefixes from production vocab shape", () => {
+  it("classifies opentide Industrial/Mobile colon prefixes from production vocab shape", () => {
     const productionShape: VocabIndex = {
       "att&ck": {
         T0800: {
