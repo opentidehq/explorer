@@ -30,13 +30,13 @@ jobs:
         with:
           app-id: ${{ secrets.GH_APP_ID }}
           private-key: ${{ secrets.GH_APP_KEY }}
-          owner: OpenTideHQ
+          owner: opentidehq
           repositories: specifications,library
 
       - name: Checkout specifications
         uses: actions/checkout@v7
         with:
-          repository: OpenTideHQ/specifications
+          repository: opentidehq/specifications
           path: specifications
           ref: main
           # Empty App token overrides checkout's default and fails the step.
@@ -89,13 +89,13 @@ jobs:
         with:
           app-id: ${{ secrets.GH_APP_ID }}
           private-key: ${{ secrets.GH_APP_KEY }}
-          owner: OpenTideHQ
+          owner: opentidehq
           repositories: specifications,library
 
       - name: Checkout specifications
         uses: actions/checkout@v7
         with:
-          repository: OpenTideHQ/specifications
+          repository: opentidehq/specifications
           path: specifications
           ref: main
           # Empty App token overrides checkout's default and fails the step.
@@ -105,7 +105,7 @@ jobs:
       - name: Checkout library
         uses: actions/checkout@v7
         with:
-          repository: OpenTideHQ/library
+          repository: opentidehq/library
           path: library
           ref: main
           token: ${{ steps.generate_token.outputs.token || github.token }}

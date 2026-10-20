@@ -27,7 +27,7 @@ export interface BundleObjectSummary {
 
 /** Where the corpus lives, so objects can link to their file. */
 export interface BundleSource {
-  /** Repository web URL, e.g. `https://github.com/OpenTideHQ/library`. */
+  /** Repository web URL, e.g. `https://github.com/opentidehq/library`. */
   repository: string;
   /** Commit or branch the bundle was generated from. */
   ref: string;

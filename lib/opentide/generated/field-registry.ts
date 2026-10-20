@@ -38,12 +38,6 @@ const OBJECTIVE_FIELDS: FieldDefinition[] = [
     format: "attack",
   },
   {
-    path: "objective.signals.effort",
-    label: "Effort",
-    format: "pills",
-    vocab: "efforts",
-  },
-  {
     path: "objective.signals.entities",
     label: "Entities",
     format: "pills",
@@ -167,12 +161,6 @@ const RULE_FIELDS: FieldDefinition[] = [
 ];
 
 const SIGNAL_FIELDS: FieldDefinition[] = [
-  {
-    path: "effort",
-    label: "Effort",
-    format: "pills",
-    vocab: "efforts",
-  },
   {
     path: "entities",
     label: "Entities",

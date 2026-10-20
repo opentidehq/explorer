@@ -1,5 +1,5 @@
 /**
- * The official opentide pill logotype and circle mark (OpenTideHQ/.github `assets/`), inlined
+ * The official opentide pill logotype and circle mark (opentidehq/.github `assets/`), inlined
  * so they take the theme's accent: Reflex Blue on white, EU Yellow on black — the same mapping
  * as `logo-normal` / `logo-dark` on opentide.org, with no flash before hydration.
  */
