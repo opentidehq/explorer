@@ -120,6 +120,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Tests must pass without the library; the corpus step below regenerates public/data.
+      - name: Test against the fixture corpus
+        run: pnpm test
+        env:
+          OPENTIDE_USE_FIXTURE: "1"
+          OPENTIDE_SKIP_CODEGEN: "1"
+
       - name: Check (typecheck, lint, format, test, codegen)
         run: pnpm codegen:specs && pnpm check
         env:
