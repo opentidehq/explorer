@@ -52,13 +52,13 @@ pnpm build        # generates data from ../library and static export
 
 Official Vercel Next.js agent skills are installed under [`.agents/skills/`](.agents/skills/) (tracked via [`skills-lock.json`](skills-lock.json)):
 
-| Skill | Source | Use when |
-|-------|--------|----------|
-| `vercel-react-best-practices` | [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) | React/Next.js performance, data fetching, bundle size |
-| `vercel-composition-patterns` | vercel-labs/agent-skills | Component architecture, compound components |
-| `vercel-react-view-transitions` | vercel-labs/agent-skills | View Transition API with Next.js |
-| `next-dev-loop` | [vercel/next.js](https://github.com/vercel/next.js) | Verify runtime behavior during `next dev` |
-| `next-cache-components-adoption` | vercel/next.js | Enabling Cache Components |
+| Skill                            | Source                                                                  | Use when                                              |
+| -------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------- |
+| `vercel-react-best-practices`    | [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) | React/Next.js performance, data fetching, bundle size |
+| `vercel-composition-patterns`    | vercel-labs/agent-skills                                                | Component architecture, compound components           |
+| `vercel-react-view-transitions`  | vercel-labs/agent-skills                                                | View Transition API with Next.js                      |
+| `next-dev-loop`                  | [vercel/next.js](https://github.com/vercel/next.js)                     | Verify runtime behavior during `next dev`             |
+| `next-cache-components-adoption` | vercel/next.js                                                          | Enabling Cache Components                             |
 
 Refresh skills: `npx skills update -p -y`
 
@@ -108,14 +108,14 @@ node bin/build.mjs build \
 
 `opentide explorer build` resolves explorer source in this order:
 
-| Priority | Env / flag | Behaviour |
-|----------|------------|-----------|
-| 1 | `EXPLORER_GIT_URL` / `--explorer-git` | Shallow-clone this repo |
-| 2 | `EXPLORER_GIT_REF` / `--explorer-ref` | Branch, tag, or commit (default `main`) |
-| 3 | `OPENTIDE_EXPLORER_PATH` / `--explorer-path` | Local checkout |
-| 4 | Sibling `../explorer` | Auto-detected |
-| 5 | `EXPLORER_VERSION` / `--version` | npm `npx @opentide/explorer@…` fallback |
-| 6 | *(default)* | Clone `https://github.com/opentidehq/explorer.git` @ `main` into `~/.cache/opentide/explorer-src/` |
+| Priority | Env / flag                                   | Behaviour                                                                                          |
+| -------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| 1        | `EXPLORER_GIT_URL` / `--explorer-git`        | Shallow-clone this repo                                                                            |
+| 2        | `EXPLORER_GIT_REF` / `--explorer-ref`        | Branch, tag, or commit (default `main`)                                                            |
+| 3        | `OPENTIDE_EXPLORER_PATH` / `--explorer-path` | Local checkout                                                                                     |
+| 4        | Sibling `../explorer`                        | Auto-detected                                                                                      |
+| 5        | `EXPLORER_VERSION` / `--version`             | npm `npx @opentide/explorer@…` fallback                                                            |
+| 6        | _(default)_                                  | Clone `https://github.com/opentidehq/explorer.git` @ `main` into `~/.cache/opentide/explorer-src/` |
 
 **Local development example:**
 
@@ -144,12 +144,12 @@ opentide explorer build --output ./out/explorer --base-path /library
 
 When using `opentide explorer serve`, detection content is resolved separately:
 
-| Env | Purpose |
-|-----|---------|
-| `OPENTIDE_REPO_ROOT` | Local corpus (default) |
-| `EXPLORER_CORPUS_URL` | Remote git corpus URL |
+| Env                      | Purpose                        |
+| ------------------------ | ------------------------------ |
+| `OPENTIDE_REPO_ROOT`     | Local corpus (default)         |
+| `EXPLORER_CORPUS_URL`    | Remote git corpus URL          |
 | `EXPLORER_CORPUS_BRANCH` | Corpus branch (default `main`) |
-| `EXPLORER_CORPUS_REF` | Corpus ref override |
+| `EXPLORER_CORPUS_REF`    | Corpus ref override            |
 
 ## Features
 
@@ -179,10 +179,10 @@ When using `opentide explorer serve`, detection content is resolved separately:
 
 The client fetches two files from `public/data/`, both preloaded with the HTML:
 
-| File | Written by | Contents |
-|------|------------|----------|
-| `explorer.bundle.json` | `scripts/generate-mock-bundle.mjs` | Every object once (`flatIndex`), summaries, chaining, deployments, and the corpus repository and commit |
-| `explorer.vocab.json` | `scripts/generate-mock-bundle.mjs` | The vocabulary terms the client reads: every ATT&CK technique, the small vocabularies whole, and of the large catalogues (actors, groups, malware) only the terms the corpus names, each stored once |
+| File                   | Written by                         | Contents                                                                                                                                                                                             |
+| ---------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `explorer.bundle.json` | `scripts/generate-mock-bundle.mjs` | Every object once (`flatIndex`), summaries, chaining, deployments, and the corpus repository and commit                                                                                              |
+| `explorer.vocab.json`  | `scripts/generate-mock-bundle.mjs` | The vocabulary terms the client reads: every ATT&CK technique, the small vocabularies whole, and of the large catalogues (actors, groups, malware) only the terms the corpus names, each stored once |
 
 `vocab.index.json` (the full index from `pnpm codegen:specs`, ~15 MB) is the fallback when
 `explorer.vocab.json` is absent; bundles from older generators that ship `models` and `signals`
@@ -199,9 +199,9 @@ The `publish.yml` workflow publishes to npm on GitHub Release. **Git checkout is
 
 ## Related projects
 
-| Project | Description |
-|---------|-------------|
-| [opentide](https://github.com/opentidehq/opentide) | DetectionOps engine |
-| [library](https://github.com/opentidehq/library) | Public registry of published detection objects |
-| [specifications](https://github.com/opentidehq/specifications) | Normative schemas and metadata specs |
-| [website](https://github.com/opentidehq/website) | opentide documentation and public surfaces |
+| Project                                                        | Description                                    |
+| -------------------------------------------------------------- | ---------------------------------------------- |
+| [opentide](https://github.com/opentidehq/opentide)             | DetectionOps engine                            |
+| [library](https://github.com/opentidehq/library)               | Public registry of published detection objects |
+| [specifications](https://github.com/opentidehq/specifications) | Normative schemas and metadata specs           |
+| [website](https://github.com/opentidehq/website)               | opentide documentation and public surfaces     |
