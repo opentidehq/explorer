@@ -262,7 +262,10 @@ export function GraphView() {
     font: "Inter, system-ui, sans-serif",
     sizeScale: 1,
   });
+  // Sigma's reducers read the latest render state from this ref between React renders.
+  // oxlint-disable-next-line react/refs
   stateRef.current = {
+    // oxlint-disable-next-line react/refs
     ...stateRef.current,
     palette,
     visible,
@@ -567,6 +570,8 @@ export function GraphView() {
       );
       applyKillchainLayout(base, positions);
       positionKillchainSatellites(base, visible, positions);
+      // The band overlay follows the layout this effect just wrote to sigma.
+      // oxlint-disable-next-line react/set-state-in-effect
       setGroups(next);
       sigma.setCustomBBox(computeKillchainViewBBox(next, base, visible));
     } else {

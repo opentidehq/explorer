@@ -193,7 +193,7 @@ describe("buildAttackMatrixModel", () => {
     );
 
     const supplyChain = model.techniqueById.get("T1195.001");
-    expect(supplyChain?.objects.map((o) => o.role).sort()).toEqual([
+    expect(supplyChain?.objects.map((o) => o.role).toSorted()).toEqual([
       "objective",
       "rule",
       "signal",

@@ -13,6 +13,8 @@ import { TYPE_LABELS } from "@/lib/graph/type-icons";
 /** Call `draw` after every sigma render, at most once per frame. */
 function useAfterRender(sigma: Sigma, draw: () => void) {
   const drawRef = useRef(draw);
+  // Latest callback for sigma's afterRender handler, which outlives renders.
+  // oxlint-disable-next-line react/refs
   drawRef.current = draw;
   useEffect(() => {
     let frame = 0;

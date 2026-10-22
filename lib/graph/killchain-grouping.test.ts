@@ -84,7 +84,7 @@ describe("killchain-grouping", () => {
 
     expect(positions.size).toBe(2);
     expect(groups).toHaveLength(2);
-    expect(groups.map((g) => g.stage).sort()).toEqual([
+    expect(groups.map((g) => g.stage).toSorted()).toEqual([
       "Initial Foothold",
       "Network Propagation",
     ]);

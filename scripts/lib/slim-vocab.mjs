@@ -125,7 +125,7 @@ export function slimVocabIndex(index, corpusValues) {
   /** @type {Record<string, { terms: Record<string, unknown>[], keys: Record<string, number> }>} */
   const vocabs = {};
 
-  for (const [bucket, entries] of Object.entries(index).sort(([a], [b]) =>
+  for (const [bucket, entries] of Object.entries(index).toSorted(([a], [b]) =>
     a.localeCompare(b),
   )) {
     // vocab.index.json repeats a term per key; equal serialisations are one term.

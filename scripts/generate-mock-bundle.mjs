@@ -65,7 +65,7 @@ function walkYamlFiles(dir) {
   if (!fs.existsSync(dir)) return files;
   for (const entry of fs
     .readdirSync(dir, { withFileTypes: true })
-    .sort((a, b) => a.name.localeCompare(b.name))) {
+    .toSorted((a, b) => a.name.localeCompare(b.name))) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) files.push(...walkYamlFiles(full));
     else if (entry.name.endsWith(".yaml") || entry.name.endsWith(".yml"))

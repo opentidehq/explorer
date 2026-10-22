@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { copyExports } from "./build.mjs";
+import { copyExports, writeOutput } from "./build.mjs";
 
 const technique = {
   name: "Valid Accounts",
@@ -83,5 +83,52 @@ describe("copyExports", () => {
     expect(() => copyExports(tempDir(), tempDir())).toThrow(
       "Missing required export",
     );
+  });
+});
+
+describe("writeOutput", () => {
+  /** A package root with a static export in `out/`. */
+  function packageWithExport() {
+    const root = tempDir();
+    const out = path.join(root, "out");
+    fs.mkdirSync(path.join(out, "threats"), { recursive: true });
+    fs.writeFileSync(path.join(out, "index.html"), "<html>");
+    fs.writeFileSync(path.join(out, "threats", "index.html"), "<html>");
+    return { root, out };
+  }
+
+  it("replaces the output with the export", () => {
+    const { root, out } = packageWithExport();
+    const output = path.join(tempDir(), "site");
+    fs.mkdirSync(output);
+    fs.writeFileSync(path.join(output, "old.html"), "stale");
+
+    writeOutput(out, output, root);
+
+    expect(fs.readdirSync(output).toSorted()).toEqual([
+      "index.html",
+      "threats",
+    ]);
+  });
+
+  it("writes an output inside the export without copying it into itself", () => {
+    const { root, out } = packageWithExport();
+    const output = path.join(out, "explorer");
+
+    writeOutput(out, output, root);
+
+    expect(fs.readdirSync(output).toSorted()).toEqual([
+      "index.html",
+      "threats",
+    ]);
+    expect(fs.existsSync(path.join(output, "explorer"))).toBe(false);
+  });
+
+  it("refuses an output that holds the package or the export", () => {
+    const { root, out } = packageWithExport();
+    for (const output of [root, path.dirname(root), out]) {
+      expect(() => writeOutput(out, output, root)).toThrow("Refusing");
+    }
+    expect(fs.existsSync(path.join(out, "index.html"))).toBe(true);
   });
 });

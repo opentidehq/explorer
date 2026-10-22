@@ -49,7 +49,7 @@ function fieldSuggestions(partial: string): TokenSuggestion[] {
     });
   }
 
-  return suggestions.sort((a, b) => b.score - a.score);
+  return suggestions.toSorted((a, b) => b.score - a.score);
 }
 
 function operatorSuggestions(
@@ -69,7 +69,7 @@ function operatorSuggestions(
       score: op === ":" ? score + 20 : score,
     });
   }
-  return suggestions.sort((a, b) => b.score - a.score);
+  return suggestions.toSorted((a, b) => b.score - a.score);
 }
 
 function booleanSuggestions(partial: string): TokenSuggestion[] {
@@ -85,7 +85,7 @@ function booleanSuggestions(partial: string): TokenSuggestion[] {
       score,
     });
   }
-  return suggestions.sort((a, b) => b.score - a.score);
+  return suggestions.toSorted((a, b) => b.score - a.score);
 }
 
 function valueSuggestions(
@@ -111,7 +111,7 @@ function valueSuggestions(
     });
   }
 
-  return suggestions.sort((a, b) => b.score - a.score);
+  return suggestions.toSorted((a, b) => b.score - a.score);
 }
 
 function suggestionsForPhase(
@@ -146,9 +146,9 @@ function suggestionsForPhase(
         return [
           ...boolean.map((b) => ({ ...b, score: b.score + 50 })),
           ...fields,
-        ].sort((a, b) => b.score - a.score);
+        ].toSorted((a, b) => b.score - a.score);
       }
-      return [...boolean, ...fields].sort((a, b) => b.score - a.score);
+      return [...boolean, ...fields].toSorted((a, b) => b.score - a.score);
     }
 
     default:

@@ -35,11 +35,6 @@
     "import/no-named-as-default": "off",
     // CSS and next-env.d.ts imports are side effects by design.
     "import/no-unassigned-import": "off",
-    // `__dirname` from `import.meta.url` in the Node scripts.
-    "eslint/no-underscore-dangle": "off",
-    // Every sorted array here is a fresh copy, and the target is ES2022.
-    "unicorn/no-array-sort": "off",
-    "unicorn/consistent-function-scoping": "off",
     // Worker and MessagePort postMessage take no targetOrigin.
     "unicorn/require-post-message-target-origin": "off",
     // The layout worker is single use: one `onmessage` handler, then terminate.
@@ -47,11 +42,11 @@
   },
   "overrides": [
     {
-      // Sigma is an imperative WebGL instance driven from effects and refs (see doctor.config.ts).
-      "files": ["components/explorer/graph/**"],
+      // `__dirname` from `import.meta.url`; small helpers kept beside their one caller.
+      "files": ["bin/**", "scripts/**", "**/*.test.ts", "**/*.test.mjs"],
       "rules": {
-        "react/refs": "off",
-        "react/set-state-in-effect": "off"
+        "eslint/no-underscore-dangle": "off",
+        "unicorn/consistent-function-scoping": "off"
       }
     }
   ]

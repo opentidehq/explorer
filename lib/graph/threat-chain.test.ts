@@ -70,6 +70,7 @@ describe("buildThreatChainTree", () => {
     const tree = buildThreatChainTree(ctx, root!);
     expect(tree).not.toBeNull();
     expect(tree?.isRoot).toBe(true);
-    expect(countThreatChainNodes(tree!)).toBeGreaterThan(0);
+    // The root counts itself; a chained threat must bring at least one more node.
+    expect(countThreatChainNodes(tree!)).toBeGreaterThan(1);
   });
 });

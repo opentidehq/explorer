@@ -160,7 +160,7 @@ export function buildVocabIndexFromDir(vocabDir) {
   /** @type {Record<string, Record<string, VocabTerm>>} */
   const merged = {};
 
-  for (const file of fs.readdirSync(vocabDir).sort()) {
+  for (const file of fs.readdirSync(vocabDir).toSorted()) {
     if (!file.endsWith(".vocab.toml")) continue;
     const doc = parseTomlFile(path.join(vocabDir, file));
     const { vocabKey, index } = parseVocabDocument(
@@ -342,7 +342,7 @@ export function buildFieldRegistryFromPins(pinsDir) {
     signal: signalFields,
   };
 
-  for (const file of fs.readdirSync(pinsDir).sort()) {
+  for (const file of fs.readdirSync(pinsDir).toSorted()) {
     if (!file.endsWith(".toml")) continue;
     const objectType = file.replace(/\.toml$/, "");
     const map = byType[objectType];
@@ -415,7 +415,7 @@ export function buildFieldRegistryFromPins(pinsDir) {
   for (const [type, map] of Object.entries(byType)) {
     const fields = [...map.values()]
       .map(({ pinVersion: _v, ...field }) => field)
-      .sort((a, b) => a.path.localeCompare(b.path));
+      .toSorted((a, b) => a.path.localeCompare(b.path));
 
     const extras = EXPLORER_EXTRA_FIELDS[type] ?? [];
     const seen = new Set(fields.map((f) => f.path));

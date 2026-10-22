@@ -5,6 +5,7 @@
  */
 import { execSync } from "node:child_process";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { codegenTypes } from "../scripts/codegen-types.mjs";
@@ -109,14 +110,47 @@ export function copyExports(exportsDir, targetDir) {
 /**
  * @param {string} src
  * @param {string} dest
+ * @param {string} skip Never copied: the destination itself when it sits inside `src`.
  */
-function copyDir(src, dest) {
+function copyDir(src, dest, skip = dest) {
   fs.mkdirSync(dest, { recursive: true });
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
     const s = path.join(src, entry.name);
     const d = path.join(dest, entry.name);
-    if (entry.isDirectory()) copyDir(s, d);
+    if (s === skip) continue;
+    if (entry.isDirectory()) copyDir(s, d, skip);
     else fs.copyFileSync(s, d);
+  }
+}
+
+/**
+ * Replace `output` with the static export in `nextOut`. `output` may sit inside `nextOut`
+ * (`--output ./out/explorer` from the package root), but it is emptied first, so it must
+ * not be the export itself, the package, or a folder that holds the package.
+ * @param {string} nextOut
+ * @param {string} output
+ * @param {string} packageRoot
+ */
+export function writeOutput(nextOut, output, packageRoot) {
+  const target = path.resolve(output);
+  const holds = (/** @type {string} */ dir) =>
+    dir === target || dir.startsWith(target + path.sep);
+  if (holds(path.resolve(packageRoot)) || holds(path.resolve(nextOut))) {
+    throw new Error(
+      `Refusing to replace ${target}: it holds the explorer package or its export.`,
+    );
+  }
+  fs.rmSync(target, { recursive: true, force: true });
+  copyDir(nextOut, target);
+}
+
+/** @param {string} name */
+function hasPackage(name) {
+  try {
+    createRequire(import.meta.url).resolve(`${name}/package.json`);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -151,6 +185,16 @@ async function main() {
     NEXT_PUBLIC_BASE_PATH: args.basePath,
   };
 
+  // next.config.ts skips Next's own type check; tsrs is the checker. A git checkout has it
+  // (a dev dependency); an npm install of the package does not, and builds unchecked.
+  if (hasPackage("tsrs")) {
+    console.log("Type-checking with tsrs...");
+    execSync("pnpm exec tsrs --noEmit", {
+      cwd: PACKAGE_ROOT,
+      stdio: "inherit",
+    });
+  }
+
   console.log("Running next build...");
   execSync("pnpm exec next build", {
     cwd: PACKAGE_ROOT,
@@ -158,14 +202,8 @@ async function main() {
     env,
   });
 
-  const nextOut = path.join(PACKAGE_ROOT, "out");
   const output = path.resolve(args.output);
-  fs.mkdirSync(path.dirname(output), { recursive: true });
-
-  if (fs.existsSync(output)) {
-    fs.rmSync(output, { recursive: true });
-  }
-  copyDir(nextOut, output);
+  writeOutput(path.join(PACKAGE_ROOT, "out"), output, PACKAGE_ROOT);
 
   console.log(`Static export written to ${output}`);
 }
