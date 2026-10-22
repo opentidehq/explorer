@@ -16,6 +16,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { techniqueName, techniqueUrl } from "@/lib/explorer/catalog";
+import { safeHttpUrl } from "@/lib/opentide/safe-href";
 import {
   fieldGroups,
   objectDescription,
@@ -260,7 +261,9 @@ function Examples({ examples }: { examples: unknown }) {
               ? example["language"]
               : "query";
           const link =
-            typeof example["link"] === "string" ? example["link"] : null;
+            typeof example["link"] === "string"
+              ? safeHttpUrl(example["link"])
+              : null;
           return (
             <div key={`${language}-${index}`} className="space-y-2">
               {description ? <Markdown>{description}</Markdown> : null}

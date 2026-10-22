@@ -94,6 +94,12 @@ describe("normalizeReference", () => {
     });
   });
 
+  it("drops script and protocol-relative targets", () => {
+    expect(normalizeReference("javascript:alert(1)")).toBeNull();
+    expect(normalizeReference("//evil.example/phish")).toBeNull();
+    expect(normalizeReference({ url: "data:text/html,hi" })).toBeNull();
+  });
+
   it("extracts url and title from objects", () => {
     expect(
       normalizeReference({

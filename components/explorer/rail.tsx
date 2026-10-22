@@ -20,6 +20,7 @@ import {
   TypeIcon,
 } from "@/components/ui/tide";
 import { techniqueName } from "@/lib/explorer/catalog";
+import { safeHttpUrl } from "@/lib/opentide/safe-href";
 import { TYPE_COLOR_VAR, TYPE_PLURALS } from "@/lib/graph/type-icons";
 import {
   formatActorFallbackLabel,
@@ -334,17 +335,18 @@ function SourceLine() {
     /^https?:\/\/(www\.)?github\.com\//,
     "",
   );
+  const sourceHref = source
+    ? safeHttpUrl(
+        short ? `${source.repository}/tree/${source.ref}` : source.repository,
+      )
+    : null;
 
   return (
     <p className="flex min-w-0 items-center gap-2 font-mono text-[11px] text-subtle">
       <GitCommitHorizontal className="size-3.5 shrink-0" aria-hidden />
-      {source ? (
+      {sourceHref ? (
         <a
-          href={
-            short
-              ? `${source.repository}/tree/${source.ref}`
-              : source.repository
-          }
+          href={sourceHref}
           target="_blank"
           rel="noopener noreferrer"
           className="min-w-0 truncate transition-colors hover:text-ink"

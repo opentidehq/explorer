@@ -9,6 +9,7 @@ import type {
   ObjectBody,
   ObjectType,
 } from "@/lib/opentide/types";
+import { safeHttpUrl } from "@/lib/opentide/safe-href";
 import { splitPillValues } from "@/lib/opentide/vocab";
 
 /**
@@ -155,5 +156,5 @@ export function sourceUrl(
   path: string | undefined,
 ): string | null {
   if (!source || !path) return null;
-  return `${source.repository}/blob/${source.ref}/${path}`;
+  return safeHttpUrl(`${source.repository}/blob/${source.ref}/${path}`);
 }

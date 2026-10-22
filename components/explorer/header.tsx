@@ -23,6 +23,7 @@ import {
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Kbd, Segmented, type SegmentOption } from "@/components/ui/tide";
 import { GitHubIcon } from "@/components/ui/github-icon";
+import { safeHttpUrl } from "@/lib/opentide/safe-href";
 
 const VIEW_OPTIONS: SegmentOption<ExplorerView>[] = [
   {
@@ -56,7 +57,8 @@ export function Header({ onOpenOverview }: { onOpenOverview: () => void }) {
   const catalog = useCatalog();
   const view = useExplorer((s) => s.view);
   const actions = useExplorerActions();
-  const repository = catalog.bundle.source?.repository ?? DEFAULT_REPOSITORY;
+  const repository =
+    safeHttpUrl(catalog.bundle.source?.repository) ?? DEFAULT_REPOSITORY;
   const total = catalog.bundle.summaries.length;
 
   return (
