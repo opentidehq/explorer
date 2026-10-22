@@ -60,10 +60,7 @@ function buildSignalSummary(
     actors: [],
     relatedCount: 1 + entityList.length,
     platforms: [],
-    status:
-      typeof body["severity"] === "string"
-        ? String(body["severity"])
-        : undefined,
+    // A signal has a severity, not a deployment status; the generator gives it none either.
   };
 }
 

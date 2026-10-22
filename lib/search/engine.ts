@@ -48,14 +48,22 @@ function bodyText(body: ObjectBody | undefined): string {
   return parts.join(" ").slice(0, CONTENT_LIMIT);
 }
 
-/** Search documents straight from the bundle: one per object, its text drawn from its body. */
-export function buildSearchDocuments(bundle: ExplorerBundle): SearchDocument[] {
+/**
+ * Search documents straight from the bundle: one per object, its text drawn from its body.
+ * `techniquesOf` decides what `technique:` matches; the catalogue passes the resolution the
+ * ATT&CK matrix uses, so a cell's filter finds the objects the cell counts.
+ */
+export function buildSearchDocuments(
+  bundle: ExplorerBundle,
+  techniquesOf: (summary: BundleObjectSummary) => string[] = (summary) =>
+    summary.techniques,
+): SearchDocument[] {
   return bundle.summaries.map((summary: BundleObjectSummary) => ({
     id: summary.uuid,
     uuid: summary.uuid,
     type: summary.type,
     name: summary.name,
-    techniques: summary.techniques,
+    techniques: techniquesOf(summary),
     actors: summary.actors,
     platforms: summary.platforms,
     schema: summary.schema ?? "",
