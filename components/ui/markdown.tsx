@@ -9,6 +9,8 @@ const ReactMarkdown = lazy(() => import("react-markdown"));
 
 const components: Components = {
   a: ({ node: _node, ...props }) => (
+    // The link text arrives in `props.children`.
+    // oxlint-disable-next-line jsx-a11y/anchor-has-content
     <a {...props} target="_blank" rel="noopener noreferrer" />
   ),
 };

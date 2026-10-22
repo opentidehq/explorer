@@ -63,6 +63,8 @@ export function VocabChip({
       {content}
     </a>
   ) : (
+    // A tooltip trigger: focusable so keyboard users can read the definition.
+    // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex
     <span tabIndex={term?.description ? 0 : undefined} className={className}>
       {content}
     </span>

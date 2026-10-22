@@ -167,9 +167,8 @@ export function AppShell() {
   const drawerFocus = useReturnFocus();
   const sheetFocus = useReturnFocus();
 
-  useEffect(() => {
-    if (paletteOpen) setPaletteUsed(true);
-  }, [paletteOpen]);
+  // Keep the palette mounted once it has opened: latch during render, not in an effect.
+  if (paletteOpen && !paletteUsed) setPaletteUsed(true);
 
   // Once the first view is up, fetch the other views and the markdown renderer while the
   // browser is idle, so switching and opening objects never waits on the network.

@@ -44,11 +44,14 @@ describe("threat chaining highlights", () => {
       }
     }
 
-    if (reachable.size > direct.nodes.size) {
-      expect(direct.nodes.size).toBeLessThan(reachable.size);
-    } else {
-      expect(direct.nodes.size).toBe(reachable.size);
+    // Exactly the root and the objects one chaining edge away from it.
+    const neighbors = new Set<string>([root!]);
+    for (const edge of chainingEdges) {
+      if (edge.source === root) neighbors.add(edge.target);
+      if (edge.target === root) neighbors.add(edge.source);
     }
+    expect(direct.nodes).toEqual(neighbors);
+    for (const id of direct.nodes) expect(reachable.has(id)).toBe(true);
   });
 });
 

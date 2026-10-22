@@ -8,7 +8,7 @@ describe("createStore", () => {
 
   it("notifies only on a change", () => {
     const store = createStore({ n: 0, s: "a" });
-    const listener = vi.fn();
+    const listener = vi.fn<() => void>();
     store.subscribe(listener);
     store.set({ n: 0 });
     expect(listener).not.toHaveBeenCalled();
