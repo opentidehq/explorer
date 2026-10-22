@@ -351,3 +351,60 @@ describe("graph engine", () => {
     ]);
   });
 });
+
+describe("signal objectives", () => {
+  const CHILD_SIGNAL_ID = "b4f7d796-146c-44b0-8d22-7a08daa0d964";
+
+  /** Signals as the generator writes them: the spec's `parent` is a parent signal. */
+  function specContext() {
+    const { models, flatIndex, chaining } = makeFixture();
+    const signal: ObjectBody = {
+      name: "Package Manager Install",
+      metadata: { uuid: SIGNAL_ID, schema: "signal::1.0" },
+      _objective: OBJECTIVE_ID,
+    };
+    const child: ObjectBody = {
+      name: "Package Manager Install from CI",
+      metadata: { uuid: CHILD_SIGNAL_ID, schema: "signal::1.0" },
+      parent: SIGNAL_ID,
+      _objective: OBJECTIVE_ID,
+    };
+    models.signal = { [SIGNAL_ID]: signal, [CHILD_SIGNAL_ID]: child };
+    flatIndex[SIGNAL_ID] = signal;
+    flatIndex[CHILD_SIGNAL_ID] = child;
+    return createGraphContext({ models, flatIndex, chaining });
+  }
+
+  it("reads a signal's objective from its own key, not its parent signal", () => {
+    const ctx = specContext();
+    expect(parents(ctx, CHILD_SIGNAL_ID)).toEqual([OBJECTIVE_ID]);
+    expect(childs(ctx, OBJECTIVE_ID)).toEqual(
+      expect.arrayContaining([SIGNAL_ID, CHILD_SIGNAL_ID]),
+    );
+    expect(techniquesResolver(ctx, CHILD_SIGNAL_ID, true)).toEqual([
+      "T1195.001",
+      "T1059.007",
+    ]);
+  });
+
+  it("takes a parent that names an objective only from earlier bundles", () => {
+    const ctx = createGraphContext(makeFixture());
+    expect(parents(ctx, SIGNAL_ID)).toEqual([OBJECTIVE_ID]);
+
+    const spec = specContext();
+    delete spec.flatIndex[CHILD_SIGNAL_ID]!["_objective"];
+    expect(parents(spec, CHILD_SIGNAL_ID)).toEqual([]);
+  });
+
+  it("adds a rule's own techniques to those of what it implements", () => {
+    const { models, flatIndex, chaining } = makeFixture();
+    flatIndex[RULE_ID] = { ...flatIndex[RULE_ID], techniques: ["T1003"] };
+    models.rule[RULE_ID] = flatIndex[RULE_ID]!;
+    const ctx = createGraphContext({ models, flatIndex, chaining });
+    expect(techniquesResolver(ctx, RULE_ID, true)).toEqual([
+      "T1003",
+      "T1195.001",
+      "T1059.007",
+    ]);
+  });
+});

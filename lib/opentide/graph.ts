@@ -18,12 +18,17 @@ export interface GraphContext {
   readonly deprecatedStatuses?: ReadonlySet<string>;
 }
 
+/**
+ * Where the bundle keeps an embedded signal's objective. The spec gives a signal's `parent`
+ * to its parent signal, so the generator never writes the objective there.
+ */
+export const SIGNAL_OBJECTIVE_KEY = "_objective";
+
 const PARENT_MAPPINGS: Record<
   string,
   { data?: string; parent: string } | { parent: string }
 > = {
   objective: { data: "objective", parent: "threats" },
-  signal: { parent: "parent" },
   rule: { parent: "detection_model" },
 };
 
@@ -42,7 +47,8 @@ const CHILD_MAPPINGS: Record<
   },
   objective: {
     child_types: ["signal", "rule"],
-    references: ["detection_model", "parent"],
+    // `parent` names the objective in bundles from earlier generators.
+    references: ["detection_model", SIGNAL_OBJECTIVE_KEY, "parent"],
   },
   signal: {
     child_types: ["rule"],
@@ -111,12 +117,25 @@ export function getType(
   });
 }
 
+/**
+ * The objective an embedded signal belongs to. Bundles from earlier generators put it in
+ * `parent`, which the spec gives to a parent signal: that counts only when it names an
+ * objective.
+ */
+function signalObjective(ctx: GraphContext, id: string): string[] {
+  const body = ctx.models.signal?.[id] ?? ctx.flatIndex[id];
+  const owner = body?.[SIGNAL_OBJECTIVE_KEY];
+  if (typeof owner === "string") return [owner];
+  const parent = body?.["parent"];
+  return typeof parent === "string" &&
+    getType(ctx, parent, true) === "objective"
+    ? [parent]
+    : [];
+}
+
 export function parents(ctx: GraphContext, id: string): string[] {
   const modelType = getType(ctx, id, true);
-  if (!modelType) {
-    const embeddedParent = ctx.flatIndex[id]?.["parent"];
-    return typeof embeddedParent === "string" ? [embeddedParent] : [];
-  }
+  if (!modelType || modelType === "signal") return signalObjective(ctx, id);
 
   const mapping = PARENT_MAPPINGS[modelType];
   if (!mapping) return [];
@@ -328,16 +347,17 @@ export function techniquesResolver(
   let techniques: string[] = [];
 
   if (modelType === "rule") {
+    // Its own techniques, and those of the objective or signal it implements.
+    techniques = ownTechniqueIds(modelBody, ["techniques"]);
     const parentId =
       (modelBody["detection_model"] as string | undefined) ??
       ((modelBody["tags"] as ObjectBody | undefined)?.["coretide"] as
         | string
         | undefined);
-    if (!parentId) return [];
-    if (recursive) {
-      techniques = techniquesResolver(ctx, parentId, true, seen);
+    if (parentId && recursive) {
+      techniques.push(...techniquesResolver(ctx, parentId, true, seen));
     }
-    return techniques;
+    return [...new Set(techniques)];
   }
 
   if (modelType === "signal") {

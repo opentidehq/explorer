@@ -5,13 +5,28 @@ import { ArrowUpRight } from "lucide-react";
 import { useCatalog } from "@/components/explorer/explorer-state";
 import { CodePanel } from "@/components/code/code-panel";
 import { sourceUrl } from "@/lib/explorer/fields";
+import { SIGNAL_OBJECTIVE_KEY } from "@/lib/opentide/graph";
 import type { BundleObjectSummary, ObjectBody } from "@/lib/opentide/types";
+
+/** Whether a signal is one an objective embeds, promoted to an object by the bundle. */
+function isEmbeddedSignal(summary: BundleObjectSummary, body: ObjectBody) {
+  return (
+    summary.type === "signal" &&
+    (typeof body[SIGNAL_OBJECTIVE_KEY] === "string" ||
+      typeof body["parent"] === "string")
+  );
+}
 
 /** What the file says. Embedded signals show without the fields the bundle adds to them. */
 function fileBody(summary: BundleObjectSummary, body: ObjectBody): ObjectBody {
-  if (summary.type !== "signal" || typeof body["parent"] !== "string")
-    return body;
-  const { metadata: _metadata, parent: _parent, ...signal } = body;
+  if (!isEmbeddedSignal(summary, body)) return body;
+  const {
+    metadata: _metadata,
+    [SIGNAL_OBJECTIVE_KEY]: objective,
+    ...signal
+  } = body;
+  // Bundles from earlier generators wrote the objective over the signal's `parent`.
+  if (objective === undefined) delete signal["parent"];
   return signal;
 }
 
@@ -43,8 +58,7 @@ export function ObjectFile({
     };
   }, [summary, body]);
 
-  const embedded =
-    summary.type === "signal" && typeof body["parent"] === "string";
+  const embedded = isEmbeddedSignal(summary, body);
   const url = sourceUrl(bundle.source, summary.path);
   const caption = summary.path
     ? `${summary.path}${embedded ? " · objective.signals[]" : ""}`

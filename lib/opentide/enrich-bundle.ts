@@ -1,3 +1,4 @@
+import { SIGNAL_OBJECTIVE_KEY } from "@/lib/opentide/graph";
 import type {
   BundleObjectSummary,
   ExplorerBundle,
@@ -33,7 +34,7 @@ function embeddedSignalBodies(
           uuid,
           schema: "signal::1.0",
         },
-        parent: objectiveId,
+        [SIGNAL_OBJECTIVE_KEY]: objectiveId,
       },
     });
   }
@@ -146,12 +147,12 @@ export function enrichSearchIndex(
     if (summary.type !== "signal" || existing.has(summary.uuid)) continue;
     const body = enriched.flatIndex[summary.uuid];
     if (!body) continue;
-    const parent = body["parent"];
+    const objective = body[SIGNAL_OBJECTIVE_KEY] ?? body["parent"];
     documents.push(
       buildSignalDocument(
         summary,
         body,
-        typeof parent === "string" ? parent : "",
+        typeof objective === "string" ? objective : "",
       ),
     );
     existing.add(summary.uuid);

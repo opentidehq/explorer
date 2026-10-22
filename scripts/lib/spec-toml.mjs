@@ -275,12 +275,8 @@ const EXPLORER_EXTRA_FIELDS = {
   ],
   objective: [
     { path: "objective.investment", label: "Investment", format: "pills" },
-    {
-      path: "objective.priority",
-      label: "Priority",
-      format: "pills",
-      vocab: "criticality",
-    },
+    // No pin gives priority a vocabulary; `criticality` is the threat's, and lacks "Critical".
+    { path: "objective.priority", label: "Priority", format: "pills" },
     {
       path: "objective.composition.description",
       label: "Composition details",
