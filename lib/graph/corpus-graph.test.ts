@@ -295,6 +295,29 @@ describe("expandVisibleIds", () => {
     expect(visible.has(DISTANT_ID)).toBe(false);
   });
 
+  it("follows only chaining edges into what the detection chain reached", () => {
+    const bundle = withThreatChain();
+    // A rule implementing both signals: the other signal is its parent, not the match's.
+    bundle.flatIndex[SIGNAL_RULE_ID] = {
+      ...bundle.flatIndex[SIGNAL_RULE_ID],
+      detection_model: [SIGNAL_ID, SIGNAL_B_ID],
+    };
+    bundle.models.rule[SIGNAL_RULE_ID] = bundle.flatIndex[SIGNAL_RULE_ID]!;
+    const shared = buildCorpusGraph(bundle);
+    expect(edgeBetween(shared, SIGNAL_B_ID, SIGNAL_RULE_ID)?.kind).toBe(
+      "detection",
+    );
+
+    const visible = expandVisibleIds(
+      shared,
+      new Set([SIGNAL_ID]),
+      "include-chain",
+    );
+
+    expect(visible.has(SIGNAL_RULE_ID)).toBe(true);
+    expect(visible.has(SIGNAL_B_ID)).toBe(false);
+  });
+
   it("walks detection edges down from a threat in chain mode", () => {
     const visible = expandVisibleIds(
       graph,
