@@ -117,39 +117,45 @@ describe("spec-toml", () => {
     expect(pathToLabel("objective.mitre_attack")).toBe("ATT&CK");
   });
 
-  it("builds vocab index from specifications when present", () => {
-    const vocabDir = path.join(SPECS, "vocabularies");
-    if (!fs.existsSync(vocabDir)) return;
+  it.skipIf(!fs.existsSync(path.join(SPECS, "vocabularies")))(
+    "builds vocab index from specifications when present",
+    () => {
+      const vocabDir = path.join(SPECS, "vocabularies");
 
-    const index = buildVocabIndexFromDir(vocabDir);
-    expect(Object.keys(index).length).toBeGreaterThan(20);
-    expect(index.severity?.["Localised incident"]?.name).toBe(
-      "Localised incident",
-    );
-    expect(index.chaining_relations?.["support::synergize"]).toBeDefined();
-  });
+      const index = buildVocabIndexFromDir(vocabDir);
+      expect(Object.keys(index).length).toBeGreaterThan(20);
+      expect(index.severity?.["Localised incident"]?.name).toBe(
+        "Localised incident",
+      );
+      expect(index.chaining_relations?.["support::synergize"]).toBeDefined();
+    },
+  );
 
-  it("builds field registry from pin tables when present", () => {
-    const pinsDir = path.join(SPECS, "schemas/pins");
-    if (!fs.existsSync(pinsDir)) return;
+  it.skipIf(!fs.existsSync(path.join(SPECS, "schemas/pins")))(
+    "builds field registry from pin tables when present",
+    () => {
+      const pinsDir = path.join(SPECS, "schemas/pins");
 
-    const registry = buildFieldRegistryFromPins(pinsDir);
-    expect(registry.threat?.some((f) => f.path === "threat.surface")).toBe(
-      true,
-    );
-    expect(
-      registry.threat?.find((f) => f.path === "threat.surface")?.label,
-    ).toBe("Surface");
-    expect(
-      registry.threat?.find((f) => f.path === "threat.actors.name")?.label,
-    ).toBe("Threat actors");
-    expect(registry.threat?.some((f) => f.path === "threat.chaining")).toBe(
-      false,
-    );
-    expect(registry.signal?.some((f) => f.path === "severity")).toBe(true);
-    expect(registry.rule?.some((f) => f.path === "metadata.author")).toBe(true);
-    expect(registry.rule?.some((f) => f.path === "description")).toBe(true);
-    expect(registry.rule?.some((f) => f.path === "techniques")).toBe(true);
-    expect(registry.rule?.some((f) => f.path === "criticality")).toBe(false);
-  });
+      const registry = buildFieldRegistryFromPins(pinsDir);
+      expect(registry.threat?.some((f) => f.path === "threat.surface")).toBe(
+        true,
+      );
+      expect(
+        registry.threat?.find((f) => f.path === "threat.surface")?.label,
+      ).toBe("Surface");
+      expect(
+        registry.threat?.find((f) => f.path === "threat.actors.name")?.label,
+      ).toBe("Threat actors");
+      expect(registry.threat?.some((f) => f.path === "threat.chaining")).toBe(
+        false,
+      );
+      expect(registry.signal?.some((f) => f.path === "severity")).toBe(true);
+      expect(registry.rule?.some((f) => f.path === "metadata.author")).toBe(
+        true,
+      );
+      expect(registry.rule?.some((f) => f.path === "description")).toBe(true);
+      expect(registry.rule?.some((f) => f.path === "techniques")).toBe(true);
+      expect(registry.rule?.some((f) => f.path === "criticality")).toBe(false);
+    },
+  );
 });

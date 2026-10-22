@@ -191,7 +191,9 @@ describe("buildListViewModel", () => {
       (row) => row.objective.id === OBJECTIVE_ID,
     );
     expect(primary?.signalIds).toEqual([SIGNAL_ID, SIGNAL_B_ID]);
-    expect(primary?.ruleIds.sort()).toEqual([RULE_ID, SIGNAL_RULE_ID].sort());
+    expect(primary?.ruleIds.toSorted()).toEqual(
+      [RULE_ID, SIGNAL_RULE_ID].toSorted(),
+    );
     expect(model.rules).toHaveLength(2);
 
     const kinds = model.links.map((l) => l.kind);
@@ -249,8 +251,8 @@ describe("applyListViewFocus", () => {
       OBJECTIVE_ID,
     );
     expect(focused.objectives).toHaveLength(2);
-    expect(focused.rules.map((r) => r.id).sort()).toEqual(
-      [RULE_ID, SIGNAL_RULE_ID].sort(),
+    expect(focused.rules.map((r) => r.id).toSorted()).toEqual(
+      [RULE_ID, SIGNAL_RULE_ID].toSorted(),
     );
   });
 

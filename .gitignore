@@ -12,3 +12,4 @@ public/data/*.json
 # oxfmt honors .gitignore; without this, fmt:check reformats the checkouts.
 /library/
 /specifications/
+next-env.d.ts

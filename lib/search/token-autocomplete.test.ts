@@ -202,6 +202,20 @@ describe("applySuggestion", () => {
     ));
     expect(input).toBe("type:rule ");
   });
+
+  it("completes a field followed by a space without repeating it", () => {
+    const input = "platform:sentinel type ";
+    const op = getTokenSuggestions(input, input.length, vocab).suggestions.find(
+      (s) => s.label === ":",
+    )!;
+    const { next, cursor } = applySuggestion(
+      input,
+      getQueryParseState(input, input.length, vocab),
+      op,
+    );
+    expect(next).toBe("platform:sentinel type:");
+    expect(cursor).toBe(next.length);
+  });
 });
 
 describe("parseFilterTokens AND/OR", () => {

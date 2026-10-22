@@ -249,6 +249,8 @@ export function GraphControls({
         {menu === "layers" ? (
           <Menu title="layers" onClose={() => setMenu(null)}>
             <MenuItem
+              // MenuItem sets aria-checked from `checked`.
+              // oxlint-disable-next-line jsx-a11y/role-has-required-aria-props
               role="menuitemcheckbox"
               label="Kill chain stages"
               description="Group threats into initial foothold, propagation and action."
@@ -256,6 +258,8 @@ export function GraphControls({
               onSelect={() => actions.setKillchainGrouping(!killchainGrouping)}
             />
             <MenuItem
+              // MenuItem sets aria-checked from `checked`.
+              // oxlint-disable-next-line jsx-a11y/role-has-required-aria-props
               role="menuitemcheckbox"
               label="Vocabulary values"
               description="Show the taxonomy terms the visible objects use."

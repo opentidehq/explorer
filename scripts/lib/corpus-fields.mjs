@@ -25,6 +25,7 @@ export function actorRefName(actor) {
  * @returns {string[]}
  */
 export function collectActorNames(actors) {
+  /** @type {string[]} */
   const names = [];
   const seen = new Set();
   if (!Array.isArray(actors)) return names;

@@ -13,6 +13,8 @@ const components: Components = {
     const safe = safeMarkdownHref(href);
     if (!safe) return <span {...props} />;
     return (
+      // The link text arrives in `props.children`.
+      // oxlint-disable-next-line jsx-a11y/anchor-has-content
       <a {...props} href={safe} target="_blank" rel="noopener noreferrer" />
     );
   },

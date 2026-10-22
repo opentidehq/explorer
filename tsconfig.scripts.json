@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "lib": ["es2023"],
+    "types": ["node"],
+    "plugins": []
+  },
+  "include": ["bin/**/*.mjs", "scripts/**/*.mjs"],
+  "exclude": ["node_modules"]
+}

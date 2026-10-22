@@ -244,6 +244,8 @@ export function SearchBox({
           className="tide-scroll absolute inset-x-0 top-full z-50 mt-1.5 max-h-72 overflow-y-auto rounded-xl border border-line bg-panel p-1 shadow-float"
         >
           {suggestions.map((suggestion, index) => (
+            // Focus stays in the input; it points here with aria-activedescendant.
+            // oxlint-disable-next-line jsx-a11y/interactive-supports-focus
             <div
               key={`${suggestion.kind}-${suggestion.label}-${index}`}
               id={`${listboxId}-${index}`}

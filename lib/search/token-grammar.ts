@@ -282,8 +282,9 @@ export function getQueryParseState(
     }
 
     if (last.kind === "bare" && isFieldName(last.text)) {
+      // The operator suggestion inserts `field:`, so it replaces the field and the space.
       return {
-        tokenStart: cursor,
+        tokenStart: last.start,
         tokenEnd: cursor,
         phase: "after_field",
         field: last.text.toLowerCase(),

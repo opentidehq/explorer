@@ -5,6 +5,7 @@
  */
 import { execSync } from "node:child_process";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { codegenTypes } from "../scripts/codegen-types.mjs";
@@ -17,22 +18,18 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = path.resolve(__dirname, "..");
 
+/** @param {string[]} argv */
 function parseArgs(argv) {
   const args = {
-    exportsDir: null,
-    schemasDir: null,
+    exportsDir: /** @type {string | null} */ (null),
+    schemasDir: /** @type {string | null} */ (null),
     output: path.join(process.cwd(), "out", "explorer"),
     basePath: "",
   };
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === "--exports-dir" && argv[i + 1]) args.exportsDir = argv[++i];
-    else if (arg === "--schemas-dir" && argv[i + 1])
-      args.schemasDir = argv[++i];
-    else if (arg === "--output" && argv[i + 1]) args.output = argv[++i];
-    else if (arg === "--base-path" && argv[i + 1]) args.basePath = argv[++i];
-    else if (arg === "--help" || arg === "-h") {
+    if (arg === "--help" || arg === "-h") {
       console.log(`Usage: opentide-explorer-build build [options]
 
 Options:
@@ -43,6 +40,14 @@ Options:
 `);
       process.exit(0);
     }
+    const value = argv[i + 1];
+    if (!value) continue;
+    if (arg === "--exports-dir") args.exportsDir = value;
+    else if (arg === "--schemas-dir") args.schemasDir = value;
+    else if (arg === "--output") args.output = value;
+    else if (arg === "--base-path") args.basePath = value;
+    else continue;
+    i++;
   }
 
   return args;
@@ -50,11 +55,18 @@ Options:
 
 /** Data files the client reads; the first vocabulary present wins. */
 const BUNDLE = "explorer.bundle.json";
-const VOCABULARIES = ["explorer.vocab.json", "vocab.index.json"];
+/** The slim vocabulary the client loads, and the full index it falls back to. */
+const SLIM_VOCAB = "explorer.vocab.json";
+const FULL_VOCAB = "vocab.index.json";
+const VOCABULARIES = [SLIM_VOCAB, FULL_VOCAB];
 /** Written by earlier versions; nothing reads them now. */
 const STALE = ["explorer.search.json", "explorer.coverage.json"];
 
-/** Put the exports where `next build` reads them: `<targetDir>/public/data`. */
+/**
+ * Put the exports where `next build` reads them: `<targetDir>/public/data`.
+ * @param {string} exportsDir
+ * @param {string} targetDir
+ */
 export function copyExports(exportsDir, targetDir) {
   const dataDir = path.join(targetDir, "public", "data");
   fs.mkdirSync(dataDir, { recursive: true });
@@ -79,8 +91,8 @@ export function copyExports(exportsDir, targetDir) {
 
   // Exports with only the full index (`opentide generate explorer`): derive the slim
   // vocabulary the client loads, and leave the 15 MB index out of the site.
-  const slimPath = path.join(dataDir, VOCABULARIES[0]);
-  const fullPath = path.join(dataDir, VOCABULARIES[1]);
+  const slimPath = path.join(dataDir, SLIM_VOCAB);
+  const fullPath = path.join(dataDir, FULL_VOCAB);
   if (!fs.existsSync(slimPath) && fs.existsSync(fullPath)) {
     const bundle = JSON.parse(fs.readFileSync(bundleSrc, "utf8"));
     const objects = Object.values(bundle.flatIndex ?? {});
@@ -95,13 +107,50 @@ export function copyExports(exportsDir, targetDir) {
   console.log(`Copied exports from ${exportsDir} → ${dataDir}`);
 }
 
-function copyDir(src, dest) {
+/**
+ * @param {string} src
+ * @param {string} dest
+ * @param {string} skip Never copied: the destination itself when it sits inside `src`.
+ */
+function copyDir(src, dest, skip = dest) {
   fs.mkdirSync(dest, { recursive: true });
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
     const s = path.join(src, entry.name);
     const d = path.join(dest, entry.name);
-    if (entry.isDirectory()) copyDir(s, d);
+    if (s === skip) continue;
+    if (entry.isDirectory()) copyDir(s, d, skip);
     else fs.copyFileSync(s, d);
+  }
+}
+
+/**
+ * Replace `output` with the static export in `nextOut`. `output` may sit inside `nextOut`
+ * (`--output ./out/explorer` from the package root), but it is emptied first, so it must
+ * not be the export itself, the package, or a folder that holds the package.
+ * @param {string} nextOut
+ * @param {string} output
+ * @param {string} packageRoot
+ */
+export function writeOutput(nextOut, output, packageRoot) {
+  const target = path.resolve(output);
+  const holds = (/** @type {string} */ dir) =>
+    dir === target || dir.startsWith(target + path.sep);
+  if (holds(path.resolve(packageRoot)) || holds(path.resolve(nextOut))) {
+    throw new Error(
+      `Refusing to replace ${target}: it holds the explorer package or its export.`,
+    );
+  }
+  fs.rmSync(target, { recursive: true, force: true });
+  copyDir(nextOut, target);
+}
+
+/** @param {string} name */
+function hasPackage(name) {
+  try {
+    createRequire(import.meta.url).resolve(`${name}/package.json`);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -136,6 +185,16 @@ async function main() {
     NEXT_PUBLIC_BASE_PATH: args.basePath,
   };
 
+  // next.config.ts skips Next's own type check; tsrs is the checker. A git checkout has it
+  // (a dev dependency); an npm install of the package does not, and builds unchecked.
+  if (hasPackage("tsrs")) {
+    console.log("Type-checking with tsrs...");
+    execSync("pnpm exec tsrs --noEmit", {
+      cwd: PACKAGE_ROOT,
+      stdio: "inherit",
+    });
+  }
+
   console.log("Running next build...");
   execSync("pnpm exec next build", {
     cwd: PACKAGE_ROOT,
@@ -143,14 +202,8 @@ async function main() {
     env,
   });
 
-  const nextOut = path.join(PACKAGE_ROOT, "out");
   const output = path.resolve(args.output);
-  fs.mkdirSync(path.dirname(output), { recursive: true });
-
-  if (fs.existsSync(output)) {
-    fs.rmSync(output, { recursive: true });
-  }
-  copyDir(nextOut, output);
+  writeOutput(path.join(PACKAGE_ROOT, "out"), output, PACKAGE_ROOT);
 
   console.log(`Static export written to ${output}`);
 }

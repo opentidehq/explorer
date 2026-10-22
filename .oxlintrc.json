@@ -1,0 +1,53 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "typescript",
+    "unicorn",
+    "oxc",
+    "import",
+    "react",
+    "nextjs",
+    "jsx-a11y",
+    "vitest"
+  ],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "env": { "browser": true, "node": true, "es2024": true },
+  "ignorePatterns": [".agents/**", "lib/opentide/generated/**"],
+  "rules": {
+    "eslint/no-unused-vars": "error",
+    "typescript/no-explicit-any": "error",
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "error",
+    // The automatic JSX runtime (tsconfig "jsx": "react-jsx") needs no React import.
+    "react/react-in-jsx-scope": "off",
+    // Effects list layout and retry triggers on purpose (`attempt`, `empty`, the columns).
+    "react/exhaustive-effect-dependencies": "off",
+    // Index keys mark positions in static lists: lines of code, `::` parts, references.
+    "react/no-array-index-key": "off",
+    // Same calls as doctor.config.ts: the autocomplete listbox, the resize separator and
+    // the segmented controls use ARIA roles on purpose.
+    "jsx-a11y/prefer-tag-over-role": "off",
+    "jsx-a11y/no-static-element-interactions": "off",
+    // `sigma` and `graphology` document their default exports.
+    "import/no-named-as-default": "off",
+    // CSS and next-env.d.ts imports are side effects by design.
+    "import/no-unassigned-import": "off",
+    // Worker and MessagePort postMessage take no targetOrigin.
+    "unicorn/require-post-message-target-origin": "off",
+    // The layout worker is single use: one `onmessage` handler, then terminate.
+    "unicorn/prefer-add-event-listener": "off"
+  },
+  "overrides": [
+    {
+      // `__dirname` from `import.meta.url`; small helpers kept beside their one caller.
+      "files": ["bin/**", "scripts/**", "**/*.test.ts", "**/*.test.mjs"],
+      "rules": {
+        "eslint/no-underscore-dangle": "off",
+        "unicorn/consistent-function-scoping": "off"
+      }
+    }
+  ]
+}

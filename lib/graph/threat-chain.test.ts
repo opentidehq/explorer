@@ -44,11 +44,14 @@ describe("threat chaining highlights", () => {
       }
     }
 
-    if (reachable.size > direct.nodes.size) {
-      expect(direct.nodes.size).toBeLessThan(reachable.size);
-    } else {
-      expect(direct.nodes.size).toBe(reachable.size);
+    // Exactly the root and the objects one chaining edge away from it.
+    const neighbors = new Set<string>([root!]);
+    for (const edge of chainingEdges) {
+      if (edge.source === root) neighbors.add(edge.target);
+      if (edge.target === root) neighbors.add(edge.source);
     }
+    expect(direct.nodes).toEqual(neighbors);
+    for (const id of direct.nodes) expect(reachable.has(id)).toBe(true);
   });
 });
 
@@ -67,6 +70,7 @@ describe("buildThreatChainTree", () => {
     const tree = buildThreatChainTree(ctx, root!);
     expect(tree).not.toBeNull();
     expect(tree?.isRoot).toBe(true);
-    expect(countThreatChainNodes(tree!)).toBeGreaterThan(0);
+    // The root counts itself; a chained threat must bring at least one more node.
+    expect(countThreatChainNodes(tree!)).toBeGreaterThan(1);
   });
 });

@@ -15,7 +15,9 @@ const technique = {
   link: "https://attack.mitre.org/techniques/T1078",
 };
 
+/** @param {number} count */
 function actorTerms(count) {
+  /** @type {Record<string, { name: string, description: string }>} */
   const bucket = {};
   for (let i = 0; i < count; i += 1) {
     const term = { name: `Group ${i}`, description: `Actor ${i}` };
@@ -61,17 +63,17 @@ describe("slimVocabIndex", () => {
 
   it("stores each term once and points every key at it", () => {
     const attack = slim.vocabs["att&ck"];
-    expect(attack.terms).toHaveLength(1);
-    expect(attack.keys.T1078).toBe(0);
-    expect(attack.keys["Valid Accounts"]).toBe(0);
+    expect(attack?.terms).toHaveLength(1);
+    expect(attack?.keys.T1078).toBe(0);
+    expect(attack?.keys["Valid Accounts"]).toBe(0);
     // Tactic-qualified keys repeat what `stages` already says.
-    expect(attack.keys["Initial Access::T1078"]).toBeUndefined();
-    expect(attack.terms[0].stages).toEqual(["Initial Access", "Persistence"]);
-    expect(attack.terms[0].description).not.toContain("Citation");
+    expect(attack?.keys["Initial Access::T1078"]).toBeUndefined();
+    expect(attack?.terms[0]?.stages).toEqual(["Initial Access", "Persistence"]);
+    expect(attack?.terms[0]?.description).not.toContain("Citation");
   });
 
   it("keeps small vocabularies whole", () => {
-    expect(slim.vocabs.severity.terms.map((t) => t.name)).toEqual([
+    expect(slim.vocabs.severity?.terms.map((t) => t.name)).toEqual([
       "High",
       "Low",
     ]);
@@ -79,9 +81,9 @@ describe("slimVocabIndex", () => {
 
   it("keeps only the large-catalogue terms the corpus references", () => {
     const actors = slim.vocabs.actors;
-    expect(actors.terms.map((t) => t.name)).toEqual(["Group 7"]);
-    expect(actors.keys["att&ck::G0007"]).toBe(0);
-    expect(actors.keys["Group 7"]).toBe(0);
+    expect(actors?.terms.map((t) => t.name)).toEqual(["Group 7"]);
+    expect(actors?.keys["att&ck::G0007"]).toBe(0);
+    expect(actors?.keys["Group 7"]).toBe(0);
   });
 });
 

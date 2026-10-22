@@ -37,16 +37,33 @@ When `library` and `explorer` are siblings, `opentide explorer build` and `dev` 
 
 ## Development
 
-**Requirements:** Node ≥ 20.19, pnpm 9+, Next.js **16.3**
+**Requirements:** Node ≥ 22.12 for development (vitest 5, oxlint and oxfmt need it; the build
+CLI itself runs on Node ≥ 20.19), pnpm 9+, Next.js **16.3**
 
 ```bash
 pnpm install
 pnpm dev          # Turbopack dev server at http://localhost:3000
-pnpm check        # typecheck, oxlint, oxfmt, vitest
+pnpm check        # typecheck, oxlint, oxfmt, vitest, codegen drift
 pnpm validate     # check + production build (run before committing)
 pnpm run doctor   # optional React health scan (advisory; may exit non-zero)
-pnpm build        # generates data from ../library and static export
+pnpm build        # generates data from ../library, type-checks, static export
 ```
+
+### Toolchain
+
+The checks run on Rust-native tools from the [oxc](https://oxc.rs) project:
+
+| Command          | Tool                                               | Config                                   |
+| ---------------- | -------------------------------------------------- | ---------------------------------------- |
+| `pnpm typecheck` | [tsrs](https://github.com/oxc-project/tsrs)        | `tsconfig.json`, `tsconfig.scripts.json` |
+| `pnpm lint`      | [oxlint](https://oxc.rs/docs/guide/usage/linter)   | `.oxlintrc.json`                         |
+| `pnpm fmt`       | [oxfmt](https://oxc.rs/docs/guide/usage/formatter) | `.oxfmtrc.json`                          |
+
+tsrs is a Rust port of the TypeScript 7 checker. It checks the app with `tsconfig.json`
+and the Node scripts in `bin/` and `scripts/` (JSDoc, `checkJs`) with `tsconfig.scripts.json`.
+`next build` skips its own type check (`typescript.ignoreBuildErrors`) because `pnpm build`
+runs tsrs first; the `typescript` package stays installed because Next.js requires it.
+`pnpm lint` fails on any warning and on unused `oxlint-disable` comments.
 
 ### Agent skills (Vercel)
 
