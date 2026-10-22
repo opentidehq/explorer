@@ -218,7 +218,7 @@ The `publish.yml` workflow publishes to npm on GitHub Release. **Git checkout is
 
 | Project                                                        | Description                                    |
 | -------------------------------------------------------------- | ---------------------------------------------- |
-| [opentide](https://github.com/opentidehq/opentide)             | DetectionOps engine                            |
+| [opentide](https://github.com/opentidehq/opentide)             | The opentide engine: CLI, SDK and MCP server   |
 | [library](https://github.com/opentidehq/library)               | Public registry of published detection objects |
 | [specifications](https://github.com/opentidehq/specifications) | Normative schemas and metadata specs           |
 | [website](https://github.com/opentidehq/website)               | opentide documentation and public surfaces     |
