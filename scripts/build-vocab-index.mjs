@@ -12,6 +12,10 @@ import { isMain } from "./lib/is-main.mjs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 
+/**
+ * @param {string} specsDir
+ * @param {string} outFile
+ */
 export function buildVocabIndex(specsDir, outFile) {
   const vocabDir = path.join(specsDir, "vocabularies");
   const merged = buildVocabIndexFromDir(vocabDir);

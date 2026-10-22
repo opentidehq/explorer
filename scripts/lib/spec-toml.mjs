@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { parse } from "smol-toml";
 
-/** @typedef {{ name: string, description?: string, stage?: string, stages?: string[] }} VocabTerm */
+/** @typedef {{ name: string, description?: string, stage?: string, stages?: string[], link?: string, aliases?: string[] }} VocabTerm */
 
 /**
  * @param {string} specsDir
@@ -114,6 +114,7 @@ export function parseVocabDocument(doc, fileStem) {
       ...(aliases?.length ? { aliases } : {}),
     };
 
+    /** @param {string} key */
     const register = (key) => {
       if (!key || index[key]) return;
       index[key] = term;
@@ -175,6 +176,7 @@ export function buildVocabIndexFromDir(vocabDir) {
 
 const SKIP_PIN_PATHS = new Set(["threat.chaining"]);
 
+/** @type {Record<string, string>} */
 const FORMAT_OVERRIDES = {
   "threat.att&ck": "attack",
   "threat.mitre_attack": "attack",
@@ -184,6 +186,7 @@ const FORMAT_OVERRIDES = {
   references: "references",
 };
 
+/** @type {Record<string, string>} */
 const LABEL_OVERRIDES = {
   "threat.terrain": "Surface",
   "threat.att&ck": "ATT&CK",
@@ -260,7 +263,10 @@ export function signalPathFromObjectivePin(pathKey) {
   return rest;
 }
 
-/** Explorer fields not expressed in pin tables. */
+/**
+ * Explorer fields not expressed in pin tables.
+ * @type {Record<string, FieldDef[]>}
+ */
 const EXPLORER_EXTRA_FIELDS = {
   threat: [
     { path: "metadata.schema", label: "Schema", format: "text" },
@@ -325,18 +331,22 @@ export function buildFieldRegistryFromPins(pinsDir) {
     throw new Error(`Pins directory not found: ${pinsDir}`);
   }
 
-  /** @type {Record<string, Map<string, FieldDef & { pinVersion: string }>>} */
+  /** @typedef {Map<string, FieldDef & { pinVersion: string }>} PinnedFields */
+  /** @type {PinnedFields} */
+  const signalFields = new Map();
+  /** @type {Record<string, PinnedFields>} */
   const byType = {
     threat: new Map(),
     objective: new Map(),
     rule: new Map(),
-    signal: new Map(),
+    signal: signalFields,
   };
 
   for (const file of fs.readdirSync(pinsDir).sort()) {
     if (!file.endsWith(".toml")) continue;
     const objectType = file.replace(/\.toml$/, "");
-    if (!(objectType in byType)) continue;
+    const map = byType[objectType];
+    if (!map) continue;
 
     const doc = parseTomlFile(path.join(pinsDir, file));
 
@@ -366,7 +376,6 @@ export function buildFieldRegistryFromPins(pinsDir) {
             : {}),
         };
 
-        const map = byType[objectType];
         const existing = map.get(pathKey);
         if (
           !existing ||
@@ -385,12 +394,12 @@ export function buildFieldRegistryFromPins(pinsDir) {
               ? { vocab: vocabStem }
               : {}),
           };
-          const signalExisting = byType.signal.get(signalPath);
+          const signalExisting = signalFields.get(signalPath);
           if (
             !signalExisting ||
             comparePinVersions(version, signalExisting.pinVersion) >= 0
           ) {
-            byType.signal.set(signalPath, {
+            signalFields.set(signalPath, {
               ...signalField,
               pinVersion: version,
             });

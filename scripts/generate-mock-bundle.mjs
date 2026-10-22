@@ -28,16 +28,25 @@ const ROOT = path.resolve(__dirname, "..");
 /** Bundle layout version: 0.2 drops the `models` and `signals` copies of `flatIndex`. */
 const BUNDLE_VERSION = "0.2.0";
 
+/**
+ * A parsed corpus YAML document. Its shape differs across schema generations, so every
+ * read below is optional-chained instead of trusting one layout.
+ * @typedef {any} CorpusObject
+ */
+/** @typedef {"threat" | "objective" | "signal" | "rule"} ObjectType */
+
 function resolveCorpusRoot() {
   if (process.env.OPENTIDE_USE_FIXTURE === "1") {
     return null;
   }
 
-  const candidates = [
-    process.env.OPENTIDE_REPO_ROOT,
-    path.resolve(ROOT, "../library"),
-    path.resolve(ROOT, "../../library"),
-  ].filter(Boolean);
+  const candidates = /** @type {string[]} */ (
+    [
+      process.env.OPENTIDE_REPO_ROOT,
+      path.resolve(ROOT, "../library"),
+      path.resolve(ROOT, "../../library"),
+    ].filter(Boolean)
+  );
 
   for (const candidate of candidates) {
     const objectsDir = path.join(candidate, "objects");
@@ -46,7 +55,12 @@ function resolveCorpusRoot() {
   return null;
 }
 
+/**
+ * @param {string} dir
+ * @returns {string[]}
+ */
 function walkYamlFiles(dir) {
+  /** @type {string[]} */
   const files = [];
   if (!fs.existsSync(dir)) return files;
   for (const entry of fs
@@ -60,9 +74,13 @@ function walkYamlFiles(dir) {
   return files;
 }
 
+/**
+ * @param {CorpusObject} body
+ * @returns {string | null}
+ */
 function inferType(body) {
   const schema = body?.metadata?.schema;
-  if (typeof schema === "string") return schema.split("::")[0];
+  if (typeof schema === "string") return schema.split("::")[0] ?? null;
   if (body?.configurations) return "rule";
   if (body?.objective) return "objective";
   if (body?.threat) return "threat";
@@ -70,7 +88,12 @@ function inferType(body) {
   return null;
 }
 
+/**
+ * @param {CorpusObject} body
+ * @param {string | null} type
+ */
 function getPlatforms(body, type) {
+  /** @type {Set<string>} */
   const platforms = new Set();
   if (type === "rule" && body.configurations) {
     for (const key of Object.keys(body.configurations)) {
@@ -80,40 +103,52 @@ function getPlatforms(body, type) {
   return [...platforms];
 }
 
+/**
+ * @param {CorpusObject} body
+ * @param {string | null} type
+ * @returns {string | undefined}
+ */
 function getStatus(body, type) {
   if (type !== "rule" || !body.configurations) return undefined;
-  const statuses = Object.values(body.configurations).map((c) => c?.status);
+  const statuses = Object.values(
+    /** @type {Record<string, CorpusObject>} */ (body.configurations),
+  ).map((c) => c?.status);
   if (statuses.includes("PRODUCTION")) return "PRODUCTION";
   if (statuses.includes("STAGING")) return "STAGING";
   return statuses[0];
 }
 
+/**
+ * @param {CorpusObject} body
+ * @param {string | null} type
+ */
 function getActors(body, type) {
   if (type !== "threat") return [];
   return collectActorNames(body?.threat?.actors ?? body?.actors ?? []);
 }
 
+/** @param {CorpusObject[]} threats */
 function buildChainingIndex(threats) {
+  /** @type {Record<string, Record<string, string[]>>} */
   const chaining = {};
   for (const threat of threats) {
     const uuid = threat.metadata?.uuid;
     const links = threat.threat?.chaining ?? [];
     if (!uuid || !links.length) continue;
-    chaining[uuid] = chaining[uuid] ?? {};
+    const relations = (chaining[uuid] ??= {});
     for (const link of links) {
       const relation = link.relation;
       const vector = link.vector;
       if (!relation || !vector) continue;
-      chaining[uuid][relation] = chaining[uuid][relation] ?? [];
-      if (!chaining[uuid][relation].includes(vector)) {
-        chaining[uuid][relation].push(vector);
-      }
+      const vectors = (relations[relation] ??= []);
+      if (!vectors.includes(vector)) vectors.push(vector);
     }
   }
   return chaining;
 }
 
 /** ATT&CK keys across schema generations: `mitre_attack` (specs), `att&ck`, `attack`. */
+/** @param {CorpusObject} section */
 function ownTechniques(section) {
   return techniqueList(
     section?.mitre_attack,
@@ -122,19 +157,28 @@ function ownTechniques(section) {
   );
 }
 
+/**
+ * @param {string} uuid
+ * @param {Record<string, CorpusObject>} flatIndex
+ * @param {Map<string, string[]>} cache
+ * @param {Set<string>} seen
+ * @returns {string[]}
+ */
 function resolveTechniques(
   uuid,
   flatIndex,
   cache = new Map(),
   seen = new Set(),
 ) {
-  if (cache.has(uuid)) return cache.get(uuid);
+  const cached = cache.get(uuid);
+  if (cached) return cached;
   // Malformed corpora can reference themselves; never recurse forever.
   if (seen.has(uuid)) return [];
   seen.add(uuid);
 
   const body = flatIndex[uuid];
   const type = inferType(body);
+  /** @type {string[]} */
   let techniques = [];
 
   if (type === "threat") {
@@ -158,16 +202,24 @@ function resolveTechniques(
   return techniques;
 }
 
+/**
+ * @param {unknown} value
+ * @returns {unknown[]}
+ */
 function asList(value) {
   if (value == null) return [];
   return Array.isArray(value) ? value : [value];
 }
 
 /** Direct parent and child links per object, counted once across the corpus. */
+/** @param {Record<string, CorpusObject>} flatIndex */
 function countRelations(flatIndex) {
   const counts = new Map(Object.keys(flatIndex).map((uuid) => [uuid, 0]));
+  /** @param {unknown} uuid */
   const bump = (uuid) => {
-    if (counts.has(uuid)) counts.set(uuid, counts.get(uuid) + 1);
+    if (typeof uuid !== "string") return;
+    const count = counts.get(uuid);
+    if (count !== undefined) counts.set(uuid, count + 1);
   };
 
   for (const [uuid, body] of Object.entries(flatIndex)) {
@@ -188,32 +240,40 @@ function countRelations(flatIndex) {
   return counts;
 }
 
+/** @param {Array<[string, CorpusObject]>} rules */
 function buildStagingIndex(rules) {
+  /** @type {Record<string, Record<string, string>>} */
   const deployments = {};
+  /** @type {Record<string, { production: number, staging: number, other: number }>} */
   const platformSummary = {};
+  /** @type {Set<string>} */
   const stagingObjects = new Set();
+  /** @type {Set<string>} */
   const productionObjects = new Set();
 
   for (const [uuid, body] of rules) {
+    /** @type {Record<string, CorpusObject>} */
     const configs = body?.configurations ?? {};
-    deployments[uuid] = {};
+    /** @type {Record<string, string>} */
+    const statuses = {};
+    deployments[uuid] = statuses;
     for (const [platform, config] of Object.entries(configs)) {
       const status = String(config?.status ?? "UNKNOWN").toUpperCase();
-      deployments[uuid][platform] = status;
+      statuses[platform] = status;
 
-      platformSummary[platform] = platformSummary[platform] ?? {
+      const summary = (platformSummary[platform] ??= {
         production: 0,
         staging: 0,
         other: 0,
-      };
+      });
       if (status === "PRODUCTION") {
-        platformSummary[platform].production += 1;
+        summary.production += 1;
         productionObjects.add(uuid);
       } else if (status === "STAGING") {
-        platformSummary[platform].staging += 1;
+        summary.staging += 1;
         stagingObjects.add(uuid);
       } else {
-        platformSummary[platform].other += 1;
+        summary.other += 1;
       }
     }
   }
@@ -226,6 +286,10 @@ function buildStagingIndex(rules) {
   };
 }
 
+/**
+ * @param {string} cwd
+ * @param {string[]} args
+ */
 function git(cwd, args) {
   try {
     return execFileSync("git", ["-C", cwd, ...args], {
@@ -238,6 +302,7 @@ function git(cwd, args) {
 }
 
 /** Where the corpus lives, so the explorer can link each object to its file. */
+/** @param {string} corpusRoot */
 function resolveSource(corpusRoot) {
   const repository = normalizeRepoUrl(
     process.env.EXPLORER_SOURCE_REPO ??
@@ -250,6 +315,7 @@ function resolveSource(corpusRoot) {
   return { repository, ref };
 }
 
+/** @param {string | null} corpusRoot */
 function runSchemaCodegen(corpusRoot) {
   const specsDir =
     process.env.SPECIFICATIONS_REPO_ROOT ??
@@ -276,6 +342,10 @@ function runSchemaCodegen(corpusRoot) {
   codegenFromSpecs(specsDir);
 }
 
+/**
+ * @param {string} outDir
+ * @param {unknown[]} objects
+ */
 function writeSlimVocab(outDir, objects) {
   const fullPath = path.join(outDir, "vocab.index.json");
   const slimPath = path.join(outDir, "explorer.vocab.json");
@@ -289,6 +359,7 @@ function writeSlimVocab(outDir, objects) {
   const index = JSON.parse(fs.readFileSync(fullPath, "utf8"));
   const slim = slimVocabIndex(index, collectCorpusValues(objects));
   fs.writeFileSync(slimPath, JSON.stringify(slim));
+  /** @param {number} bytes */
   const kb = (bytes) => `${Math.round(bytes / 1024)} KB`;
   console.log(
     `Wrote explorer.vocab.json (${kb(fs.statSync(slimPath).size)} from ${kb(fs.statSync(fullPath).size)})`,
@@ -325,8 +396,11 @@ async function main() {
     return;
   }
 
+  /** @type {Record<string, CorpusObject>} */
   const flatIndex = {};
+  /** @type {Record<string, string>} */
   const paths = {};
+  /** @type {Record<ObjectType, string[]>} */
   const byType = { threat: [], objective: [], signal: [], rule: [] };
 
   const objectFiles = walkYamlFiles(path.join(corpusRoot, "objects"));
@@ -336,14 +410,14 @@ async function main() {
     const body = parseYaml(fs.readFileSync(file, "utf8"));
     const type = inferType(body);
     const uuid = body?.metadata?.uuid;
-    if (!type || !uuid || !(type in byType)) continue;
+    if (!type || !uuid || !Object.hasOwn(byType, type)) continue;
     if (flatIndex[uuid]) {
       console.warn(`Duplicate uuid ${uuid} in ${file} — keeping the first`);
       continue;
     }
     flatIndex[uuid] = body;
     paths[uuid] = path.relative(corpusRoot, file).split(path.sep).join("/");
-    byType[type].push(uuid);
+    byType[/** @type {ObjectType} */ (type)].push(uuid);
   }
 
   // Objectives embed their signals; promote each to an object of its own.
@@ -358,7 +432,8 @@ async function main() {
         metadata: { uuid: signalUuid, schema: "signal::1.0" },
         parent: objectiveUuid,
       };
-      paths[signalUuid] = paths[objectiveUuid];
+      const objectivePath = paths[objectiveUuid];
+      if (objectivePath) paths[signalUuid] = objectivePath;
       byType.signal.push(signalUuid);
     }
   }
@@ -367,7 +442,9 @@ async function main() {
     byType.threat.map((uuid) => flatIndex[uuid]),
   );
   const stagingIndex = buildStagingIndex(
-    byType.rule.map((uuid) => [uuid, flatIndex[uuid]]),
+    byType.rule.map(
+      (uuid) => /** @type {[string, CorpusObject]} */ ([uuid, flatIndex[uuid]]),
+    ),
   );
   const relationCounts = countRelations(flatIndex);
   const techniqueCache = new Map();

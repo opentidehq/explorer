@@ -17,22 +17,18 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = path.resolve(__dirname, "..");
 
+/** @param {string[]} argv */
 function parseArgs(argv) {
   const args = {
-    exportsDir: null,
-    schemasDir: null,
+    exportsDir: /** @type {string | null} */ (null),
+    schemasDir: /** @type {string | null} */ (null),
     output: path.join(process.cwd(), "out", "explorer"),
     basePath: "",
   };
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === "--exports-dir" && argv[i + 1]) args.exportsDir = argv[++i];
-    else if (arg === "--schemas-dir" && argv[i + 1])
-      args.schemasDir = argv[++i];
-    else if (arg === "--output" && argv[i + 1]) args.output = argv[++i];
-    else if (arg === "--base-path" && argv[i + 1]) args.basePath = argv[++i];
-    else if (arg === "--help" || arg === "-h") {
+    if (arg === "--help" || arg === "-h") {
       console.log(`Usage: opentide-explorer-build build [options]
 
 Options:
@@ -43,6 +39,14 @@ Options:
 `);
       process.exit(0);
     }
+    const value = argv[i + 1];
+    if (!value) continue;
+    if (arg === "--exports-dir") args.exportsDir = value;
+    else if (arg === "--schemas-dir") args.schemasDir = value;
+    else if (arg === "--output") args.output = value;
+    else if (arg === "--base-path") args.basePath = value;
+    else continue;
+    i++;
   }
 
   return args;
@@ -50,11 +54,18 @@ Options:
 
 /** Data files the client reads; the first vocabulary present wins. */
 const BUNDLE = "explorer.bundle.json";
-const VOCABULARIES = ["explorer.vocab.json", "vocab.index.json"];
+/** The slim vocabulary the client loads, and the full index it falls back to. */
+const SLIM_VOCAB = "explorer.vocab.json";
+const FULL_VOCAB = "vocab.index.json";
+const VOCABULARIES = [SLIM_VOCAB, FULL_VOCAB];
 /** Written by earlier versions; nothing reads them now. */
 const STALE = ["explorer.search.json", "explorer.coverage.json"];
 
-/** Put the exports where `next build` reads them: `<targetDir>/public/data`. */
+/**
+ * Put the exports where `next build` reads them: `<targetDir>/public/data`.
+ * @param {string} exportsDir
+ * @param {string} targetDir
+ */
 export function copyExports(exportsDir, targetDir) {
   const dataDir = path.join(targetDir, "public", "data");
   fs.mkdirSync(dataDir, { recursive: true });
@@ -79,8 +90,8 @@ export function copyExports(exportsDir, targetDir) {
 
   // Exports with only the full index (`opentide generate explorer`): derive the slim
   // vocabulary the client loads, and leave the 15 MB index out of the site.
-  const slimPath = path.join(dataDir, VOCABULARIES[0]);
-  const fullPath = path.join(dataDir, VOCABULARIES[1]);
+  const slimPath = path.join(dataDir, SLIM_VOCAB);
+  const fullPath = path.join(dataDir, FULL_VOCAB);
   if (!fs.existsSync(slimPath) && fs.existsSync(fullPath)) {
     const bundle = JSON.parse(fs.readFileSync(bundleSrc, "utf8"));
     const objects = Object.values(bundle.flatIndex ?? {});
@@ -95,6 +106,10 @@ export function copyExports(exportsDir, targetDir) {
   console.log(`Copied exports from ${exportsDir} → ${dataDir}`);
 }
 
+/**
+ * @param {string} src
+ * @param {string} dest
+ */
 function copyDir(src, dest) {
   fs.mkdirSync(dest, { recursive: true });
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {

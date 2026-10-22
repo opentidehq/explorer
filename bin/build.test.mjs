@@ -20,12 +20,18 @@ const fullIndex = {
   actors: { APT29: { name: "APT29" }, FIN7: { name: "FIN7" } },
 };
 
+/** @type {string[]} */
 const dirs = [];
 function tempDir() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "explorer-build-"));
   dirs.push(dir);
   return dir;
 }
+/**
+ * @param {string} dir
+ * @param {string} file
+ * @param {unknown} data
+ */
 const write = (dir, file, data) =>
   fs.writeFileSync(path.join(dir, file), JSON.stringify(data));
 

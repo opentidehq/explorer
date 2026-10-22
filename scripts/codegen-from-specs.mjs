@@ -30,11 +30,13 @@ const FIELD_REGISTRY_OUT = path.join(
 );
 
 function defaultSpecsDir() {
-  const candidates = [
-    process.env.SPECIFICATIONS_REPO_ROOT,
-    path.resolve(ROOT, "../specifications"),
-    path.resolve(ROOT, "../../specifications"),
-  ].filter(Boolean);
+  const candidates = /** @type {string[]} */ (
+    [
+      process.env.SPECIFICATIONS_REPO_ROOT,
+      path.resolve(ROOT, "../specifications"),
+      path.resolve(ROOT, "../../specifications"),
+    ].filter(Boolean)
+  );
 
   for (const candidate of candidates) {
     const pins = path.join(candidate, "schemas/pins");
@@ -44,6 +46,7 @@ function defaultSpecsDir() {
   return candidates[0] ?? path.resolve(ROOT, "../specifications");
 }
 
+/** @param {Record<string, import("./lib/spec-toml.mjs").FieldDef[]>} registry */
 function serializeFieldRegistry(registry) {
   const lines = [
     "/* eslint-disable */",
@@ -91,6 +94,7 @@ function serializeFieldRegistry(registry) {
   return lines.join("\n");
 }
 
+/** @param {string} specsDir */
 export function codegenFromSpecs(specsDir) {
   const root = resolveSpecsDir(specsDir);
   const vocabDir = path.join(root, "vocabularies");
@@ -121,6 +125,7 @@ export function codegenFromSpecs(specsDir) {
   };
 }
 
+/** @param {string[]} paths */
 function gitDiff(paths) {
   const quoted = paths.map((p) => JSON.stringify(p)).join(" ");
   try {
@@ -130,9 +135,9 @@ function gitDiff(paths) {
     });
     return "";
   } catch (err) {
-    if (err && typeof err === "object" && "status" in err && err.status === 1) {
-      return String(err.stdout ?? "");
-    }
+    // `git diff --exit-code` exits 1 when there is a diff, and prints it.
+    const failure = /** @type {{ status?: number, stdout?: Buffer }} */ (err);
+    if (failure?.status === 1) return String(failure.stdout ?? "");
     throw err;
   }
 }

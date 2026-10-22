@@ -26,7 +26,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "pnpm codegen:specs && node scripts/generate-mock-bundle.mjs && pnpm typecheck && next build",
-    "typecheck": "tsrs --noEmit",
+    "typecheck": "tsrs --noEmit && tsrs --noEmit -p tsconfig.scripts.json",
     "lint": "oxlint --deny-warnings --report-unused-disable-directives",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",

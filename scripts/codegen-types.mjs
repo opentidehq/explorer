@@ -8,6 +8,7 @@ import { isMain } from "./lib/is-main.mjs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 
+/** @param {string} schemasDir */
 export async function codegenTypes(schemasDir) {
   const outDir = path.join(ROOT, "lib", "opentide", "generated");
   fs.mkdirSync(outDir, { recursive: true });
