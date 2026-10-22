@@ -10,6 +10,12 @@ import {
 } from "react";
 import type { Catalog } from "@/lib/explorer/catalog";
 import { createStore, useStoreSlice, type Store } from "@/lib/explorer/store";
+import {
+  isExplorerView,
+  parseUrl,
+  syncUrl,
+  type ExplorerView,
+} from "@/lib/explorer/url-state";
 import { expandVisibleIds } from "@/lib/graph/corpus-graph";
 import type { GraphLayoutTopology } from "@/lib/graph/render-styles";
 import { searchCatalog } from "@/lib/search/engine";
@@ -24,8 +30,7 @@ import {
   type RelationMode,
 } from "@/lib/search/filters";
 
-export const EXPLORER_VIEWS = ["graph", "catalogue", "attack"] as const;
-export type ExplorerView = (typeof EXPLORER_VIEWS)[number];
+export { EXPLORER_VIEWS, type ExplorerView } from "@/lib/explorer/url-state";
 
 export const EXPLORER_VIEW_LABELS: Record<ExplorerView, string> = {
   graph: "Graph",
@@ -61,9 +66,7 @@ const VIEW_STORAGE_KEY = "opentide.explorer.view";
 function readStoredView(): ExplorerView | null {
   try {
     const raw = window.localStorage.getItem(VIEW_STORAGE_KEY);
-    return EXPLORER_VIEWS.includes(raw as ExplorerView)
-      ? (raw as ExplorerView)
-      : null;
+    return isExplorerView(raw) ? raw : null;
   } catch {
     return null;
   }
@@ -101,72 +104,6 @@ export function computeVisibility(
       filters.relationMode,
     ),
   };
-}
-
-/* URL state ---------------------------------------------------------------------------- */
-
-interface UrlState {
-  selectedId: string | null;
-  view: ExplorerView | null;
-  query: string;
-}
-
-/** `/threats/<uuid>/` and the other permalink routes name an object in the path. */
-const PERMALINK_RE =
-  /\/(?:threats|objectives|signals|rules)\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i;
-
-function readUrl(): UrlState {
-  const params = new URLSearchParams(window.location.search);
-  const view = params.get("v");
-  return {
-    selectedId:
-      params.get("o") ??
-      window.location.pathname.match(PERMALINK_RE)?.[1] ??
-      null,
-    view: EXPLORER_VIEWS.includes(view as ExplorerView)
-      ? (view as ExplorerView)
-      : null,
-    query: params.get("q") ?? "",
-  };
-}
-
-function basePath(): string {
-  const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
-  return base.endsWith("/") ? base.slice(0, -1) : base;
-}
-
-function urlFor(state: Pick<ExplorerState, "selectedId" | "view" | "query">) {
-  const params = new URLSearchParams();
-  if (state.selectedId) params.set("o", state.selectedId);
-  if (state.view !== "graph") params.set("v", state.view);
-  if (state.query.trim()) params.set("q", state.query.trim());
-  const search = params.toString();
-  return `${basePath()}/${search ? `?${search}` : ""}`;
-}
-
-function isExplorerView(value: unknown): value is ExplorerView {
-  return EXPLORER_VIEWS.includes(value as ExplorerView);
-}
-
-/**
- * Search and view changes reach the address bar after a pause: typing would otherwise write
- * on every key (Next.js adds a write of its own to each), and Safari throws once a page
- * makes 100 history calls in 30 seconds.
- */
-const URL_WRITE_DELAY = 400;
-
-/** Each entry records its view too, for entries whose address has no `v` (the first one). */
-function writeHistory(
-  mode: "push" | "replace",
-  view: ExplorerView,
-  url?: string,
-) {
-  try {
-    if (mode === "push") window.history.pushState({ view }, "", url);
-    else window.history.replaceState({ view }, "", url);
-  } catch {
-    // Safari's rate limit (a SecurityError): the address catches up on the next write.
-  }
 }
 
 /* Actions ------------------------------------------------------------------------------ */
@@ -279,7 +216,8 @@ export function ExplorerProvider({
   children: ReactNode;
 }) {
   const [value] = useState<ExplorerContextValue>(() => {
-    const url = typeof window === "undefined" ? null : readUrl();
+    const url =
+      typeof window === "undefined" ? null : parseUrl(window.location);
     const query = url?.query ?? "";
     const filters = parseFilterTokens(query);
     const requested = url?.selectedId ?? initialId ?? null;
@@ -309,71 +247,19 @@ export function ExplorerProvider({
   // previous object); view and search changes update the current one.
   useEffect(() => {
     const { store, actions } = value;
-    // What the current history entry describes.
-    let entry = store.get();
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    let restoring = false;
-
-    // The first entry's address may not say which view it showed (it came from storage).
-    writeHistory("replace", entry.view);
-
-    const write = () => {
-      clearTimeout(timer);
-      timer = undefined;
-      const state = store.get();
-      const push = state.selectedId !== entry.selectedId;
-      const moved = state.view !== entry.view || state.query !== entry.query;
-      if (!push && !moved) return;
-      if (push && moved) {
-        // A search or view change still waiting to be written belongs to the entry being
-        // left: Back returns to it as it was just before this selection.
-        writeHistory(
-          "replace",
-          state.view,
-          urlFor({ ...state, selectedId: entry.selectedId }),
-        );
-      }
-      entry = state;
-      // Written even when the address stays the same: the entry records the view.
-      writeHistory(push ? "push" : "replace", state.view, urlFor(state));
-    };
-
-    const unsubscribe = store.subscribe(() => {
-      if (restoring) return;
-      const state = store.get();
-      if (state.selectedId !== entry.selectedId) write();
-      else if (state.view !== entry.view || state.query !== entry.query) {
-        clearTimeout(timer);
-        timer = setTimeout(write, URL_WRITE_DELAY);
-      }
+    return syncUrl({
+      read: store.get,
+      subscribe: store.subscribe,
+      restore(entry) {
+        actions.select(entry.selectedId);
+        actions.setView(entry.view);
+        if (entry.query !== store.get().query) actions.setQuery(entry.query);
+      },
+      hasObject: (id) => value.catalog.summaries.has(id),
+      location: window.location,
+      history: window.history,
+      events: window,
     });
-
-    const onPop = (event: PopStateEvent) => {
-      // An entry with no state is a fragment (the skip link): the explorer did not change.
-      if (event.state == null) return;
-      clearTimeout(timer);
-      timer = undefined;
-      const url = readUrl();
-      const recorded = (event.state as { view?: unknown } | null)?.view;
-      restoring = true;
-      try {
-        actions.select(url.selectedId);
-        // An address without `v` is the graph, unless its entry recorded another view.
-        actions.setView(
-          url.view ?? (isExplorerView(recorded) ? recorded : "graph"),
-        );
-        if (url.query !== store.get().query) actions.setQuery(url.query);
-      } finally {
-        restoring = false;
-      }
-      entry = store.get();
-    };
-    window.addEventListener("popstate", onPop);
-    return () => {
-      clearTimeout(timer);
-      unsubscribe();
-      window.removeEventListener("popstate", onPop);
-    };
   }, [value]);
 
   return <ExplorerContext value={value}>{children}</ExplorerContext>;
