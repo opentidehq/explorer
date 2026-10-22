@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { catalogDataUrl, normalizeExplorerBundle } from "@/lib/data/catalog";
+import { buildCatalog } from "@/lib/explorer/catalog";
 import { collectFilterOptions } from "@/lib/search/engine";
-import type { ExplorerBundle } from "@/lib/opentide/types";
+import type { ExplorerBundle, RawExplorerBundle } from "@/lib/opentide/types";
 
 describe("catalogDataUrl", () => {
   function withBasePath(value: string | undefined, run: () => void) {
@@ -71,5 +72,43 @@ describe("normalizeExplorerBundle", () => {
     expect(bundle.summaries[0]?.actors).toEqual([]);
     expect(() => collectFilterOptions(bundle)).not.toThrow();
     expect(collectFilterOptions(bundle).techniques).toEqual(["T1195.001"]);
+  });
+});
+
+describe("the fixture corpus (OPENTIDE_USE_FIXTURE=1)", () => {
+  const fixture = JSON.parse(
+    readFileSync("scripts/fixture-bundle.json", "utf8"),
+  ) as { "explorer.bundle.json": RawExplorerBundle };
+  const raw = fixture["explorer.bundle.json"];
+
+  it("ships the current bundle layout", () => {
+    expect(raw.version).toBe("0.2.0");
+    expect(raw).not.toHaveProperty("models");
+    expect(raw).not.toHaveProperty("signals");
+    expect(raw.stagingIndex).toBeDefined();
+    for (const summary of raw.summaries) {
+      expect(raw.flatIndex[summary.uuid]).toBeDefined();
+    }
+  });
+
+  it("loads into a catalogue the explorer can show", () => {
+    const catalog = buildCatalog(raw, {});
+
+    expect(catalog.overview.counts).toEqual({
+      threat: 2,
+      objective: 1,
+      signal: 1,
+      rule: 2,
+    });
+    expect(catalog.overview.threatsWithRules).toBe(1);
+    expect(catalog.overview.chainingLinks).toBe(2);
+    expect(catalog.overview.platforms).toEqual([
+      { name: "defender_for_endpoint", rules: 1, production: 1 },
+      { name: "sentinel", rules: 1, production: 0 },
+    ]);
+    const { stagingObjects, productionObjects } = raw.stagingIndex!;
+    for (const id of [...stagingObjects, ...productionObjects]) {
+      expect(catalog.summaries.get(id)?.type).toBe("rule");
+    }
   });
 });

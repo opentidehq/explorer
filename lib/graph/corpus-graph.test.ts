@@ -5,6 +5,8 @@ import {
   expandVisibleIds,
   getCausalChain,
   getDetectionChain,
+  inEdges,
+  outEdges,
   stableCoord,
 } from "@/lib/graph/corpus-graph";
 import {
@@ -14,177 +16,24 @@ import {
   applyTypeBandsLayout,
   toGraphology,
 } from "@/lib/graph/graph-layout";
+import {
+  DISTANT_ID,
+  FOLLOW_UP_ID,
+  OBJECTIVE_ID,
+  PRECURSOR_ID,
+  RULE_ID,
+  SIGNAL_B_ID,
+  SIGNAL_ID,
+  SIGNAL_MAPPED_RULE_ID,
+  SIGNAL_RULE_ID,
+  THREAT_ID,
+  chainThreat,
+  makeGraphFixtureBundle,
+  withThreatChain,
+} from "@/lib/graph/test-fixtures";
 import { normalizeExplorerBundle } from "@/lib/data/catalog";
 import { enrichBundle } from "@/lib/opentide/enrich-bundle";
-import type {
-  ExplorerBundle,
-  ModelsIndex,
-  ObjectBody,
-} from "@/lib/opentide/types";
-
-const THREAT_ID = "59548b96-9b01-414c-badd-c0bf2ab40d9a";
-const OBJECTIVE_ID = "fb62e879-9e91-4c5b-aaa7-999b2b1b3897";
-const SIGNAL_ID = "a3f7d796-146c-44b0-8d22-7a08daa0d963";
-const SIGNAL_B_ID = "b49d0a94-0000-4000-8000-000000000001";
-const RULE_ID = "bfae62bb-7ce1-46cd-a131-39803832fa9d";
-const SIGNAL_RULE_ID = "c1ae62bb-7ce1-46cd-a131-39803832fa9e";
-const SIGNAL_MAPPED_RULE_ID = "d1ae62bb-7ce1-46cd-a131-39803832fa9f";
-
-function makeGraphFixtureBundle(): ExplorerBundle {
-  const threat: ObjectBody = {
-    name: "Shai-Hulud",
-    metadata: { uuid: THREAT_ID, schema: "threat::1.0" },
-    threat: { "att&ck": ["T1195.001"], threats: [] },
-  };
-
-  const objective: ObjectBody = {
-    name: "Detect Shai-Hulud",
-    metadata: { uuid: OBJECTIVE_ID, schema: "objective::1.0" },
-    objective: {
-      threats: [THREAT_ID],
-      signals: [
-        { uuid: SIGNAL_ID, name: "Install anomaly" },
-        { uuid: SIGNAL_B_ID, name: "Bulk credential access" },
-      ],
-    },
-  };
-
-  const signalA: ObjectBody = {
-    name: "Package Manager Install",
-    metadata: { uuid: SIGNAL_ID, schema: "signal::1.0" },
-    parent: OBJECTIVE_ID,
-  };
-
-  const signalB: ObjectBody = {
-    name: "Bulk Credential Access",
-    metadata: { uuid: SIGNAL_B_ID, schema: "signal::1.0" },
-    parent: OBJECTIVE_ID,
-  };
-
-  const directRule: ObjectBody = {
-    name: "Direct Objective Rule",
-    metadata: { uuid: RULE_ID, schema: "rule::1.0" },
-    detection_model: OBJECTIVE_ID,
-    configurations: { defender_for_endpoint: { status: "PRODUCTION" } },
-  };
-
-  const signalRule: ObjectBody = {
-    name: "Signal Mapped Rule",
-    metadata: { uuid: SIGNAL_RULE_ID, schema: "rule::1.0" },
-    detection_model: SIGNAL_ID,
-    configurations: { sentinel: { status: "STAGING" } },
-  };
-
-  const objectiveSignalRule: ObjectBody = {
-    name: "Objective DM Signal Rule",
-    metadata: { uuid: SIGNAL_MAPPED_RULE_ID, schema: "rule::1.0" },
-    detection_model: OBJECTIVE_ID,
-    description: `Implements DOM signal ${SIGNAL_B_ID}`,
-    configurations: { sentinel: { status: "PRODUCTION" } },
-  };
-
-  const models: ModelsIndex = {
-    threat: { [THREAT_ID]: threat },
-    objective: { [OBJECTIVE_ID]: objective },
-    signal: { [SIGNAL_ID]: signalA, [SIGNAL_B_ID]: signalB },
-    rule: {
-      [RULE_ID]: directRule,
-      [SIGNAL_RULE_ID]: signalRule,
-      [SIGNAL_MAPPED_RULE_ID]: objectiveSignalRule,
-    },
-  };
-
-  const flatIndex = {
-    [THREAT_ID]: threat,
-    [OBJECTIVE_ID]: objective,
-    [SIGNAL_ID]: signalA,
-    [SIGNAL_B_ID]: signalB,
-    [RULE_ID]: directRule,
-    [SIGNAL_RULE_ID]: signalRule,
-    [SIGNAL_MAPPED_RULE_ID]: objectiveSignalRule,
-  };
-
-  return {
-    version: "0.1.0",
-    generatedAt: "2026-01-01T00:00:00.000Z",
-    models,
-    flatIndex,
-    chaining: {},
-    signals: { [SIGNAL_ID]: signalA, [SIGNAL_B_ID]: signalB },
-    summaries: [
-      {
-        uuid: THREAT_ID,
-        type: "threat",
-        name: "Shai-Hulud",
-        schema: "threat::1.0",
-        techniques: [],
-        actors: [],
-        relatedCount: 1,
-        platforms: [],
-      },
-      {
-        uuid: OBJECTIVE_ID,
-        type: "objective",
-        name: "Detect Shai-Hulud",
-        schema: "objective::1.0",
-        techniques: [],
-        actors: [],
-        relatedCount: 3,
-        platforms: [],
-      },
-      {
-        uuid: SIGNAL_ID,
-        type: "signal",
-        name: "Package Manager Install",
-        schema: "signal::1.0",
-        techniques: [],
-        actors: [],
-        relatedCount: 2,
-        platforms: [],
-      },
-      {
-        uuid: SIGNAL_B_ID,
-        type: "signal",
-        name: "Bulk Credential Access",
-        schema: "signal::1.0",
-        techniques: [],
-        actors: [],
-        relatedCount: 2,
-        platforms: [],
-      },
-      {
-        uuid: RULE_ID,
-        type: "rule",
-        name: "Direct Objective Rule",
-        schema: "rule::1.0",
-        techniques: [],
-        actors: [],
-        relatedCount: 1,
-        platforms: [],
-      },
-      {
-        uuid: SIGNAL_RULE_ID,
-        type: "rule",
-        name: "Signal Mapped Rule",
-        schema: "rule::1.0",
-        techniques: [],
-        actors: [],
-        relatedCount: 1,
-        platforms: [],
-      },
-      {
-        uuid: SIGNAL_MAPPED_RULE_ID,
-        type: "rule",
-        name: "Objective DM Signal Rule",
-        schema: "rule::1.0",
-        techniques: [],
-        actors: [],
-        relatedCount: 1,
-        platforms: [],
-      },
-    ],
-  };
-}
+import type { RawExplorerBundle } from "@/lib/opentide/types";
 
 function duplicateSourceTargetPairs(
   edges: { source: string; target: string }[],
@@ -197,66 +46,87 @@ function duplicateSourceTargetPairs(
   return [...pairs.entries()].filter(([, count]) => count > 1);
 }
 
+function edgeBetween(
+  graph: ReturnType<typeof buildCorpusGraph>,
+  source: string,
+  target: string,
+) {
+  return graph.edges.find((e) => e.source === source && e.target === target);
+}
+
 describe("buildCorpusGraph", () => {
   it("deduplicates parallel edges between the same nodes", () => {
-    const bundle = normalizeExplorerBundle(
-      JSON.parse(
-        readFileSync("public/data/explorer.bundle.json", "utf8"),
-      ) as ExplorerBundle,
-    );
+    const bundle = makeGraphFixtureBundle();
+    chainThreat(bundle, THREAT_ID, "support::enabled", FOLLOW_UP_ID);
+    chainThreat(bundle, THREAT_ID, "atomicity::implemented", FOLLOW_UP_ID);
+    // The same relation twice in the source must not repeat in the label.
+    chainThreat(bundle, THREAT_ID, "support::enabled", FOLLOW_UP_ID);
 
     const graph = buildCorpusGraph(bundle);
 
     expect(duplicateSourceTargetPairs(graph.edges)).toEqual([]);
-    expect(
-      graph.edges.some(
-        (edge) =>
-          edge.source === "31e7f292-8370-4255-861d-edd68ed8b7b0" &&
-          edge.target === "4e7eae8e-6615-41f2-bfe1-21a04f7a6088" &&
-          edge.label.includes("enabled") &&
-          edge.label.includes("implemented"),
-      ),
-    ).toBe(true);
+    const edge = edgeBetween(graph, THREAT_ID, FOLLOW_UP_ID);
+    expect(edge?.label).toBe("enabled, implemented");
+    // Two chaining relations merge into a chaining edge, not a detection one.
+    expect(edge?.kind).toBe("chaining");
+    expect(outEdges(graph, THREAT_ID).filter((e) => e === edge)).toHaveLength(
+      1,
+    );
+  });
+
+  it("keeps a detection edge a detection edge when a chaining link runs parallel", () => {
+    const bundle = makeGraphFixtureBundle();
+    // Malformed, but possible: a threat that also chains to its own objective.
+    bundle.chaining = {
+      [THREAT_ID]: { "atomicity::implements": [OBJECTIVE_ID] },
+    };
+
+    const graph = buildCorpusGraph(bundle);
+    const edge = edgeBetween(graph, THREAT_ID, OBJECTIVE_ID);
+
+    expect(edge?.kind).toBe("detection");
+    expect(edge?.label).toBe("objective, implements");
+    expect(duplicateSourceTargetPairs(graph.edges)).toEqual([]);
+  });
+
+  it("drops self-loops", () => {
+    const bundle = makeGraphFixtureBundle();
+    bundle.chaining = {
+      [THREAT_ID]: { "support::synergize": [THREAT_ID] },
+    };
+    // A rule that names itself as its detection model.
+    bundle.flatIndex[RULE_ID] = {
+      ...bundle.flatIndex[RULE_ID],
+      detection_model: RULE_ID,
+    };
+    bundle.models.rule[RULE_ID] = bundle.flatIndex[RULE_ID]!;
+
+    const graph = buildCorpusGraph(bundle);
+
+    expect(graph.edges.filter((e) => e.source === e.target)).toEqual([]);
+    expect(outEdges(graph, THREAT_ID).some((e) => e.kind === "chaining")).toBe(
+      false,
+    );
+    expect(inEdges(graph, RULE_ID)).toEqual([]);
+    // The object is still a node, just without the loop.
+    expect(graph.nodeById.has(RULE_ID)).toBe(true);
   });
 
   it("includes embedded objective signals as detection-chain nodes", () => {
-    const bundle = enrichBundle(
-      normalizeExplorerBundle(
-        JSON.parse(
-          readFileSync("public/data/explorer.bundle.json", "utf8"),
-        ) as ExplorerBundle,
-      ),
+    const bundle = makeGraphFixtureBundle();
+    const embeddedId = "b49d0a94-0000-4000-8000-0000000000e1";
+    const objective = bundle.flatIndex[OBJECTIVE_ID]!["objective"] as {
+      signals: Array<{ uuid: string; name: string }>;
+    };
+    // Embedded only: no signal object or summary of its own until enrichment.
+    objective.signals.push({ uuid: embeddedId, name: "Embedded only" });
+
+    const graph = buildCorpusGraph(enrichBundle(bundle));
+
+    expect(graph.nodeById.get(embeddedId)?.type).toBe("signal");
+    expect(edgeBetween(graph, OBJECTIVE_ID, embeddedId)?.kind).toBe(
+      "detection",
     );
-
-    const graph = buildCorpusGraph(bundle);
-    const signalSummaries = bundle.summaries.filter((s) => s.type === "signal");
-
-    expect(signalSummaries.length).toBeGreaterThan(0);
-    expect(graph.nodes.some((n) => n.type === "signal")).toBe(true);
-
-    const objectiveWithSignal = Object.entries(bundle.models.objective).find(
-      ([, body]) => {
-        const signals = (body?.objective as { signals?: unknown[] } | undefined)
-          ?.signals;
-        return (signals?.length ?? 0) > 0;
-      },
-    );
-    expect(objectiveWithSignal).toBeTruthy();
-
-    const [objectiveId, objectiveBody] = objectiveWithSignal!;
-    const signals = (
-      objectiveBody.objective as { signals: Array<{ uuid: string }> }
-    ).signals;
-    const signalId = signals[0]!.uuid;
-
-    expect(
-      graph.edges.some(
-        (edge) =>
-          edge.kind === "detection" &&
-          edge.source === objectiveId &&
-          edge.target === signalId,
-      ),
-    ).toBe(true);
   });
 
   it("chains signal-mapped rules through signal, not objective", () => {
@@ -358,6 +228,136 @@ describe("buildCorpusGraph", () => {
     expect(visible.has(THREAT_ID)).toBe(true);
     expect(visible.has(SIGNAL_B_ID)).toBe(false);
     expect(visible.has(RULE_ID)).toBe(false);
+  });
+});
+
+describe("expandVisibleIds", () => {
+  const graph = buildCorpusGraph(withThreatChain());
+
+  it("returns a copy of the matches in match-only mode", () => {
+    const seeds = new Set([OBJECTIVE_ID]);
+    const visible = expandVisibleIds(graph, seeds, "match-only");
+
+    expect(visible).toEqual(seeds);
+    expect(visible).not.toBe(seeds);
+  });
+
+  it("adds outbound and inbound neighbours, one hop, in include-neighbors mode", () => {
+    const visible = expandVisibleIds(
+      graph,
+      new Set([SIGNAL_ID]),
+      "include-neighbors",
+    );
+
+    expect(visible).toEqual(new Set([SIGNAL_ID, OBJECTIVE_ID, SIGNAL_RULE_ID]));
+  });
+
+  it("follows chaining edges either way in include-neighbors mode", () => {
+    const visible = expandVisibleIds(
+      graph,
+      new Set([FOLLOW_UP_ID]),
+      "include-neighbors",
+    );
+
+    expect(visible).toEqual(new Set([FOLLOW_UP_ID, THREAT_ID, DISTANT_ID]));
+  });
+
+  it("adds threats chained to the detection chain, in both directions", () => {
+    const visible = expandVisibleIds(
+      graph,
+      new Set([SIGNAL_RULE_ID]),
+      "include-chain",
+    );
+
+    // Upstream of the rule, then the threats chained to that threat.
+    expect(visible.has(THREAT_ID)).toBe(true);
+    expect(visible.has(FOLLOW_UP_ID)).toBe(true);
+    expect(visible.has(PRECURSOR_ID)).toBe(true);
+  });
+
+  it("does not pull in the chains of chained threats", () => {
+    const visible = expandVisibleIds(
+      graph,
+      new Set([SIGNAL_RULE_ID]),
+      "include-chain",
+    );
+
+    expect(visible).toEqual(
+      new Set([
+        SIGNAL_RULE_ID,
+        SIGNAL_ID,
+        OBJECTIVE_ID,
+        THREAT_ID,
+        PRECURSOR_ID,
+        FOLLOW_UP_ID,
+      ]),
+    );
+    expect(visible.has(DISTANT_ID)).toBe(false);
+  });
+
+  it("walks detection edges down from a threat in chain mode", () => {
+    const visible = expandVisibleIds(
+      graph,
+      new Set([THREAT_ID]),
+      "include-chain",
+    );
+
+    for (const id of [
+      OBJECTIVE_ID,
+      SIGNAL_ID,
+      SIGNAL_B_ID,
+      RULE_ID,
+      SIGNAL_RULE_ID,
+      SIGNAL_MAPPED_RULE_ID,
+    ]) {
+      expect(visible.has(id)).toBe(true);
+    }
+    expect(visible.has(DISTANT_ID)).toBe(false);
+  });
+});
+
+/** The bundle `pnpm test` generated from the library; a fixture run has none to check. */
+const corpusRun =
+  Boolean(process.env.OPENTIDE_REPO_ROOT) &&
+  process.env.OPENTIDE_USE_FIXTURE !== "1";
+
+describe.skipIf(!corpusRun)("buildCorpusGraph on the library corpus", () => {
+  const bundle = corpusRun
+    ? enrichBundle(
+        normalizeExplorerBundle(
+          JSON.parse(
+            readFileSync("public/data/explorer.bundle.json", "utf8"),
+          ) as RawExplorerBundle,
+        ),
+      )
+    : null;
+
+  it("builds one edge per pair, merging parallel chaining relations", () => {
+    const graph = buildCorpusGraph(bundle!);
+
+    expect(graph.nodes.length).toBeGreaterThanOrEqual(bundle!.summaries.length);
+    expect(duplicateSourceTargetPairs(graph.edges)).toEqual([]);
+    expect(graph.edges.some((e) => e.source === e.target)).toBe(false);
+    expect(
+      graph.edges.some((e) => e.kind === "chaining" && e.label.includes(", ")),
+    ).toBe(true);
+  });
+
+  it("links every objective to its embedded signals", () => {
+    const graph = buildCorpusGraph(bundle!);
+    let checked = 0;
+    for (const [objectiveId, body] of Object.entries(
+      bundle!.models.objective,
+    )) {
+      const signals = (body.objective as { signals?: Array<{ uuid?: string }> })
+        ?.signals;
+      for (const { uuid } of signals ?? []) {
+        if (!uuid || uuid === objectiveId) continue;
+        expect(edgeBetween(graph, objectiveId, uuid)?.kind).toBe("detection");
+        checked += 1;
+      }
+    }
+    expect(checked).toBeGreaterThan(0);
   });
 });
 

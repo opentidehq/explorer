@@ -9,7 +9,12 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["lib/**", "scripts/**", "bin/**"],
-      exclude: ["lib/opentide/generated/**", "**/*.test.ts", "**/*.test.mjs"],
+      exclude: [
+        "lib/opentide/generated/**",
+        "**/*.test.ts",
+        "**/*.test.mjs",
+        "**/test-fixtures.ts",
+      ],
     },
   },
   resolve: {
