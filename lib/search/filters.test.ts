@@ -62,6 +62,61 @@ describe("parseFilterTokens", () => {
     expect(parseFilterTokens("reach!=chains").query).toBe("reach!=chains");
   });
 
+  it("leaves a value that means nothing for its field in the text", () => {
+    const filters = parseFilterTokens(
+      "type:rules deploy:prod reach:far type!=x",
+    );
+    expect(filters.types).toEqual([]);
+    expect(filters.exclude.types).toEqual([]);
+    expect(filters.stagingOnly || filters.productionOnly).toBe(false);
+    expect(filters.relationMode).toBe("include-neighbors");
+    expect(filters.query).toBe("type:rules deploy:prod reach:far type!=x");
+  });
+
+  it("keeps every uuid clause", () => {
+    expect(parseFilterTokens("uuid:a uuid:b").uuids).toEqual(["a", "b"]);
+  });
+
+  it("drops a field still waiting for its value", () => {
+    expect(parseFilterTokens("type: x").query).toBe("x");
+  });
+
+  it("keeps quoted text, joiners and all, as one phrase", () => {
+    const filters = parseFilterTokens('"command and control" type:rule');
+    expect(filters.query).toBe('"command and control"');
+    expect(filters.groups).toEqual([]);
+  });
+
+  it("has no groups without explicit AND/OR", () => {
+    expect(parseFilterTokens("type:rule platform:sentinel x").groups).toEqual(
+      [],
+    );
+  });
+
+  it("groups at OR and splits a group at AND", () => {
+    const filters = parseFilterTokens(
+      "type:rule OR technique:T1556 AND actor:G0007 reach:chains",
+    );
+    expect(
+      filters.groups.map((group) =>
+        group.map((set) => [...set.types, ...set.techniques, ...set.actors]),
+      ),
+    ).toEqual([[["rule"]], [["T1556"], ["G0007"]]]);
+    // Reach is a setting of the whole search, wherever it is written.
+    expect(filters.relationMode).toBe("include-chain");
+    // The flat fields hold every clause, for chips and counts.
+    expect(filters.types).toEqual(["rule"]);
+    expect(filters.techniques).toEqual(["T1556"]);
+    expect(filters.actors).toEqual(["G0007"]);
+  });
+
+  it("ignores joiners with nothing to join", () => {
+    const filters = parseFilterTokens("AND type:rule OR");
+    expect(filters.groups).toEqual([]);
+    expect(filters.types).toEqual(["rule"]);
+    expect(filters.query).toBe("");
+  });
+
   it("reads a clause only as a whole token", () => {
     const filters = parseFilterTokens("subtype:rule type:rule");
     expect(filters.types).toEqual(["rule"]);
@@ -118,7 +173,19 @@ describe("toggleClause", () => {
 
 describe("withoutFreeText", () => {
   it("drops the words and keeps the clauses", () => {
-    const query = "type:rule powershell encoded";
-    expect(withoutFreeText(query, parseFilterTokens(query))).toBe("type:rule");
+    expect(withoutFreeText("type:rule powershell encoded")).toBe("type:rule");
+  });
+
+  it("never edits a quoted value", () => {
+    expect(withoutFreeText('platform:"a b c" b')).toBe('platform:"a b c"');
+    expect(withoutFreeText('"a b" actor:"a b"')).toBe('actor:"a b"');
+  });
+
+  it("keeps the joiners between the clauses that remain", () => {
+    expect(withoutFreeText("x AND type:rule OR y AND platform:s")).toBe(
+      "type:rule OR platform:s",
+    );
+    expect(withoutFreeText("type:rule OR y")).toBe("type:rule");
+    expect(withoutFreeText("type:rules x")).toBe("");
   });
 });

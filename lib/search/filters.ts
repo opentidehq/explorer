@@ -28,12 +28,21 @@ export interface CatalogFilters {
   actors: string[];
   schemas: string[];
   tlps: string[];
-  uuid: string;
+  uuids: string[];
   relationMode: RelationMode;
   stagingOnly: boolean;
   productionOnly: boolean;
   exclude: ExcludedValues;
+  /**
+   * Explicit AND/OR, empty when the search has neither; the fields above are then the whole
+   * search. Otherwise an object matches when any group matches, and a group when every one of
+   * its parts does, and the fields above hold every clause together, for chips and counts.
+   */
+  groups: ClauseSet[][];
 }
+
+/** One run of clauses and words between explicit AND/OR. */
+export type ClauseSet = Omit<CatalogFilters, "relationMode" | "groups">;
 
 function emptyExclusions(): ExcludedValues {
   return {
@@ -58,11 +67,12 @@ export const DEFAULT_FILTERS: CatalogFilters = {
   actors: [],
   schemas: [],
   tlps: [],
-  uuid: "",
+  uuids: [],
   relationMode: "include-neighbors",
   stagingOnly: false,
   productionOnly: false,
   exclude: emptyExclusions(),
+  groups: [],
 };
 
 const OBJECT_TYPES = new Set<ObjectType>([
@@ -122,110 +132,9 @@ export function supportsNegation(field: string): boolean {
   return FILTER_FIELD_KEYS.includes(key) && !FIELD_ALIASES.reach!.includes(key);
 }
 
-/** Strip boolean joiners; implicit AND between adjacent clauses is unchanged. */
-function stripBooleanJoiners(text: string): string {
-  return text
-    .replace(/\b(AND|OR)\b/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-type Includes = Omit<CatalogFilters, "query" | "exclude">;
-
-function includeClause(key: string, raw: string, acc: Includes): void {
-  const value = raw.toLowerCase();
-
-  switch (key) {
-    case "type":
-      if (OBJECT_TYPES.has(value as ObjectType)) {
-        acc.types.push(value as ObjectType);
-      }
-      break;
-    case "platform":
-      acc.platforms.push(raw);
-      break;
-    case "status":
-      acc.statuses.push(raw.toUpperCase());
-      if (value === "staging") acc.stagingOnly = true;
-      if (value === "production") acc.productionOnly = true;
-      break;
-    case "technique":
-    case "attack":
-    case "att&ck":
-      acc.techniques.push(raw.toUpperCase());
-      break;
-    case "actor":
-      acc.actors.push(raw);
-      break;
-    case "schema":
-      acc.schemas.push(raw);
-      break;
-    case "tlp":
-      acc.tlps.push(raw.toUpperCase());
-      break;
-    case "uuid":
-      acc.uuid = raw;
-      break;
-    case "reach":
-    case "relation":
-    case "mode": {
-      const mode = parseReach(raw);
-      if (mode) acc.relationMode = mode;
-      break;
-    }
-    case "deploy":
-      if (value === "staging") acc.stagingOnly = true;
-      if (value === "production") acc.productionOnly = true;
-      break;
-  }
-}
-
-function excludeClause(key: string, raw: string, ex: ExcludedValues): void {
-  const value = raw.toLowerCase();
-
-  switch (key) {
-    case "type":
-      if (OBJECT_TYPES.has(value as ObjectType)) {
-        ex.types.push(value as ObjectType);
-      }
-      break;
-    case "platform":
-      ex.platforms.push(raw);
-      break;
-    case "status":
-      ex.statuses.push(raw.toUpperCase());
-      break;
-    case "technique":
-    case "attack":
-    case "att&ck":
-      ex.techniques.push(raw.toUpperCase());
-      break;
-    case "actor":
-      ex.actors.push(raw);
-      break;
-    case "schema":
-      ex.schemas.push(raw);
-      break;
-    case "tlp":
-      ex.tlps.push(raw.toUpperCase());
-      break;
-    case "uuid":
-      ex.uuids.push(raw);
-      break;
-    case "deploy":
-      if (value === "staging" || value === "production") ex.deploy.push(value);
-      break;
-  }
-}
-
-/**
- * Parse search input into structured catalogue filters: `field:value` keeps objects with the
- * value, `field!=value` drops them, quoted values may hold spaces, and AND/OR join clauses.
- * Everything else is free text, including words like `chain` or `staging`: reach and
- * deployment are clauses (`reach:chains`, `deploy:staging`).
- */
-export function parseFilterTokens(input: string): CatalogFilters {
-  const acc: Includes = {
+function emptyClauseSet(): ClauseSet {
+  return {
+    query: "",
     types: [],
     platforms: [],
     statuses: [],
@@ -233,46 +142,228 @@ export function parseFilterTokens(input: string): CatalogFilters {
     actors: [],
     schemas: [],
     tlps: [],
-    uuid: "",
-    relationMode: DEFAULT_FILTERS.relationMode,
+    uuids: [],
     stagingOnly: false,
     productionOnly: false,
+    exclude: emptyExclusions(),
   };
-  const exclude = emptyExclusions();
+}
 
-  // A clause is a whole space-delimited token: `subtype:rule` is text, not a type.
-  const clauseRe = new RegExp(
-    `(^|\\s)(${FILTER_FIELD_KEYS.map(escapeRegExp).join("|")})(:|!=)([^\\s"]+|"[^"]+")(?=\\s|$)`,
-    "gi",
-  );
+/** The search settings a clause can change beside its clause set. */
+interface Settings {
+  relationMode: RelationMode;
+}
 
-  // The free text is what is left once the clauses are cut out.
-  let text = "";
-  let from = 0;
-  let match: RegExpExecArray | null;
-  while ((match = clauseRe.exec(input)) !== null) {
-    const key = match[2]!.toLowerCase();
-    const op = match[3] as ClauseOperator;
-    const raw = match[4]!.replace(/^"|"$/g, "");
+/** Apply `key:raw`; false when the value means nothing for the field, so it stays text. */
+function includeClause(
+  key: string,
+  raw: string,
+  acc: ClauseSet,
+  settings: Settings,
+): boolean {
+  const value = raw.toLowerCase();
 
-    if (op === ":") includeClause(key, raw, acc);
-    else if (supportsNegation(key)) excludeClause(key, raw, exclude);
-    // `reach!=…` means nothing: leave it in the text, where it matches nothing, rather
-    // than drop it without a word.
-    else continue;
-
-    text += `${input.slice(from, match.index + match[1]!.length)} `;
-    from = match.index + match[0].length;
+  switch (key) {
+    case "type":
+      if (!OBJECT_TYPES.has(value as ObjectType)) return false;
+      acc.types.push(value as ObjectType);
+      return true;
+    case "platform":
+      acc.platforms.push(raw);
+      return true;
+    case "status":
+      acc.statuses.push(raw.toUpperCase());
+      if (value === "staging") acc.stagingOnly = true;
+      if (value === "production") acc.productionOnly = true;
+      return true;
+    case "technique":
+    case "attack":
+    case "att&ck":
+      acc.techniques.push(raw.toUpperCase());
+      return true;
+    case "actor":
+      acc.actors.push(raw);
+      return true;
+    case "schema":
+      acc.schemas.push(raw);
+      return true;
+    case "tlp":
+      acc.tlps.push(raw.toUpperCase());
+      return true;
+    case "uuid":
+      acc.uuids.push(raw);
+      return true;
+    case "reach":
+    case "relation":
+    case "mode": {
+      const mode = parseReach(raw);
+      if (!mode) return false;
+      settings.relationMode = mode;
+      return true;
+    }
+    case "deploy":
+      if (value === "staging") acc.stagingOnly = true;
+      else if (value === "production") acc.productionOnly = true;
+      else return false;
+      return true;
   }
-  text += input.slice(from);
+  return false;
+}
 
-  // Incomplete tokens (field: with no value) stay in the string — strip them.
-  const query = stripBooleanJoiners(text)
-    .replace(/\b[\w&]+(:|!=)(?=\s|$)/gi, "")
-    .replace(/\s+/g, " ")
-    .trim();
+/** Apply `key!=raw`; false when the value means nothing for the field, so it stays text. */
+function excludeClause(key: string, raw: string, ex: ExcludedValues): boolean {
+  const value = raw.toLowerCase();
 
-  return { query, ...acc, exclude };
+  switch (key) {
+    case "type":
+      if (!OBJECT_TYPES.has(value as ObjectType)) return false;
+      ex.types.push(value as ObjectType);
+      return true;
+    case "platform":
+      ex.platforms.push(raw);
+      return true;
+    case "status":
+      ex.statuses.push(raw.toUpperCase());
+      return true;
+    case "technique":
+    case "attack":
+    case "att&ck":
+      ex.techniques.push(raw.toUpperCase());
+      return true;
+    case "actor":
+      ex.actors.push(raw);
+      return true;
+    case "schema":
+      ex.schemas.push(raw);
+      return true;
+    case "tlp":
+      ex.tlps.push(raw.toUpperCase());
+      return true;
+    case "uuid":
+      ex.uuids.push(raw);
+      return true;
+    case "deploy":
+      if (value !== "staging" && value !== "production") return false;
+      ex.deploy.push(value);
+      return true;
+  }
+  // `reach!=…` means nothing: it stays in the text, where it matches nothing, rather than
+  // being dropped without a word.
+  return false;
+}
+
+/**
+ * Space-delimited tokens; a quoted run is part of its token whatever it holds, so
+ * `actor:"APT 29"` and `"command and control"` are one token each.
+ */
+const TOKEN_RE = /(?:[^\s"]+|"[^"]*"?)+/g;
+
+const JOINER_RE = /^(?:and|or)$/i;
+
+/** A whole token that is a clause: a known field, an operator and a value. */
+const CLAUSE_RE = new RegExp(
+  `^(${FILTER_FIELD_KEYS.map(escapeRegExp).join("|")})(:|!=)([^\\s"]+|"[^"]+")$`,
+  "i",
+);
+
+/** A field and operator with no value yet: being typed, so neither clause nor text. */
+const INCOMPLETE_RE = /^[\w&]+(:|!=)$/;
+
+function tokensOf(input: string): string[] {
+  return [...input.matchAll(TOKEN_RE)].map(([token]) => token);
+}
+
+/** Apply a token as a clause; false when it is not one, or names a value that means nothing. */
+function applyClause(
+  token: string,
+  acc: ClauseSet,
+  settings: Settings,
+): boolean {
+  const match = CLAUSE_RE.exec(token);
+  if (!match) return false;
+  const key = match[1]!.toLowerCase();
+  const raw = match[3]!.replace(/^"|"$/g, "");
+  return match[2] === ":"
+    ? includeClause(key, raw, acc, settings)
+    : excludeClause(key, raw, acc.exclude);
+}
+
+function parseClauseSet(tokens: string[], settings: Settings): ClauseSet {
+  const set = emptyClauseSet();
+  const text: string[] = [];
+  for (const token of tokens) {
+    if (applyClause(token, set, settings)) continue;
+    if (!INCOMPLETE_RE.test(token)) text.push(token);
+  }
+  set.query = text.join(" ");
+  return set;
+}
+
+/** Every clause and word of several clause sets as one, for chips and counts. */
+function mergeClauseSets(sets: ClauseSet[]): ClauseSet {
+  const merged = emptyClauseSet();
+  for (const set of sets) {
+    merged.types.push(...set.types);
+    merged.platforms.push(...set.platforms);
+    merged.statuses.push(...set.statuses);
+    merged.techniques.push(...set.techniques);
+    merged.actors.push(...set.actors);
+    merged.schemas.push(...set.schemas);
+    merged.tlps.push(...set.tlps);
+    merged.uuids.push(...set.uuids);
+    merged.stagingOnly ||= set.stagingOnly;
+    merged.productionOnly ||= set.productionOnly;
+    for (const key of Object.keys(merged.exclude) as (keyof ExcludedValues)[]) {
+      (merged.exclude[key] as string[]).push(...set.exclude[key]);
+    }
+  }
+  merged.query = sets
+    .map((set) => set.query)
+    .filter(Boolean)
+    .join(" ");
+  return merged;
+}
+
+/** Split tokens at explicit joiners: groups at OR, the parts of a group at AND. */
+function splitAtJoiners(tokens: string[]): string[][][] {
+  const groups: string[][][] = [[]];
+  let part: string[] = [];
+  const closePart = () => {
+    if (part.length) groups.at(-1)!.push(part);
+    part = [];
+  };
+  for (const token of tokens) {
+    if (!JOINER_RE.test(token)) {
+      part.push(token);
+      continue;
+    }
+    closePart();
+    if (token.toUpperCase() === "OR" && groups.at(-1)!.length) groups.push([]);
+  }
+  closePart();
+  return groups.filter((group) => group.length);
+}
+
+/**
+ * Parse search input into structured catalogue filters: `field:value` keeps objects with the
+ * value, `field!=value` drops them, and quoted values and phrases may hold spaces. Beside each
+ * other, clauses of one field match any of their values and clauses of different fields must
+ * all match; explicit AND requires both sides and OR either. Everything else is free text,
+ * including words like `chain` or `staging` and clauses whose value means nothing for the
+ * field (`type:rules`): reach and deployment are clauses (`reach:chains`, `deploy:staging`).
+ */
+export function parseFilterTokens(input: string): CatalogFilters {
+  const settings: Settings = { relationMode: DEFAULT_FILTERS.relationMode };
+  const groups = splitAtJoiners(tokensOf(input)).map((group) =>
+    group.map((part) => parseClauseSet(part, settings)),
+  );
+  const flat = mergeClauseSets(groups.flat());
+  const explicit = groups.length > 1 || (groups[0]?.length ?? 0) > 1;
+  return {
+    ...flat,
+    relationMode: settings.relationMode,
+    groups: explicit ? groups : [],
+  };
 }
 
 function exclusionCount(exclude: ExcludedValues): number {
@@ -285,7 +376,7 @@ function exclusionCount(exclude: ExcludedValues): number {
 export function activeFilterCount(filters: CatalogFilters): number {
   let count = 0;
   if (filters.query) count += 1;
-  if (filters.uuid) count += 1;
+  count += filters.uuids.length;
   count += filters.types.length;
   count += filters.platforms.length;
   count += filters.statuses.length;
@@ -304,44 +395,40 @@ function clauseText(field: string, op: ClauseOperator, value: string): string {
   return `${field}${op}${/\s/.test(value) ? `"${value}"` : value}`;
 }
 
-/** Serialize structured filters back into search input that parses to the same filters. */
-export function formatFilterTokens(filters: CatalogFilters): string {
+function formatClauseSet(set: ClauseSet): string[] {
   const parts: string[] = [];
   const add = (field: string, op: ClauseOperator, values: string[]) => {
     for (const value of values) parts.push(clauseText(field, op, value));
   };
 
-  add("type", ":", filters.types);
-  add("platform", ":", filters.platforms);
+  add("type", ":", set.types);
+  add("platform", ":", set.platforms);
   add(
     "status",
     ":",
-    filters.statuses.filter(
+    set.statuses.filter(
       (s) =>
-        !(s === "STAGING" && filters.stagingOnly) &&
-        !(s === "PRODUCTION" && filters.productionOnly),
+        !(s === "STAGING" && set.stagingOnly) &&
+        !(s === "PRODUCTION" && set.productionOnly),
     ),
   );
-  add("technique", ":", filters.techniques);
-  add("actor", ":", filters.actors);
-  add("schema", ":", filters.schemas);
-  add("tlp", ":", filters.tlps);
-  if (filters.uuid) add("uuid", ":", [filters.uuid]);
-  if (filters.stagingOnly) {
-    add(filters.statuses.includes("STAGING") ? "status" : "deploy", ":", [
+  add("technique", ":", set.techniques);
+  add("actor", ":", set.actors);
+  add("schema", ":", set.schemas);
+  add("tlp", ":", set.tlps);
+  add("uuid", ":", set.uuids);
+  if (set.stagingOnly) {
+    add(set.statuses.includes("STAGING") ? "status" : "deploy", ":", [
       "staging",
     ]);
   }
-  if (filters.productionOnly) {
-    add(filters.statuses.includes("PRODUCTION") ? "status" : "deploy", ":", [
+  if (set.productionOnly) {
+    add(set.statuses.includes("PRODUCTION") ? "status" : "deploy", ":", [
       "production",
     ]);
   }
-  if (filters.relationMode !== DEFAULT_FILTERS.relationMode) {
-    add("reach", ":", [REACH_VALUE[filters.relationMode]]);
-  }
 
-  const ex = filters.exclude;
+  const ex = set.exclude;
   add("type", "!=", ex.types);
   add("platform", "!=", ex.platforms);
   add("status", "!=", ex.statuses);
@@ -352,8 +439,24 @@ export function formatFilterTokens(filters: CatalogFilters): string {
   add("uuid", "!=", ex.uuids);
   add("deploy", "!=", ex.deploy);
 
-  if (filters.query.trim()) parts.push(filters.query.trim());
+  if (set.query.trim()) parts.push(set.query.trim());
+  return parts;
+}
 
+/** Serialize structured filters back into search input that parses to the same filters. */
+export function formatFilterTokens(filters: CatalogFilters): string {
+  const parts = filters.groups.length
+    ? [
+        filters.groups
+          .map((group) =>
+            group.map((set) => formatClauseSet(set).join(" ")).join(" AND "),
+          )
+          .join(" OR "),
+      ]
+    : formatClauseSet(filters);
+  if (filters.relationMode !== DEFAULT_FILTERS.relationMode) {
+    parts.push(clauseText("reach", ":", REACH_VALUE[filters.relationMode]));
+  }
   return parts.join(" ");
 }
 
@@ -401,21 +504,29 @@ export function toggleClause(
   return `${query.trim()} ${clauseText(field, op, value)}`.trim();
 }
 
-/** Remove the free-text part of a search and keep its clauses. */
-export function withoutFreeText(
-  query: string,
-  filters: CatalogFilters,
-): string {
-  const free = filters.query.trim();
-  if (!free) return query;
-  let next = query;
-  for (const word of free.split(/\s+/)) {
-    next = next.replace(
-      new RegExp(`(^|\\s)${escapeRegExp(word)}(?=\\s|$)`, "i"),
-      " ",
-    );
+/**
+ * Remove the free-text part of a search and keep its clauses, untouched and in order, with
+ * the AND/OR between them. A joiner left with nothing on one side goes; of two that meet,
+ * OR stays, since the part between them is gone, not the alternative.
+ */
+export function withoutFreeText(query: string): string {
+  const kept: string[] = [];
+  const settings: Settings = { relationMode: DEFAULT_FILTERS.relationMode };
+  for (const token of tokensOf(query)) {
+    if (JOINER_RE.test(token)) {
+      const last = kept.at(-1);
+      if (!last) continue;
+      if (JOINER_RE.test(last)) {
+        if (token.toUpperCase() === "OR") kept[kept.length - 1] = token;
+        continue;
+      }
+      kept.push(token);
+    } else if (applyClause(token, emptyClauseSet(), settings)) {
+      kept.push(token);
+    }
   }
-  return next.replace(/\s+/g, " ").trim();
+  if (kept.length && JOINER_RE.test(kept.at(-1)!)) kept.pop();
+  return kept.join(" ");
 }
 
 /** Remove a deployment filter however it was written: `deploy:` or `status:`. */

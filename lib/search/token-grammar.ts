@@ -6,9 +6,10 @@
  *   field   := identifier
  *   value   := quoted_string | unquoted_token
  *
- * Implicit AND between adjacent clauses (`type:rule platform:sentinel`).
- * Explicit AND/OR are equivalent clause separators for filter parsing.
- * Every other word is free text; reach and deployment are clauses too.
+ * Side by side, clauses of one field match any of their values and clauses of different
+ * fields must all match (`type:rule type:signal platform:sentinel`). Explicit AND requires
+ * both sides, even for one field, and OR either; AND binds tighter than OR. A quoted run is
+ * one value or one phrase. Every other word is free text; reach and deployment are clauses too.
  */
 
 import {
@@ -54,9 +55,9 @@ export const BOOLEAN_OPERATORS = [
   {
     op: "AND" as const,
     label: "AND",
-    description: "Add another filter (all must match)",
+    description: "Both sides must match",
   },
-  { op: "OR" as const, label: "OR", description: "Add alternative filter" },
+  { op: "OR" as const, label: "OR", description: "Either side may match" },
 ] as const;
 
 const FIELD_KEYS = new Set(

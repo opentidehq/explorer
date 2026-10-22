@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseFilterTokens } from "@/lib/search/filters";
 import {
   applySuggestion,
+  enterTakes,
   getTokenSuggestions,
 } from "@/lib/search/token-autocomplete";
 import { buildTokenVocabulary } from "@/lib/search/token-catalog";
@@ -215,6 +216,23 @@ describe("applySuggestion", () => {
     );
     expect(next).toBe("platform:sentinel type:");
     expect(cursor).toBe(next.length);
+  });
+});
+
+describe("enterTakes", () => {
+  it("leaves a typed field name as text unless the operator was picked", () => {
+    const { suggestions } = getTokenSuggestions("attack", 6, vocab);
+    const operator = suggestions[0]!;
+    expect(operator.kind).toBe("operator");
+    expect(enterTakes(operator, false)).toBe(false);
+    expect(enterTakes(operator, true)).toBe(true);
+  });
+
+  it("takes fields and values without browsing", () => {
+    const field = getTokenSuggestions("plat", 4, vocab).suggestions[0]!;
+    const value = getTokenSuggestions("type:r", 6, vocab).suggestions[0]!;
+    expect(enterTakes(field, false)).toBe(true);
+    expect(enterTakes(value, false)).toBe(true);
   });
 });
 

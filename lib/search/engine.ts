@@ -1,4 +1,4 @@
-import type { CatalogFilters } from "@/lib/search/filters";
+import type { CatalogFilters, ClauseSet } from "@/lib/search/filters";
 import type {
   BundleObjectSummary,
   ExplorerBundle,
@@ -133,14 +133,14 @@ const HAS_VALUE = {
 
 type ValueField = keyof typeof HAS_VALUE;
 
-/** The structured part of a search as one test, built once per search. */
+/** The structured part of a clause set as one test, built once per search. */
 function filterPredicate(
-  filters: CatalogFilters,
+  filters: ClauseSet,
   deploy: DeploySets,
 ): (entry: IndexedDocument) => boolean {
   const wanted: Record<ValueField, string[]> = {
     types: filters.types,
-    uuids: filters.uuid ? [filters.uuid] : [],
+    uuids: filters.uuids,
     platforms: filters.platforms,
     statuses: filters.statuses,
     techniques: filters.techniques,
@@ -214,39 +214,92 @@ function deployFor(stagingIndex: StagingIndex | undefined) {
   return sets;
 }
 
+/**
+ * The words of free text, lowercased; a quoted run is one phrase, matched whole. A quote left
+ * open while typing still makes a phrase of what follows it.
+ */
+export function searchTerms(query: string): string[] {
+  const terms: string[] = [];
+  for (const [, phrase, word] of query.matchAll(/"([^"]*)"?|([^\s"]+)/g)) {
+    const term = (phrase ?? word ?? "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+    if (term) terms.push(term);
+  }
+  return terms;
+}
+
+/** A clause set ready to test: its filters as one predicate, its free text as terms. */
+interface CompiledSet {
+  matches: (entry: IndexedDocument) => boolean;
+  terms: string[];
+}
+
+/** Every term must match somewhere, and the name counts most; 0 when one does not. */
+function textScore(entry: IndexedDocument, terms: string[]): number {
+  let score = 0;
+  for (const term of terms) {
+    const s = termScore(entry, term);
+    if (s === 0) return 0;
+    score += s;
+  }
+  return score;
+}
+
+/** How well an object matches a group: every part must, so 0 when one does not. */
+function groupScore(entry: IndexedDocument, parts: CompiledSet[]): number {
+  let score = 0;
+  for (const part of parts) {
+    if (!part.matches(entry)) return 0;
+    if (!part.terms.length) {
+      score += 1;
+      continue;
+    }
+    const s = textScore(entry, part.terms);
+    if (s === 0) return 0;
+    score += s;
+  }
+  return score;
+}
+
 export function searchCatalog(
   index: SearchIndex,
   filters: CatalogFilters,
   options?: { stagingIndex?: StagingIndex; limit?: number },
 ): SearchDocument[] {
   const limit = options?.limit ?? 500;
-  const matches = filterPredicate(filters, deployFor(options?.stagingIndex));
-  const term = filters.query.trim().toLowerCase();
+  const deploy = deployFor(options?.stagingIndex);
+  const compile = (set: ClauseSet): CompiledSet => ({
+    matches: filterPredicate(set, deploy),
+    terms: searchTerms(set.query),
+  });
 
-  if (UUID_RE.test(term)) {
-    const doc = index.byId.get(term);
-    const entry = doc && index.entries.find((e) => e.doc === doc);
-    return entry && matches(entry) ? [entry.doc] : [];
+  if (!filters.groups.length) {
+    const term = filters.query.trim().toLowerCase();
+    if (UUID_RE.test(term)) {
+      const matches = filterPredicate(filters, deploy);
+      const doc = index.byId.get(term);
+      const entry = doc && index.entries.find((e) => e.doc === doc);
+      return entry && matches(entry) ? [entry.doc] : [];
+    }
   }
 
-  const candidates = index.entries.filter(matches);
-  if (!term) return candidates.slice(0, limit).map((entry) => entry.doc);
-
-  // Every word must match somewhere; the name counts most.
-  const words = term.split(/\s+/).filter(Boolean);
+  // Any group may match; the best one decides how well.
+  const groups = (filters.groups.length ? filters.groups : [[filters]]).map(
+    (group) => group.map(compile),
+  );
+  const ranked = groups.some((group) =>
+    group.some((part) => part.terms.length),
+  );
   const scored: Array<{ entry: IndexedDocument; score: number }> = [];
-  for (const entry of candidates) {
+  for (const entry of index.entries) {
     let score = 0;
-    for (const word of words) {
-      const s = termScore(entry, word);
-      if (s === 0) {
-        score = 0;
-        break;
-      }
-      score += s;
-    }
+    for (const group of groups)
+      score = Math.max(score, groupScore(entry, group));
     if (score > 0) scored.push({ entry, score });
   }
+  if (!ranked) return scored.slice(0, limit).map(({ entry }) => entry.doc);
 
   scored.sort(
     (a, b) =>
