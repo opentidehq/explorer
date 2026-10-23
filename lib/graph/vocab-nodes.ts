@@ -197,6 +197,9 @@ function placeNearSource(graph: Graph, vocabId: string, sourceId: string) {
   graph.mergeNodeAttributes(vocabId, point);
 }
 
+/** Stale vocabulary items above which `syncVocabLayer` rebuilds the graph instead of dropping. */
+const REBUILD_THRESHOLD = 50;
+
 /**
  * Bring a graph's vocabulary nodes in line with a layer, in place: add what is missing beside
  * the object that names it, drop what the layer no longer has. Object nodes keep their
@@ -206,17 +209,34 @@ export function syncVocabLayer(graph: Graph, layer: VocabGraphLayer): void {
   const wantedNodes = new Set(layer.nodes.map((node) => node.id));
   const wantedEdges = new Set(layer.edges.map((edge) => edge.id));
 
-  const staleNodes: string[] = [];
+  const staleNodes = new Set<string>();
   graph.forEachNode((node) => {
-    if (isVocabNodeId(node) && !wantedNodes.has(node)) staleNodes.push(node);
+    if (isVocabNodeId(node) && !wantedNodes.has(node)) staleNodes.add(node);
   });
-  for (const node of staleNodes) graph.dropNode(node);
+  const staleEdges = new Set<string>();
+  graph.forEachEdge((edge, attrs, source, target) => {
+    const stale =
+      (attrs.kind === "vocab" && !wantedEdges.has(edge)) ||
+      staleNodes.has(source) ||
+      staleNodes.has(target);
+    if (stale) staleEdges.add(edge);
+  });
 
-  const staleEdges: string[] = [];
-  graph.forEachEdge((edge, attrs) => {
-    if (attrs.kind === "vocab" && !wantedEdges.has(edge)) staleEdges.push(edge);
-  });
-  for (const edge of staleEdges) graph.dropEdge(edge);
+  // A renderer bound to the graph re-indexes all of it on every drop (sigma does), so
+  // hiding thousands of vocabulary items one by one freezes the page. Past a few, rebuild
+  // the graph in one clear and import: additions are cheap, drops are not.
+  if (staleNodes.size + staleEdges.size > REBUILD_THRESHOLD) {
+    const kept = graph.export();
+    kept.nodes = kept.nodes.filter((node) => !staleNodes.has(node.key));
+    kept.edges = kept.edges.filter(
+      (edge) => edge.key === undefined || !staleEdges.has(edge.key),
+    );
+    graph.clear();
+    graph.import(kept);
+  } else {
+    for (const edge of staleEdges) graph.dropEdge(edge);
+    for (const node of staleNodes) graph.dropNode(node);
+  }
 
   const added = new Set<string>();
   for (const node of layer.nodes) {
