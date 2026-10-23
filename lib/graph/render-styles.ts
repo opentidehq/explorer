@@ -16,6 +16,12 @@ export const GRAPH_RENDER_DEFAULTS = {
   curvedEdges: true,
 } as const;
 
+/**
+ * How far an edge bows from the straight line, as a share of its length. Sigma's curved
+ * path and the focus overlay's SVG curves both read it, so the two stay on one line.
+ */
+export const EDGE_CURVATURE = 0.25;
+
 export const VOCAB_NODE_COLOR = "#a78bfa";
 export const VOCAB_NODE_SIZE = 6;
 

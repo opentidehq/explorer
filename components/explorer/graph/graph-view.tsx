@@ -3,12 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type Graph from "graphology";
 import Sigma from "sigma";
-import type {
-  NodeLabelDrawingFunction,
-  NodeHoverDrawingFunction,
-} from "sigma/rendering";
-import { EdgeCurvedArrowProgram } from "@sigma/edge-curve";
-import { NodeImageProgram } from "@sigma/node-image";
+import type { EdgeDisplayData, NodeDisplayData } from "sigma/types";
+import { extremityArrow, layerFill, pathCurved } from "sigma/rendering";
+import { layerImage } from "@sigma/node-image";
 import { animateNodes } from "sigma/utils";
 import { useTheme } from "next-themes";
 import {
@@ -63,6 +60,7 @@ import {
   type GraphPalette,
   type NodeState,
 } from "@/lib/graph/node-images";
+import { EDGE_CURVATURE } from "@/lib/graph/render-styles";
 import {
   buildVocabGraphLayer,
   expandVisibleIdsWithVocab,
@@ -149,50 +147,31 @@ function nodeState(node: string, s: GraphViewState): NodeState {
   return "normal";
 }
 
-/** Labels sit on a halo of the panel colour; the focus gets a pill. */
-function makeDrawLabel(state: {
-  current: GraphViewState;
-}): NodeLabelDrawingFunction {
-  return (context, data, settings) => {
-    const label = data.label;
-    if (!label) return;
-    const s = state.current;
-    const kind =
-      (data as unknown as { objectType?: GraphNodeKind }).objectType ??
-      "threat";
-    const focused = data.highlighted;
-    const size = focused ? 12.5 : settings.labelSize;
-    const weight = focused ? "600" : settings.labelWeight;
-    context.font = `${weight} ${size}px ${s.font}`;
-    const x = data.x + data.size + 5;
-    const y = data.y + size / 3;
-
-    if (focused) {
-      const width = context.measureText(label).width;
-      const padX = 7;
-      const h = size + 9;
-      context.beginPath();
-      context.roundRect(x - padX, y - size + 1 - 4, width + padX * 2, h, h / 2);
-      context.fillStyle = s.palette.panel;
-      context.fill();
-      context.lineWidth = 1.25;
-      context.strokeStyle = s.palette.types[kind];
-      context.stroke();
-      context.fillStyle = s.palette.ink;
-      context.fillText(label, x, y);
-      return;
-    }
-
-    context.lineJoin = "round";
-    context.lineWidth = 3.5;
-    context.strokeStyle = s.palette.panel;
-    context.strokeText(label, x, y);
-    context.fillStyle = s.focus ? s.palette.ink : s.palette.subtle;
-    context.fillText(label, x, y);
+/** Labels sit on a patch of the panel colour; the focus gets a pill in its type's colour. */
+function labelStyle(kind: GraphNodeKind, focused: boolean, s: GraphViewState) {
+  if (focused) {
+    return {
+      labelSize: 12.5,
+      labelColor: s.palette.ink,
+      backdropVisibility: "visible" as const,
+      backdropArea: "label" as const,
+      backdropColor: s.palette.panel,
+      backdropBorderColor: s.palette.types[kind],
+      backdropBorderWidth: 1.25,
+      backdropCornerRadius: 11,
+      backdropLabelPadding: 5,
+      backdropShadowColor: "transparent",
+      backdropShadowBlur: 0,
+    };
+  }
+  return {
+    labelSize: 11,
+    labelColor: s.focus ? s.palette.ink : s.palette.subtle,
+    labelBackgroundColor: s.palette.panel,
+    labelBackgroundPadding: 1.5,
+    backdropVisibility: "hidden" as const,
   };
 }
-
-const drawNoHover: NodeHoverDrawingFunction = () => {};
 
 /* The view --------------------------------------------------------------------------- */
 
@@ -298,58 +277,104 @@ export function GraphView() {
     state.current.font = labelFont();
     state.current.sizeScale = scaleFor(container.clientWidth);
 
+    const edgeLook = (edge: string, kind: string): Partial<EdgeDisplayData> => {
+      const s = state.current;
+      // Runs inside the constructor too, before `instance` exists: read the graph directly.
+      const source = graph.source(edge);
+      const target = graph.target(edge);
+      if (!s.visible.has(source) || !s.visible.has(target)) {
+        return { visibility: "hidden" };
+      }
+      const p = s.palette;
+      if (s.focus) {
+        // The focus's links are drawn by the overlay, with their flow and labels.
+        if (s.chainEdges.has(edge)) return { visibility: "hidden" };
+        return { color: mix(p.panel, p.ink, 0.06), size: 0.6, zIndex: 0 };
+      }
+      if (kind === "chaining") {
+        return {
+          color: mix(p.panel, p.types.threat, 0.38),
+          size: 1,
+          zIndex: 1,
+        };
+      }
+      if (kind === "vocab") {
+        return {
+          color: mix(p.panel, p.types.vocab, 0.4),
+          size: 0.7,
+          zIndex: 1,
+        };
+      }
+      return { color: mix(p.panel, p.accent, 0.5), size: 1.4, zIndex: 2 };
+    };
+
     const instance = new Sigma(graph, container, {
-      allowInvalidContainer: true,
-      defaultNodeType: "image",
-      defaultEdgeType: "curve",
-      nodeProgramClasses: { image: NodeImageProgram },
-      edgeProgramClasses: { curve: EdgeCurvedArrowProgram },
-      renderEdgeLabels: false,
-      labelFont: state.current.font,
-      labelSize: 11,
-      labelWeight: "500",
-      labelColor: { color: state.current.palette.subtle },
-      labelDensity: 0.05,
-      labelGridCellSize: 140,
-      labelRenderedSizeThreshold: 10,
-      zIndex: true,
-      stagePadding: 48,
-      minCameraRatio: MIN_CAMERA_RATIO,
-      maxCameraRatio: MAX_CAMERA_RATIO,
-      hideEdgesOnMove: false,
-      defaultDrawNodeLabel: makeDrawLabel(state),
-      defaultDrawNodeHover: drawNoHover,
-      nodeReducer: (node, data) => {
+      primitives: {
+        nodes: {
+          // The type colour under each node's icon.
+          layers: [layerFill(), layerImage({ imageAttribute: "image" })],
+          label: {
+            font: { family: state.current.font, weight: "500", size: 11 },
+            margin: 5,
+          },
+        },
+        edges: {
+          paths: [pathCurved()],
+          // Edge-curve's v3 arrowhead proportions.
+          extremities: [extremityArrow({ lengthRatio: 2.5, widthRatio: 2 })],
+          defaultHead: "arrow",
+        },
+      },
+      settings: {
+        allowInvalidContainer: true,
+        // Sizes are pixels at the default zoom, as they were before sigma 4.
+        itemSizesReference: "screen",
+        renderEdgeLabels: false,
+        labelDensity: 0.05,
+        labelGridCellSize: 140,
+        labelRenderedSizeThreshold: 10,
+        stagePadding: 48,
+        minCameraRatio: MIN_CAMERA_RATIO,
+        maxCameraRatio: MAX_CAMERA_RATIO,
+        hideEdgesOnMove: false,
+      },
+      nodeReducer: (node, data, attrs) => {
         const s = state.current;
-        const kind = (data.objectType as GraphNodeKind | undefined) ?? "threat";
+        const kind =
+          (attrs.objectType as GraphNodeKind | undefined) ?? "threat";
         if (!s.visible.has(node)) {
-          return { ...data, hidden: true, label: "" };
+          return { visibility: "hidden", labelVisibility: "hidden" };
         }
         const look = nodeState(node, s);
-        const size = (data.size as number) * s.sizeScale;
-        const res: Record<string, unknown> = {
-          ...data,
-          type: "image",
+        const size = data.size * s.sizeScale;
+        const res: Partial<NodeDisplayData> & { image: string } = {
+          ...labelStyle(kind, look === "focus", s),
+          labelFont: s.font,
           color: nodeBaseColor(kind, s.palette),
           image: nodeImage(kind, look, s.palette),
           highlighted: look === "focus",
+          labelVisibility: "auto",
+          // Sigma sets the stage cursor from the item under the pointer.
+          cursor: "pointer",
         };
         switch (look) {
           case "focus":
             res.size = size * 1.45;
-            res.zIndex = 5;
-            res.forceLabel = true;
+            // labelDepth follows depth only in styles, which run before this reducer.
+            res.depth = "topNodes";
+            res.labelDepth = "topNodes";
+            res.labelVisibility = "visible";
             break;
           case "chain":
             res.size = size * 1.12;
             res.zIndex = 3;
             // Small chains name every member; larger ones leave it to the label grid.
-            res.forceLabel = s.chainNodes.size <= 6;
+            if (s.chainNodes.size <= 6) res.labelVisibility = "visible";
             break;
           case "dimmed":
             res.size = size * 0.8;
             res.zIndex = 0;
-            res.label = "";
+            res.labelVisibility = "hidden";
             break;
           case "context":
             res.size = size * 0.9;
@@ -357,53 +382,17 @@ export function GraphView() {
             break;
           default:
             res.zIndex = 2;
-            if (s.matches && s.matches.size <= 8) res.forceLabel = true;
+            if (s.matches && s.matches.size <= 8) {
+              res.labelVisibility = "visible";
+            }
         }
         return res;
       },
-      edgeReducer: (edge, data) => {
-        const s = state.current;
-        // Runs inside the constructor too, before `instance` exists: read the graph directly.
-        const source = graph.source(edge);
-        const target = graph.target(edge);
-        if (!s.visible.has(source) || !s.visible.has(target)) {
-          return { ...data, hidden: true };
-        }
-        const kind = data.kind as string;
-        const p = s.palette;
-        if (s.focus) {
-          // The focus's links are drawn by the overlay, with their flow and labels.
-          if (s.chainEdges.has(edge)) return { ...data, hidden: true };
-          return {
-            ...data,
-            color: mix(p.panel, p.ink, 0.06),
-            size: 0.6,
-            zIndex: 0,
-          };
-        }
-        if (kind === "chaining") {
-          return {
-            ...data,
-            color: mix(p.panel, p.types.threat, 0.38),
-            size: 1,
-            zIndex: 1,
-          };
-        }
-        if (kind === "vocab") {
-          return {
-            ...data,
-            color: mix(p.panel, p.types.vocab, 0.4),
-            size: 0.7,
-            zIndex: 1,
-          };
-        }
-        return {
-          ...data,
-          color: mix(p.panel, p.accent, 0.5),
-          size: 1.4,
-          zIndex: 2,
-        };
-      },
+      edgeReducer: (edge, _data, attrs) => ({
+        // pathCurved's own `curvature` option is not read in sigma 4.0.3; set it per edge.
+        curvature: EDGE_CURVATURE,
+        ...edgeLook(edge, attrs.kind as string),
+      }),
     });
 
     instance.on("clickNode", ({ node }) => {
@@ -425,11 +414,9 @@ export function GraphView() {
     });
     instance.on("enterNode", ({ node }) => {
       if (!isVocabNodeId(node)) actions.hover(node);
-      container.style.cursor = "pointer";
     });
     instance.on("leaveNode", () => {
       actions.hover(null);
-      container.style.cursor = "";
     });
 
     // The first time a corpus is drawn, ForceAtlas2 runs in a worker while the page stays
@@ -461,7 +448,7 @@ export function GraphView() {
       // A permalink's object or a search's matches sat in the packed centre: frame them.
       const selected = store.get().selectedId;
       const data = selected ? instance.getNodeDisplayData(selected) : null;
-      if (data && !data.hidden) {
+      if (data && data.visibility !== "hidden") {
         void instance
           .getCamera()
           .animate({ x: data.x, y: data.y, ratio: 0.55 }, { duration: 700 });
@@ -534,7 +521,6 @@ export function GraphView() {
   // Any change to what the reducers read: one refresh.
   useEffect(() => {
     if (!sigma || sigma !== liveRef.current) return;
-    sigma.setSetting("labelColor", { color: palette.subtle });
     sigma.refresh();
   }, [sigma, palette, visible, matchIds, focus, selectedId, chain]);
 
@@ -580,7 +566,7 @@ export function GraphView() {
     }
     appliedLayouts.set(base, { key: layoutKey, killchain: killchainGrouping });
     sigma.refresh();
-    void sigma.getCamera().animatedReset({ duration: 450 });
+    void sigma.getCamera().reset({ duration: 450 });
   }, [
     sigma,
     base,
@@ -602,7 +588,7 @@ export function GraphView() {
     const id = requestAnimationFrame(() => {
       if (sigma !== liveRef.current) return;
       if (matchIds) frameNodes(sigma, visible);
-      else void sigma.getCamera().animatedReset({ duration: 500 });
+      else void sigma.getCamera().reset({ duration: 500 });
     });
     return () => cancelAnimationFrame(id);
   }, [sigma, matchIds, visible, killchainGrouping]);
