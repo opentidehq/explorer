@@ -24,6 +24,7 @@ import {
 } from "@/lib/search/filters";
 import {
   applySuggestion,
+  enterTakes,
   getTokenSuggestions,
   type TokenSuggestion,
 } from "@/lib/search/token-autocomplete";
@@ -67,7 +68,7 @@ function filterChips(filters: CatalogFilters): Chip[] {
   );
   add("schema", filters.schemas);
   add("tlp", filters.tlps);
-  if (filters.uuid) add("uuid", [filters.uuid]);
+  add("uuid", filters.uuids);
   if (filters.stagingOnly) add("deploy", ["staging"]);
   if (filters.productionOnly) add("deploy", ["production"]);
   const ex = filters.exclude;
@@ -128,7 +129,8 @@ export function SearchBox({
     actions.setQuery(next);
     setCursor(at);
     setActive(0);
-    browsed.current = false;
+    // A field picked from the list is the start of a clause: Enter goes on to its operator.
+    browsed.current = suggestion.kind === "field";
     requestAnimationFrame(() => {
       ref.current?.setSelectionRange(at, at);
       ref.current?.focus();
@@ -159,7 +161,10 @@ export function SearchBox({
         (browsed.current || context.partial.length > 0));
     if (open && completes) {
       const suggestion = suggestions[activeIndex];
-      if (suggestion) {
+      if (
+        suggestion &&
+        (event.key !== "Enter" || enterTakes(suggestion, browsed.current))
+      ) {
         event.preventDefault();
         choose(suggestion);
       }
@@ -295,7 +300,7 @@ export function SearchBox({
                   } else if (chip.field) {
                     actions.toggleToken(chip.field, chip.value, chip.op);
                   } else {
-                    actions.setQuery(withoutFreeText(query, filters));
+                    actions.setQuery(withoutFreeText(query));
                   }
                 }}
                 className="group inline-flex max-w-full items-center gap-1 rounded-full bg-accent/10 py-0.5 pl-2 pr-1 font-mono text-[11px] text-accent transition-colors hover:bg-accent/15"

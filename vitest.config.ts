@@ -6,6 +6,16 @@ export default defineConfig({
     environment: "node",
     // CI checks out library/ and specifications/ inside the workspace; never run their tests.
     include: ["lib/**/*.test.ts", "scripts/**/*.test.mjs", "bin/**/*.test.mjs"],
+    coverage: {
+      provider: "v8",
+      include: ["lib/**", "scripts/**", "bin/**"],
+      exclude: [
+        "lib/opentide/generated/**",
+        "**/*.test.ts",
+        "**/*.test.mjs",
+        "**/test-fixtures.ts",
+      ],
+    },
   },
   resolve: {
     alias: {

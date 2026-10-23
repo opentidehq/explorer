@@ -108,4 +108,12 @@ describe("formatFilterTokens", () => {
     const serialized = formatFilterTokens(filters);
     expect(parseFilterTokens(serialized)).toEqual(filters);
   });
+
+  it("round-trips AND/OR groups and quoted phrases", () => {
+    const input =
+      'type:rule "command and control" OR technique:T1556 AND actor:"APT 29" reach:chains';
+    const filters = parseFilterTokens(input);
+    expect(filters.groups).toHaveLength(2);
+    expect(parseFilterTokens(formatFilterTokens(filters))).toEqual(filters);
+  });
 });

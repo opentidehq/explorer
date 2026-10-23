@@ -4,6 +4,7 @@ import {
   collectFilterOptions,
   createSearchIndex,
   searchCatalog,
+  searchTerms,
 } from "@/lib/search/engine";
 import { DEFAULT_FILTERS, parseFilterTokens } from "@/lib/search/filters";
 import type { ExplorerBundle } from "@/lib/opentide/types";
@@ -29,7 +30,7 @@ const bundle = {
     },
     [T2]: {
       name: "Password spraying attack",
-      threat: { description: "Many accounts, few passwords" },
+      threat: { description: "Many accounts and few passwords" },
     },
     [O1]: {
       name: "Detect password spraying",
@@ -140,6 +141,35 @@ describe("search engine", () => {
     expect(search(`uuid!=${T1} type:threat`)).toEqual([T2]);
   });
 
+  it("requires both sides of AND, even for one field", () => {
+    expect(search("technique:T1556 technique:T1110")).toEqual([T1, T2, O1, R1]);
+    expect(search("technique:T1556 AND technique:T1110")).toEqual([]);
+    expect(search("technique:T1556 AND technique:T1562")).toEqual([T1]);
+    expect(search("password AND type:objective")).toEqual([O1]);
+  });
+
+  it("matches either side of OR", () => {
+    expect(search("type:threat platform:sentinel")).toEqual([]);
+    expect(search("type:threat OR platform:sentinel")).toEqual([T1, T2, R1]);
+    expect(search("lina OR 50126")).toEqual([T1, R1]);
+    expect(search("type:rule OR technique:T1556 AND actor:G0007")).toEqual([
+      T1,
+      R1,
+    ]);
+  });
+
+  it("never lets an empty alternative match everything", () => {
+    expect(search("type:rule OR platform:")).toEqual([R1]);
+    expect(search("type:rule OR reach:matches")).toEqual([R1]);
+  });
+
+  it("matches a quoted phrase whole, joiners included", () => {
+    expect(search('"accounts and few"')).toEqual([T2]);
+    expect(search('"few and accounts"')).toEqual([]);
+    expect(search('"password spraying"')).toEqual([T2, O1]);
+    expect(search('"spraying password"')).toEqual([]);
+  });
+
   it("looks up a pasted uuid directly", () => {
     expect(search(T2)).toEqual([T2]);
     expect(search(`${T2} type:rule`)).toEqual([]);
@@ -150,5 +180,17 @@ describe("search engine", () => {
     expect(options.platforms).toEqual(["sentinel"]);
     expect(options.techniques).toContain("T1110.003");
     expect(options.types).toEqual(["objective", "rule", "threat"]);
+  });
+});
+
+describe("searchTerms", () => {
+  it("keeps a quoted run as one phrase", () => {
+    expect(searchTerms('powershell "Command  and control" x')).toEqual([
+      "powershell",
+      "command and control",
+      "x",
+    ]);
+    expect(searchTerms('"open quote')).toEqual(["open quote"]);
+    expect(searchTerms('""')).toEqual([]);
   });
 });

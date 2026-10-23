@@ -70,7 +70,6 @@ const OBJECTIVE_FIELDS: FieldDefinition[] = [
     path: "objective.priority",
     label: "Priority",
     format: "pills",
-    vocab: "criticality",
   },
   {
     path: "objective.composition.description",
