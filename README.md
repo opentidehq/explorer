@@ -44,6 +44,9 @@ CLI itself runs on Node ≥ 20.19), pnpm 9+, Next.js **16.3**
 pnpm install
 pnpm dev          # Turbopack dev server at http://localhost:3000
 pnpm check        # typecheck, oxlint, oxfmt, vitest, codegen drift
+pnpm test:watch   # vitest in watch mode (unit and component projects)
+pnpm test:unit    # pure lib/scripts/bin tests in Node, shared workers
+pnpm test:components  # React components in happy-dom with Testing Library
 pnpm validate     # check + production build (run before committing)
 pnpm run doctor   # optional React health scan (advisory; may exit non-zero)
 pnpm build        # generates data from ../library, type-checks, static export
@@ -64,6 +67,12 @@ and the Node scripts in `bin/` and `scripts/` (JSDoc, `checkJs`) with `tsconfig.
 `next build` skips its own type check (`typescript.ignoreBuildErrors`) because `pnpm build`
 runs tsrs first; the `typescript` package stays installed because Next.js requires it.
 `pnpm lint` fails on any warning and on unused `oxlint-disable` comments.
+
+Tests run on Vitest with two projects. `unit` runs `lib/`, `scripts/` and `bin/` tests in Node
+with shared workers (they are pure, and pass in shuffled order), which halves the run.
+`components` runs `components/**/*.test.tsx` in happy-dom with React Testing Library, the setup
+the Next.js guide describes (`node_modules/next/dist/docs/01-app/02-guides/testing/vitest.md`),
+with happy-dom in place of jsdom for speed. Async Server Components are not unit-testable there.
 
 ### Agent skills (Vercel)
 
