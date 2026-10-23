@@ -12,7 +12,7 @@ export function framedExtent(sigma: Sigma, ids: Iterable<string>) {
   let count = 0;
   for (const id of ids) {
     const data = sigma.getNodeDisplayData(id);
-    if (!data || data.hidden) continue;
+    if (!data || data.visibility === "hidden") continue;
     minX = Math.min(minX, data.x);
     maxX = Math.max(maxX, data.x);
     minY = Math.min(minY, data.y);
@@ -32,7 +32,7 @@ export function frameNodes(
   const extent = framedExtent(sigma, ids);
   const camera = sigma.getCamera();
   if (!extent) {
-    void camera.animatedReset({ duration });
+    void camera.reset({ duration });
     return;
   }
   const span = Math.max(extent.maxX - extent.minX, extent.maxY - extent.minY);

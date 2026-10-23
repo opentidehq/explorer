@@ -24,12 +24,9 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: ^1.4.1
         version: 1.4.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-      '@sigma/edge-curve':
-        specifier: ^3.1.0
-        version: 3.1.0(sigma@3.0.3(graphology-types@0.24.8))
       '@sigma/node-image':
-        specifier: ^3.0.0
-        version: 3.0.0(sigma@3.0.3(graphology-types@0.24.8))
+        specifier: ^4.0.1
+        version: 4.0.1(sigma@4.0.3(graphology-types@0.24.8))
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -61,8 +58,8 @@ importers:
         specifier: ^10.1.0
         version: 10.1.0(@types/react@19.3.0)(react@19.3.1)
       sigma:
-        specifier: ^3.0.3
-        version: 3.0.3(graphology-types@0.24.8)
+        specifier: ^4.0.3
+        version: 4.0.3(graphology-types@0.24.8)
       tailwind-merge:
         specifier: ^3.7.0
         version: 3.7.0
@@ -1692,15 +1689,10 @@ packages:
     resolution: {integrity: sha512-8mpfsoPeRhesY3pOrzNZBL8uG6N5GVX1EHLBYbd4gzKs+c7vaEIqpTNK5VrffU33qQN4cwpP2v3u4aPPBU32sw==}
     engines: {node: '>=16'}
 
-  '@sigma/edge-curve@3.1.0':
-    resolution: {integrity: sha512-OFWkfAXEsm+X8l1K4K49cC0psB0gQ+gqxKA08HG5piNPdzrDZ5gG9Gza6htZ5AirOVwd/4/uq/gPpD5En+H+3Q==}
+  '@sigma/node-image@4.0.1':
+    resolution: {integrity: sha512-IEs3Xg/l8wKO/mUKivv7LP1lzmkY8PoRIUMaXdDuBNG1sGAQhM6kM857R57VNtCIaM52rt1fQ3vNwGt7wKZG/Q==}
     peerDependencies:
-      sigma: '>=3.0.0-beta.10'
-
-  '@sigma/node-image@3.0.0':
-    resolution: {integrity: sha512-i4WLNPugDY4jgQEZtNSiSVj4HHXOraciXLtlgdygeUxMVEhH8PJ/+Q1vQ9f/SlKFnZQ+7vH3HnsSDW6FD9aP+g==}
-    peerDependencies:
-      sigma: '>=3.0.0-beta.10'
+      sigma: ^4.0.0
 
   '@swc/helpers@0.5.23':
     resolution: {integrity: sha512-5lSsMOTXURePglDfvuAQUqkGek9Hg2kksOYay2m0+XR++b2NWYL/4sWyuvVBIs8oKnJaxkdi9whaL/sqN13afw==}
@@ -3043,8 +3035,8 @@ packages:
     resolution: {integrity: sha512-7++dFhtcx3353uBaq8DDR4NuxBetBzC7ZQOhmTQInHEd6bSrXdiEyzCvG07Z44UYdLShWUyXt5M/yhz8ekcb1A==}
     engines: {node: '>=8'}
 
-  sigma@3.0.3:
-    resolution: {integrity: sha512-5H0zFlx6/NTQpqBg4Rm569ZOpnBOXMaS25UQThIWMU3XyzI5AhmorK/gnl87BvJBLhQd0tW4C0LIp3enWzMoNw==}
+  sigma@4.0.3:
+    resolution: {integrity: sha512-DwtnWVZMpHzgfyWwyH9bvNAV2DwSl9UZHmieLIAOdZboQAfjEGwcKNJzLQOca/vrKNiUYexVnPcNzhkNUQHdVA==}
 
   sisteransi@1.0.5:
     resolution: {integrity: sha512-bLGGlR1QxBcynn2d5YmDX4MGjlZvy2MRBDRNHLJ8VI6l6+9FUiyTFNJ0IveOSP0bcXgVDPRcfGqA0pjaqUpfVg==}
@@ -4489,13 +4481,9 @@ snapshots:
 
   '@shaderfrog/glsl-parser@7.0.1': {}
 
-  '@sigma/edge-curve@3.1.0(sigma@3.0.3(graphology-types@0.24.8))':
+  '@sigma/node-image@4.0.1(sigma@4.0.3(graphology-types@0.24.8))':
     dependencies:
-      sigma: 3.0.3(graphology-types@0.24.8)
-
-  '@sigma/node-image@3.0.0(sigma@3.0.3(graphology-types@0.24.8))':
-    dependencies:
-      sigma: 3.0.3(graphology-types@0.24.8)
+      sigma: 4.0.3(graphology-types@0.24.8)
 
   '@swc/helpers@0.5.23':
     dependencies:
@@ -5980,7 +5968,7 @@ snapshots:
 
   shebang-regex@3.0.0: {}
 
-  sigma@3.0.3(graphology-types@0.24.8):
+  sigma@4.0.3(graphology-types@0.24.8):
     dependencies:
       events: 3.3.0
       graphology-utils: 2.5.2(graphology-types@0.24.8)

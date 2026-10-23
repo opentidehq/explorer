@@ -275,6 +275,42 @@ describe("syncVocabLayer", () => {
     expect(graph.getNodeAttribute(THREAT_ID, "y")).toBe(-12);
   });
 
+  it("hides a large layer in one rebuild, keeping the objects as they were", () => {
+    const bundle = threatBundle();
+    const graph = toGraphology(buildCorpusGraph(bundle));
+    graph.mergeNodeAttributes(THREAT_ID, { x: 40, y: -12, baseX: 1 });
+    const objects = graph.nodes();
+    const links = graph.edges();
+    const one = buildVocabGraphLayer(bundle, [THREAT_ID], vocabIndex);
+    const ids = Array.from({ length: 60 }, (_, i) =>
+      vocabNodeId("severity", `v${i}`),
+    );
+    syncVocabLayer(graph, {
+      nodes: ids.map((id) => ({ ...one.nodes[0]!, id, label: id })),
+      edges: ids.map((id) => ({
+        ...one.edges[0]!,
+        id: `${THREAT_ID}|${id}|vocab`,
+        target: id,
+      })),
+    });
+    expect(graph.order).toBe(objects.length + 60);
+
+    const events: string[] = [];
+    for (const event of ["cleared", "nodeDropped", "edgeDropped"] as const) {
+      graph.on(event, () => events.push(event));
+    }
+    syncVocabLayer(graph, { nodes: [], edges: [] });
+
+    expect(events).toEqual(["cleared"]);
+    expect(graph.nodes()).toEqual(objects);
+    expect(graph.edges()).toEqual(links);
+    expect(graph.getNodeAttributes(THREAT_ID)).toMatchObject({
+      x: 40,
+      y: -12,
+      baseX: 1,
+    });
+  });
+
   it("keeps a vocab node's place across syncs and gives it a base position", () => {
     const bundle = threatBundle();
     const graph = toGraphology(buildCorpusGraph(bundle));

@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import type Sigma from "sigma";
-import { DEFAULT_EDGE_CURVATURE } from "@sigma/edge-curve";
 import { useCatalog, useExplorer } from "@/components/explorer/explorer-state";
 import { TypeIcon } from "@/components/ui/tide";
 import { inEdges, outEdges } from "@/lib/graph/corpus-graph";
 import type { KillchainGroupLayout } from "@/lib/graph/killchain-grouping";
 import { mix, type GraphPalette } from "@/lib/graph/node-images";
+import { EDGE_CURVATURE } from "@/lib/graph/render-styles";
 import { TYPE_LABELS } from "@/lib/graph/type-icons";
 
 /** Call `draw` after every sigma render, at most once per frame. */
@@ -51,7 +51,7 @@ interface Point {
 
 function nodeAt(sigma: Sigma, id: string): (Point & { r: number }) | null {
   const data = sigma.getNodeDisplayData(id);
-  if (!data || data.hidden) return null;
+  if (!data || data.visibility === "hidden") return null;
   const point = sigma.framedGraphToViewport(data);
   return { ...point, r: sigma.scaleSize(data.size) };
 }
@@ -148,9 +148,7 @@ export function FocusOverlay({
         const dy = t.y - s.y;
         const length = Math.hypot(dx, dy);
         if (length < s.r + t.r + 4) continue;
-        const k =
-          (graph.getEdgeAttribute(id, "curvature") as number | undefined) ??
-          DEFAULT_EDGE_CURVATURE;
+        const k = EDGE_CURVATURE;
         const control = {
           x: (s.x + t.x) / 2 + dy * k,
           y: (s.y + t.y) / 2 - dx * k,

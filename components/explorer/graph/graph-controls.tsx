@@ -177,13 +177,13 @@ export function GraphControls({
     >
       <ControlButton
         label="Zoom in"
-        onClick={() => void camera.animatedZoom({ duration: 220 })}
+        onClick={() => void camera.zoomIn({ duration: 220 })}
       >
         <Plus className="size-4" aria-hidden />
       </ControlButton>
       <ControlButton
         label="Zoom out"
-        onClick={() => void camera.animatedUnzoom({ duration: 220 })}
+        onClick={() => void camera.zoomOut({ duration: 220 })}
       >
         <Minus className="size-4" aria-hidden />
       </ControlButton>
