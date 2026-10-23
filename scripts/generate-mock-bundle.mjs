@@ -111,10 +111,14 @@ function walkYamlFiles(dir) {
 export function inferType(body) {
   const schema = body?.metadata?.schema;
   if (typeof schema === "string") return schema.split("::")[0] ?? null;
-  if (body?.configurations || body?.platforms) return "rule";
+  if (body?.configurations) return "rule";
   if (body?.objective) return "objective";
   if (body?.threat) return "threat";
-  if (body?.signal || body?.[SIGNAL_OBJECTIVE_KEY]) return "signal";
+  if (body?.signal || body?.parent || body?.[SIGNAL_OBJECTIVE_KEY]) {
+    return "signal";
+  }
+  // The legacy `platforms` dict marks a rule only once nothing else has claimed the body.
+  if (body?.platforms) return "rule";
   return null;
 }
 

@@ -110,6 +110,25 @@ describe("parseFilterTokens", () => {
     expect(filters.actors).toEqual(["G0007"]);
   });
 
+  it("leaves out an alternative with nothing in it", () => {
+    for (const input of [
+      "type:rule OR platform:",
+      "type:rule OR reach:chains",
+      "type:rule OR OR",
+    ]) {
+      const filters = parseFilterTokens(input);
+      expect(filters.groups).toEqual([]);
+      expect(filters.types).toEqual(["rule"]);
+    }
+  });
+
+  it("joins only with capitals and skips a lowercase and/or", () => {
+    const filters = parseFilterTokens("search or destroy and type:rule");
+    expect(filters.groups).toEqual([]);
+    expect(filters.query).toBe("search destroy");
+    expect(filters.types).toEqual(["rule"]);
+  });
+
   it("ignores joiners with nothing to join", () => {
     const filters = parseFilterTokens("AND type:rule OR");
     expect(filters.groups).toEqual([]);
@@ -160,6 +179,21 @@ describe("toggleClause", () => {
 
   it("does not match a clause inside a longer value", () => {
     expect(hasClause("technique:T1059.001", "technique", "T1059")).toBe(false);
+  });
+
+  it("adds a clause to every OR alternative, and takes it out of each", () => {
+    const added = toggleClause(
+      "actor:apt29 OR platform:sentinel",
+      "type",
+      "rule",
+    );
+    expect(added).toBe("actor:apt29 type:rule OR platform:sentinel type:rule");
+    expect(
+      parseFilterTokens(added).groups.map((group) => group[0]?.types),
+    ).toEqual([["rule"], ["rule"]]);
+    expect(toggleClause(added, "type", "rule")).toBe(
+      "actor:apt29 OR platform:sentinel",
+    );
   });
 
   it("adds and removes an exclusion separately from an inclusion", () => {

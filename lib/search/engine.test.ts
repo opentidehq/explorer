@@ -158,6 +158,11 @@ describe("search engine", () => {
     ]);
   });
 
+  it("never lets an empty alternative match everything", () => {
+    expect(search("type:rule OR platform:")).toEqual([R1]);
+    expect(search("type:rule OR reach:matches")).toEqual([R1]);
+  });
+
   it("matches a quoted phrase whole, joiners included", () => {
     expect(search('"accounts and few"')).toEqual([T2]);
     expect(search('"few and accounts"')).toEqual([]);

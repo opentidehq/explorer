@@ -258,7 +258,9 @@ function excludeClause(key: string, raw: string, ex: ExcludedValues): boolean {
  */
 const TOKEN_RE = /(?:[^\s"]+|"[^"]*"?)+/g;
 
-const JOINER_RE = /^(?:and|or)$/i;
+/** AND/OR in capitals join clauses; in any other case they are skipped, as they always were. */
+const JOINER_RE = /^(?:AND|OR)$/;
+const SKIPPED_JOINER_RE = /^(?:and|or)$/i;
 
 /** A whole token that is a clause: a known field, an operator and a value. */
 const CLAUSE_RE = new RegExp(
@@ -299,6 +301,16 @@ function parseClauseSet(tokens: string[], settings: Settings): ClauseSet {
   return set;
 }
 
+function isEmptyClauseSet(set: ClauseSet): boolean {
+  return (
+    activeFilterCount({
+      ...set,
+      relationMode: DEFAULT_FILTERS.relationMode,
+      groups: [],
+    }) === 0
+  );
+}
+
 /** Every clause and word of several clause sets as one, for chips and counts. */
 function mergeClauseSets(sets: ClauseSet[]): ClauseSet {
   const merged = emptyClauseSet();
@@ -334,11 +346,11 @@ function splitAtJoiners(tokens: string[]): string[][][] {
   };
   for (const token of tokens) {
     if (!JOINER_RE.test(token)) {
-      part.push(token);
+      if (!SKIPPED_JOINER_RE.test(token)) part.push(token);
       continue;
     }
     closePart();
-    if (token.toUpperCase() === "OR" && groups.at(-1)!.length) groups.push([]);
+    if (token === "OR" && groups.at(-1)!.length) groups.push([]);
   }
   closePart();
   return groups.filter((group) => group.length);
@@ -354,9 +366,15 @@ function splitAtJoiners(tokens: string[]): string[][][] {
  */
 export function parseFilterTokens(input: string): CatalogFilters {
   const settings: Settings = { relationMode: DEFAULT_FILTERS.relationMode };
-  const groups = splitAtJoiners(tokensOf(input)).map((group) =>
-    group.map((part) => parseClauseSet(part, settings)),
-  );
+  // A part with nothing in it (`type:rule OR platform:` while typing) would match
+  // everything, so it is left out rather than turn the whole OR into "anything".
+  const groups = splitAtJoiners(tokensOf(input))
+    .map((group) =>
+      group
+        .map((part) => parseClauseSet(part, settings))
+        .filter((set) => !isEmptyClauseSet(set)),
+    )
+    .filter((group) => group.length);
   const flat = mergeClauseSets(groups.flat());
   const explicit = groups.length > 1 || (groups[0]?.length ?? 0) > 1;
   return {
@@ -501,7 +519,18 @@ export function toggleClause(
       .replace(/\s+/g, " ")
       .trim();
   }
-  return `${query.trim()} ${clauseText(field, op, value)}`.trim();
+  const clause = clauseText(field, op, value);
+  const tokens = tokensOf(query);
+  if (!tokens.includes("OR")) return `${query.trim()} ${clause}`.trim();
+  // AND binds tighter than OR: the clause joins every alternative, or it would narrow only
+  // the last one.
+  const out: string[] = [];
+  for (const token of tokens) {
+    if (token === "OR") out.push(clause);
+    out.push(token);
+  }
+  out.push(clause);
+  return out.join(" ");
 }
 
 /**
@@ -517,7 +546,7 @@ export function withoutFreeText(query: string): string {
       const last = kept.at(-1);
       if (!last) continue;
       if (JOINER_RE.test(last)) {
-        if (token.toUpperCase() === "OR") kept[kept.length - 1] = token;
+        if (token === "OR") kept[kept.length - 1] = token;
         continue;
       }
       kept.push(token);

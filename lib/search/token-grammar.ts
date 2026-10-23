@@ -8,8 +8,8 @@
  *
  * Side by side, clauses of one field match any of their values and clauses of different
  * fields must all match (`type:rule type:signal platform:sentinel`). Explicit AND requires
- * both sides, even for one field, and OR either; AND binds tighter than OR. A quoted run is
- * one value or one phrase. Every other word is free text; reach and deployment are clauses too.
+ * both sides, even for one field, and OR either; AND binds tighter than OR. Only capitals
+ * join: a lowercase and/or is skipped. A quoted run is one value or one phrase. Every other word is free text; reach and deployment are clauses too.
  */
 
 import {

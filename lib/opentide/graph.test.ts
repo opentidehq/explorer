@@ -375,25 +375,28 @@ describe("signal objectives", () => {
     return createGraphContext({ models, flatIndex, chaining });
   }
 
-  it("reads a signal's objective from its own key, not its parent signal", () => {
+  it("reads a signal's objective from its own key, and keeps its parent signal", () => {
     const ctx = specContext();
-    expect(parents(ctx, CHILD_SIGNAL_ID)).toEqual([OBJECTIVE_ID]);
+    expect(parents(ctx, CHILD_SIGNAL_ID)).toEqual([OBJECTIVE_ID, SIGNAL_ID]);
+    expect(parents(ctx, SIGNAL_ID)).toEqual([OBJECTIVE_ID]);
     expect(childs(ctx, OBJECTIVE_ID)).toEqual(
       expect.arrayContaining([SIGNAL_ID, CHILD_SIGNAL_ID]),
     );
+    expect(childs(ctx, SIGNAL_ID)).toContain(CHILD_SIGNAL_ID);
     expect(techniquesResolver(ctx, CHILD_SIGNAL_ID, true)).toEqual([
       "T1195.001",
       "T1059.007",
     ]);
   });
 
-  it("takes a parent that names an objective only from earlier bundles", () => {
+  it("reads a parent as whichever of objective or signal it names", () => {
+    // Earlier bundles wrote the objective over `parent`.
     const ctx = createGraphContext(makeFixture());
     expect(parents(ctx, SIGNAL_ID)).toEqual([OBJECTIVE_ID]);
 
     const spec = specContext();
     delete spec.flatIndex[CHILD_SIGNAL_ID]!["_objective"];
-    expect(parents(spec, CHILD_SIGNAL_ID)).toEqual([]);
+    expect(parents(spec, CHILD_SIGNAL_ID)).toEqual([SIGNAL_ID]);
   });
 
   it("adds a rule's own techniques to those of what it implements", () => {

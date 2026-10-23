@@ -51,8 +51,8 @@ const CHILD_MAPPINGS: Record<
     references: ["detection_model", SIGNAL_OBJECTIVE_KEY, "parent"],
   },
   signal: {
-    child_types: ["rule"],
-    references: ["detection_model"],
+    child_types: ["rule", "signal"],
+    references: ["detection_model", "parent"],
   },
 };
 
@@ -118,24 +118,28 @@ export function getType(
 }
 
 /**
- * The objective an embedded signal belongs to. Bundles from earlier generators put it in
- * `parent`, which the spec gives to a parent signal: that counts only when it names an
- * objective.
+ * A signal's parents: the objective it belongs to, and its parent signal when it has one.
+ * Bundles from earlier generators put the objective in `parent`, which the spec gives to a
+ * parent signal, so `parent` counts as whichever of the two it names.
  */
-function signalObjective(ctx: GraphContext, id: string): string[] {
+function signalParents(ctx: GraphContext, id: string): string[] {
   const body = ctx.models.signal?.[id] ?? ctx.flatIndex[id];
+  const found: string[] = [];
   const owner = body?.[SIGNAL_OBJECTIVE_KEY];
-  if (typeof owner === "string") return [owner];
+  if (typeof owner === "string") found.push(owner);
   const parent = body?.["parent"];
-  return typeof parent === "string" &&
-    getType(ctx, parent, true) === "objective"
-    ? [parent]
-    : [];
+  if (typeof parent === "string" && !found.includes(parent)) {
+    const type = getType(ctx, parent, true);
+    if (type === "signal" || (type === "objective" && !found.length)) {
+      found.push(parent);
+    }
+  }
+  return found;
 }
 
 export function parents(ctx: GraphContext, id: string): string[] {
   const modelType = getType(ctx, id, true);
-  if (!modelType || modelType === "signal") return signalObjective(ctx, id);
+  if (!modelType || modelType === "signal") return signalParents(ctx, id);
 
   const mapping = PARENT_MAPPINGS[modelType];
   if (!mapping) return [];

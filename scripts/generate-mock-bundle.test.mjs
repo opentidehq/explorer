@@ -90,6 +90,8 @@ describe("inferType", () => {
     );
     expect(inferType({ platforms: { splunk: {} } })).toBe("rule");
     expect(inferType({ threat: {} })).toBe("threat");
+    expect(inferType({ parent: "x" })).toBe("signal");
+    expect(inferType({ threat: {}, platforms: {} })).toBe("threat");
     expect(inferType({})).toBeNull();
   });
 });
