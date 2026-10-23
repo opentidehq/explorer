@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { copyExports, writeOutput } from "./build.mjs";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { copyExports, parseArgs, writeOutput } from "./build.mjs";
 
 const technique = {
   name: "Valid Accounts",
@@ -38,6 +38,96 @@ const write = (dir, file, data) =>
 afterEach(() => {
   for (const dir of dirs.splice(0))
     fs.rmSync(dir, { recursive: true, force: true });
+});
+
+describe("parseArgs", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const defaults = () => ({
+    exportsDir: null,
+    schemasDir: null,
+    output: path.join(process.cwd(), "out", "explorer"),
+    basePath: "",
+  });
+
+  it("defaults every option", () => {
+    expect(parseArgs([])).toEqual(defaults());
+  });
+
+  it("reads each flag's value", () => {
+    expect(
+      parseArgs([
+        "--exports-dir",
+        "exports",
+        "--schemas-dir",
+        "schemas",
+        "--output",
+        "site",
+        "--base-path",
+        "/library",
+      ]),
+    ).toEqual({
+      exportsDir: "exports",
+      schemasDir: "schemas",
+      output: "site",
+      basePath: "/library",
+    });
+  });
+
+  it("takes each flag on its own, the last one winning", () => {
+    expect(parseArgs(["--output", "a", "--output", "b"]).output).toBe("b");
+    expect(parseArgs(["--base-path", "/x"])).toEqual({
+      ...defaults(),
+      basePath: "/x",
+    });
+    expect(parseArgs(["--schemas-dir", "s"])).toEqual({
+      ...defaults(),
+      schemasDir: "s",
+    });
+  });
+
+  it("keeps the default for a flag without a value", () => {
+    expect(parseArgs(["--exports-dir"])).toEqual(defaults());
+    expect(parseArgs(["--output", ""]).output).toBe(defaults().output);
+    // The next flag is not the value: both apply.
+    expect(parseArgs(["--exports-dir", "--output", "site"])).toEqual({
+      ...defaults(),
+      output: "site",
+    });
+  });
+
+  it("skips unknown flags without eating the next one", () => {
+    expect(parseArgs(["--verbose", "--exports-dir", "exports"])).toEqual({
+      ...defaults(),
+      exportsDir: "exports",
+    });
+    expect(parseArgs(["stray", "--output", "site"]).output).toBe("site");
+  });
+
+  for (const flag of ["--help", "-h"]) {
+    it(`prints usage and exits for ${flag}`, () => {
+      const log = vi.spyOn(console, "log").mockImplementation(() => {});
+      const exit = vi.spyOn(process, "exit").mockImplementation((code) => {
+        throw new Error(`exit ${code}`);
+      });
+
+      expect(() => parseArgs(["--output", "site", flag])).toThrow("exit 0");
+      // Not taken as an unknown flag's value.
+      expect(() => parseArgs(["--verbose", flag])).toThrow("exit 0");
+      expect(exit).toHaveBeenCalledWith(0);
+      expect(log.mock.calls[0]?.[0]).toMatch(/^Usage: opentide-explorer-build/);
+      for (const option of [
+        "--exports-dir",
+        "--schemas-dir",
+        "--output",
+        "--base-path",
+      ]) {
+        expect(log.mock.calls[0]?.[0]).toContain(option);
+      }
+    });
+  }
 });
 
 describe("copyExports", () => {

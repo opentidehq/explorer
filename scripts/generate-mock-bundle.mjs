@@ -11,6 +11,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parse as parseToml } from "smol-toml";
 import { parse as parseYaml } from "yaml";
 import { codegenFromSpecs } from "./codegen-from-specs.mjs";
 import { resolveCodegenPolicy } from "./lib/codegen-policy.mjs";
@@ -34,6 +35,35 @@ const BUNDLE_VERSION = "0.2.0";
  * @typedef {any} CorpusObject
  */
 /** @typedef {"threat" | "objective" | "signal" | "rule"} ObjectType */
+
+/**
+ * Where an embedded signal's objective is kept. The spec gives `parent` to a signal's parent
+ * signal, so the bundle never writes the objective there (lib/opentide/graph.ts reads both).
+ */
+const SIGNAL_OBJECTIVE_KEY = "_objective";
+
+/**
+ * Deployment strategy per status: the statuses bundled with opentide
+ * (specifications specs/deployment.md). A corpus may define its own; see loadStatusStrategies.
+ * @type {Record<string, string>}
+ */
+const BUNDLED_STRATEGIES = {
+  DESIGN: "INERT",
+  DEVELOPMENT: "PREVIEW",
+  IMPROVING: "PREVIEW",
+  STAGING: "PREVIEW",
+  ACCEPTANCE: "PREVIEW",
+  PRODUCTION: "RELEASE",
+  DISABLED: "DISABLEMENT",
+  REMOVED: "DELETION",
+};
+
+/** A rule's status when it names none (specifications specs/objects/rule-1.0.md). */
+const DEFAULT_RULE_STATUS = "STAGING";
+
+/** Strategies that deploy to staging or preview targets, and to production targets. */
+const STAGING_STRATEGIES = new Set(["PREVIEW", "UNIVERSAL"]);
+const PRODUCTION_STRATEGIES = new Set(["RELEASE", "UNIVERSAL"]);
 
 function resolveCorpusRoot() {
   if (process.env.OPENTIDE_USE_FIXTURE === "1") {
@@ -78,44 +108,119 @@ function walkYamlFiles(dir) {
  * @param {CorpusObject} body
  * @returns {string | null}
  */
-function inferType(body) {
+export function inferType(body) {
   const schema = body?.metadata?.schema;
   if (typeof schema === "string") return schema.split("::")[0] ?? null;
   if (body?.configurations) return "rule";
   if (body?.objective) return "objective";
   if (body?.threat) return "threat";
-  if (body?.signal || body?.parent) return "signal";
+  if (body?.signal || body?.parent || body?.[SIGNAL_OBJECTIVE_KEY]) {
+    return "signal";
+  }
+  // The legacy `platforms` dict marks a rule only once nothing else has claimed the body.
+  if (body?.platforms) return "rule";
   return null;
 }
 
 /**
- * @param {CorpusObject} body
- * @param {string | null} type
+ * Status names and their strategies: the bundled set, with a corpus's
+ * `.opentide/configurations/deployment.toml` merged over it, as opentide merges them.
+ * @param {string | null} corpusRoot
+ * @returns {Record<string, string>}
  */
-function getPlatforms(body, type) {
-  /** @type {Set<string>} */
-  const platforms = new Set();
-  if (type === "rule" && body.configurations) {
-    for (const key of Object.keys(body.configurations)) {
-      platforms.add(key.replace(/_/g, " "));
+export function loadStatusStrategies(corpusRoot) {
+  const strategies = { ...BUNDLED_STRATEGIES };
+  if (!corpusRoot) return strategies;
+  const file = path.join(
+    corpusRoot,
+    ".opentide",
+    "configurations",
+    "deployment.toml",
+  );
+  if (!fs.existsSync(file)) return strategies;
+  const doc = parseToml(fs.readFileSync(file, "utf8"));
+  for (const status of Array.isArray(doc.statuses) ? doc.statuses : []) {
+    const { name, strategy } = /** @type {Record<string, unknown>} */ (status);
+    if (typeof name === "string" && typeof strategy === "string") {
+      strategies[name.toUpperCase()] = strategy.toUpperCase();
     }
   }
-  return [...platforms];
+  return strategies;
+}
+
+/**
+ * @param {unknown} value
+ * @returns {Record<string, CorpusObject>}
+ */
+function asRecord(value) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? /** @type {Record<string, CorpusObject>} */ (value)
+    : {};
+}
+
+/**
+ * A rule's platform blocks: the legacy `platforms` dict, then the typed `configurations`
+ * that replace it (the spec forbids one platform in both).
+ * @param {CorpusObject} body
+ */
+export function platformBlocks(body) {
+  return { ...asRecord(body?.platforms), ...asRecord(body?.configurations) };
+}
+
+/**
+ * A platform block's status: its own, else the rule's, else the spec default.
+ * @param {CorpusObject} rule
+ * @param {CorpusObject} block
+ * @returns {string}
+ */
+function blockStatus(rule, block) {
+  const status = block?.status ?? rule?.status ?? DEFAULT_RULE_STATUS;
+  return String(status).toUpperCase();
+}
+
+/**
+ * Deployed only when enabled; a block that says nothing counts as enabled, as in corpora
+ * written before `enabled` was required.
+ * @param {CorpusObject} block
+ */
+function blockEnabled(block) {
+  return block?.enabled !== false;
 }
 
 /**
  * @param {CorpusObject} body
  * @param {string | null} type
+ */
+export function getPlatforms(body, type) {
+  if (type !== "rule") return [];
+  return Object.keys(platformBlocks(body)).map((key) => key.replace(/_/g, " "));
+}
+
+/**
+ * The status a rule shows: of its enabled blocks (all of them when none is), the one that
+ * deploys furthest, production before staging; without blocks, the rule's own status.
+ * @param {CorpusObject} body
+ * @param {string | null} type
+ * @param {Record<string, string>} strategies
  * @returns {string | undefined}
  */
-function getStatus(body, type) {
-  if (type !== "rule" || !body.configurations) return undefined;
-  const statuses = Object.values(
-    /** @type {Record<string, CorpusObject>} */ (body.configurations),
-  ).map((c) => c?.status);
-  if (statuses.includes("PRODUCTION")) return "PRODUCTION";
-  if (statuses.includes("STAGING")) return "STAGING";
-  return statuses[0];
+export function getStatus(body, type, strategies = BUNDLED_STRATEGIES) {
+  if (type !== "rule") return undefined;
+  const blocks = Object.values(platformBlocks(body));
+  const live = blocks.filter(blockEnabled);
+  const statuses = (live.length ? live : blocks).map((block) =>
+    blockStatus(body, block),
+  );
+  if (!statuses.length) return blockStatus(body, undefined);
+  /** @param {string} status */
+  const reach = (status) => {
+    const strategy = strategies[status] ?? "";
+    if (PRODUCTION_STRATEGIES.has(strategy)) return 2;
+    return STAGING_STRATEGIES.has(strategy) ? 1 : 0;
+  };
+  return statuses.reduce((best, status) =>
+    reach(status) > reach(best) ? status : best,
+  );
 }
 
 /**
@@ -164,7 +269,7 @@ function ownTechniques(section) {
  * @param {Set<string>} seen
  * @returns {string[]}
  */
-function resolveTechniques(
+export function resolveTechniques(
   uuid,
   flatIndex,
   cache = new Map(),
@@ -190,10 +295,18 @@ function resolveTechniques(
         techniques.push(...resolveTechniques(parent, flatIndex, cache, seen));
       }
     }
+  } else if (type === "signal") {
+    // A signal detects what its objective does.
+    const objective = body?.[SIGNAL_OBJECTIVE_KEY];
+    if (typeof objective === "string") {
+      techniques = resolveTechniques(objective, flatIndex, cache, seen);
+    }
   } else if (type === "rule") {
+    // Its own techniques, and those of the objective or signal it implements.
+    techniques = techniqueList(body?.techniques);
     const parent = body?.detection_model ?? body?.tags?.coretide;
     if (parent) {
-      techniques = resolveTechniques(parent, flatIndex, cache, seen);
+      techniques.push(...resolveTechniques(parent, flatIndex, cache, seen));
     }
   }
 
@@ -231,7 +344,11 @@ function countRelations(flatIndex) {
       }
     }
     if (type === "signal" || type === "rule") {
-      for (const parent of asList(body?.parent ?? body?.detection_model)) {
+      const parents =
+        type === "signal"
+          ? body?.[SIGNAL_OBJECTIVE_KEY]
+          : (body?.detection_model ?? body?.tags?.coretide);
+      for (const parent of asList(parents)) {
         bump(uuid);
         bump(parent);
       }
@@ -240,8 +357,13 @@ function countRelations(flatIndex) {
   return counts;
 }
 
-/** @param {Array<[string, CorpusObject]>} rules */
-function buildStagingIndex(rules) {
+/**
+ * Each rule's status per platform, and which rules reach staging and production, by the
+ * strategy of each enabled block's status rather than by status name.
+ * @param {Array<[string, CorpusObject]>} rules
+ * @param {Record<string, string>} strategies
+ */
+export function buildStagingIndex(rules, strategies = BUNDLED_STRATEGIES) {
   /** @type {Record<string, Record<string, string>>} */
   const deployments = {};
   /** @type {Record<string, { production: number, staging: number, other: number }>} */
@@ -252,13 +374,11 @@ function buildStagingIndex(rules) {
   const productionObjects = new Set();
 
   for (const [uuid, body] of rules) {
-    /** @type {Record<string, CorpusObject>} */
-    const configs = body?.configurations ?? {};
     /** @type {Record<string, string>} */
     const statuses = {};
     deployments[uuid] = statuses;
-    for (const [platform, config] of Object.entries(configs)) {
-      const status = String(config?.status ?? "UNKNOWN").toUpperCase();
+    for (const [platform, block] of Object.entries(platformBlocks(body))) {
+      const status = blockStatus(body, block);
       statuses[platform] = status;
 
       const summary = (platformSummary[platform] ??= {
@@ -266,15 +386,18 @@ function buildStagingIndex(rules) {
         staging: 0,
         other: 0,
       });
-      if (status === "PRODUCTION") {
-        summary.production += 1;
-        productionObjects.add(uuid);
-      } else if (status === "STAGING") {
+      const strategy = blockEnabled(block) ? (strategies[status] ?? "") : "";
+      const staging = STAGING_STRATEGIES.has(strategy);
+      const production = PRODUCTION_STRATEGIES.has(strategy);
+      if (staging) {
         summary.staging += 1;
         stagingObjects.add(uuid);
-      } else {
-        summary.other += 1;
       }
+      if (production) {
+        summary.production += 1;
+        productionObjects.add(uuid);
+      }
+      if (!staging && !production) summary.other += 1;
     }
   }
 
@@ -366,6 +489,101 @@ function writeSlimVocab(outDir, objects) {
   );
 }
 
+/**
+ * The explorer bundle for parsed corpus files: each object once in `flatIndex`, with the
+ * signals objectives embed promoted to objects of their own, and the summaries, chaining and
+ * deployments the client reads.
+ * @param {Array<{ file: string, path: string, body: CorpusObject }>} files
+ * @param {{
+ *   source?: { repository: string, ref: string },
+ *   strategies?: Record<string, string>,
+ *   generatedAt?: string,
+ * }} [options]
+ */
+export function assembleBundle(files, options = {}) {
+  const strategies = options.strategies ?? BUNDLED_STRATEGIES;
+  /** @type {Record<string, CorpusObject>} */
+  const flatIndex = {};
+  /** @type {Record<string, string>} */
+  const paths = {};
+  /** @type {Record<ObjectType, string[]>} */
+  const byType = { threat: [], objective: [], signal: [], rule: [] };
+
+  for (const { file, path: relative, body } of files) {
+    const type = inferType(body);
+    const uuid = body?.metadata?.uuid;
+    if (!type || !uuid || !Object.hasOwn(byType, type)) continue;
+    if (flatIndex[uuid]) {
+      console.warn(`Duplicate uuid ${uuid} in ${file} — keeping the first`);
+      continue;
+    }
+    flatIndex[uuid] = body;
+    paths[uuid] = relative;
+    byType[/** @type {ObjectType} */ (type)].push(uuid);
+  }
+
+  // Objectives embed their signals; promote each to an object of its own. Its `parent`, if
+  // any, is its parent signal, as the file says; the objective goes under its own key.
+  for (const objectiveUuid of byType.objective) {
+    const body = flatIndex[objectiveUuid];
+    for (const signal of body?.objective?.signals ?? []) {
+      const signalUuid = signal?.uuid;
+      if (!signalUuid || flatIndex[signalUuid]) continue;
+      flatIndex[signalUuid] = {
+        ...signal,
+        name: signal.name ?? signalUuid,
+        metadata: { uuid: signalUuid, schema: "signal::1.0" },
+        [SIGNAL_OBJECTIVE_KEY]: objectiveUuid,
+      };
+      const objectivePath = paths[objectiveUuid];
+      if (objectivePath) paths[signalUuid] = objectivePath;
+      byType.signal.push(signalUuid);
+    }
+  }
+
+  const chaining = buildChainingIndex(
+    byType.threat.map((uuid) => flatIndex[uuid]),
+  );
+  const stagingIndex = buildStagingIndex(
+    byType.rule.map(
+      (uuid) => /** @type {[string, CorpusObject]} */ ([uuid, flatIndex[uuid]]),
+    ),
+    strategies,
+  );
+  const relationCounts = countRelations(flatIndex);
+  /** @type {Map<string, string[]>} */
+  const techniqueCache = new Map();
+
+  const summaries = Object.keys(flatIndex).map((uuid) => {
+    const body = flatIndex[uuid];
+    const type = inferType(body);
+    return {
+      uuid,
+      type,
+      name: body.name ?? uuid,
+      schema: body.metadata?.schema,
+      version: body.metadata?.version,
+      tlp: body.metadata?.tlp,
+      status: getStatus(body, type, strategies),
+      techniques: resolveTechniques(uuid, flatIndex, techniqueCache),
+      actors: getActors(body, type),
+      relatedCount: relationCounts.get(uuid) ?? 0,
+      platforms: getPlatforms(body, type),
+      path: paths[uuid],
+    };
+  });
+
+  return {
+    version: BUNDLE_VERSION,
+    generatedAt: options.generatedAt ?? new Date().toISOString(),
+    source: options.source,
+    flatIndex,
+    chaining,
+    summaries,
+    stagingIndex,
+  };
+}
+
 async function main() {
   const corpusRoot = resolveCorpusRoot();
   const outDir = path.join(ROOT, "public", "data");
@@ -396,87 +614,20 @@ async function main() {
     return;
   }
 
-  /** @type {Record<string, CorpusObject>} */
-  const flatIndex = {};
-  /** @type {Record<string, string>} */
-  const paths = {};
-  /** @type {Record<ObjectType, string[]>} */
-  const byType = { threat: [], objective: [], signal: [], rule: [] };
-
   const objectFiles = walkYamlFiles(path.join(corpusRoot, "objects"));
   console.log(`Loading ${objectFiles.length} objects from ${corpusRoot}`);
-
-  for (const file of objectFiles) {
-    const body = parseYaml(fs.readFileSync(file, "utf8"));
-    const type = inferType(body);
-    const uuid = body?.metadata?.uuid;
-    if (!type || !uuid || !Object.hasOwn(byType, type)) continue;
-    if (flatIndex[uuid]) {
-      console.warn(`Duplicate uuid ${uuid} in ${file} — keeping the first`);
-      continue;
-    }
-    flatIndex[uuid] = body;
-    paths[uuid] = path.relative(corpusRoot, file).split(path.sep).join("/");
-    byType[/** @type {ObjectType} */ (type)].push(uuid);
-  }
-
-  // Objectives embed their signals; promote each to an object of its own.
-  for (const objectiveUuid of byType.objective) {
-    const body = flatIndex[objectiveUuid];
-    for (const signal of body?.objective?.signals ?? []) {
-      const signalUuid = signal?.uuid;
-      if (!signalUuid || flatIndex[signalUuid]) continue;
-      flatIndex[signalUuid] = {
-        ...signal,
-        name: signal.name ?? signalUuid,
-        metadata: { uuid: signalUuid, schema: "signal::1.0" },
-        parent: objectiveUuid,
-      };
-      const objectivePath = paths[objectiveUuid];
-      if (objectivePath) paths[signalUuid] = objectivePath;
-      byType.signal.push(signalUuid);
-    }
-  }
-
-  const chaining = buildChainingIndex(
-    byType.threat.map((uuid) => flatIndex[uuid]),
+  const bundle = assembleBundle(
+    objectFiles.map((file) => ({
+      file,
+      path: path.relative(corpusRoot, file).split(path.sep).join("/"),
+      body: parseYaml(fs.readFileSync(file, "utf8")),
+    })),
+    {
+      source: resolveSource(corpusRoot),
+      strategies: loadStatusStrategies(corpusRoot),
+    },
   );
-  const stagingIndex = buildStagingIndex(
-    byType.rule.map(
-      (uuid) => /** @type {[string, CorpusObject]} */ ([uuid, flatIndex[uuid]]),
-    ),
-  );
-  const relationCounts = countRelations(flatIndex);
-  const techniqueCache = new Map();
-
-  const summaries = Object.keys(flatIndex).map((uuid) => {
-    const body = flatIndex[uuid];
-    const type = inferType(body);
-    return {
-      uuid,
-      type,
-      name: body.name ?? uuid,
-      schema: body.metadata?.schema,
-      version: body.metadata?.version,
-      tlp: body.metadata?.tlp,
-      status: getStatus(body, type),
-      techniques: resolveTechniques(uuid, flatIndex, techniqueCache),
-      actors: getActors(body, type),
-      relatedCount: relationCounts.get(uuid) ?? 0,
-      platforms: getPlatforms(body, type),
-      path: paths[uuid],
-    };
-  });
-
-  const bundle = {
-    version: BUNDLE_VERSION,
-    generatedAt: new Date().toISOString(),
-    source: resolveSource(corpusRoot),
-    flatIndex,
-    chaining,
-    summaries,
-    stagingIndex,
-  };
+  const { flatIndex, summaries, stagingIndex } = bundle;
 
   fs.writeFileSync(
     path.join(outDir, "explorer.bundle.json"),

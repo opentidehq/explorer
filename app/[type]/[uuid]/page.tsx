@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { ExplorerApp } from "@/components/explorer/explorer-app";
-import { loadBundleSync, objectMetadataSync } from "@/lib/data/server";
-import { TYPE_LABELS, TYPE_PLURALS } from "@/lib/graph/type-icons";
+import {
+  loadBundleSync,
+  objectMetadataSync,
+  objectRouteParams,
+} from "@/lib/data/server";
+import { TYPE_LABELS } from "@/lib/graph/type-icons";
 import type { ObjectType } from "@/lib/opentide/types";
 
 const ROUTE_TYPES: Record<string, ObjectType> = {
@@ -17,10 +21,7 @@ type Params = { type: string; uuid: string };
 export const dynamicParams = false;
 
 export function generateStaticParams(): Params[] {
-  return loadBundleSync().summaries.map((summary) => ({
-    type: TYPE_PLURALS[summary.type],
-    uuid: summary.uuid,
-  }));
+  return objectRouteParams(loadBundleSync());
 }
 
 export async function generateMetadata({

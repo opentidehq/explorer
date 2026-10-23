@@ -18,8 +18,12 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = path.resolve(__dirname, "..");
 
-/** @param {string[]} argv */
-function parseArgs(argv) {
+/**
+ * Options after the `build` subcommand. A flag without a value keeps its default; the next
+ * flag is never taken as its value.
+ * @param {string[]} argv
+ */
+export function parseArgs(argv) {
   const args = {
     exportsDir: /** @type {string | null} */ (null),
     schemasDir: /** @type {string | null} */ (null),
@@ -41,7 +45,7 @@ Options:
       process.exit(0);
     }
     const value = argv[i + 1];
-    if (!value) continue;
+    if (!value || value.startsWith("--")) continue;
     if (arg === "--exports-dir") args.exportsDir = value;
     else if (arg === "--schemas-dir") args.schemasDir = value;
     else if (arg === "--output") args.output = value;

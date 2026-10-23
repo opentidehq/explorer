@@ -168,6 +168,18 @@ export function getTokenSuggestions(
   return { context, suggestions };
 }
 
+/**
+ * Whether Enter takes a suggestion. A typed word that names a field (`attack`) is text more
+ * often than the start of a clause, so Enter turns it into one only once the arrows have
+ * picked the operator; Tab still completes it.
+ */
+export function enterTakes(
+  suggestion: TokenSuggestion,
+  browsed: boolean,
+): boolean {
+  return browsed || suggestion.kind !== "operator";
+}
+
 export function applySuggestion(
   input: string,
   context: TokenContext,

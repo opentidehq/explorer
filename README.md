@@ -181,8 +181,13 @@ When using `opentide explorer serve`, detection content is resolved separately:
   objectives, signals and rules detect them, threat-only techniques marked as gaps.
 - **Search** — free text plus `field:value` clauses (`type:rule technique:T1059 platform:sentinel`)
   and `field!=value` exclusions (`type!=rule`), with suggestions from the corpus and its
-  vocabularies. Reach and deployment are clauses too (`reach:chains`, `deploy:staging`), set by the
-  rail's reach control; any other word is text. ⌘K jumps to any object.
+  vocabularies. Side by side, values of one field are alternatives and different fields must all
+  match; `AND` requires both sides (`technique:T1059 AND technique:T1003`) and `OR` either
+  (`type:threat OR platform:splunk`), with `AND` binding tighter; only capitals join, and a
+  lowercase `and`/`or` is skipped. Quotes keep a phrase whole
+  (`"command and control"`). Reach and deployment are clauses too (`reach:chains`,
+  `deploy:staging`), set by the rail's reach control; any other word is text, as is a clause whose
+  value means nothing for its field (`type:rules`). ⌘K jumps to any object.
 - **Inspector** — each object's description, facts, ATT&CK techniques, vocabulary values with their
   definitions, rule queries per integration, its links read from the fields that hold them, and its
   YAML with a link to the file at the bundle's commit. With nothing selected it shows the library's

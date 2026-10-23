@@ -5,6 +5,7 @@ import {
   outEdges,
   type CorpusGraph,
 } from "@/lib/graph/corpus-graph";
+import { resolveObjectTechniques } from "@/lib/graph/attack-mapping";
 import { getThreatKillchain } from "@/lib/graph/killchain-grouping";
 import { enrichBundle } from "@/lib/opentide/enrich-bundle";
 import { createGraphContext, type GraphContext } from "@/lib/opentide/graph";
@@ -175,7 +176,11 @@ export function buildCatalog(
     vocab,
     graph,
     corpus,
-    search: createSearchIndex(buildSearchDocuments(bundle)),
+    search: createSearchIndex(
+      buildSearchDocuments(bundle, (summary) =>
+        resolveObjectTechniques(graph, summary),
+      ),
+    ),
     tokens: enrichTokenVocabulary(buildTokenVocabulary(bundle), vocab),
     summaries,
     byType,
