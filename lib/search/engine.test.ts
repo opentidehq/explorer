@@ -133,6 +133,14 @@ describe("search engine", () => {
     expect(search(`uuid:${O1}`)).toEqual([O1]);
   });
 
+  it("matches status by what an object shows, and deploy by where it runs", () => {
+    expect(search("status:production")).toEqual([R1]);
+    expect(search("deploy:production")).toEqual([R1]);
+    expect(search("status:staging")).toEqual([]);
+    // Deployed nowhere in staging: the stagingIndex decides, not the status.
+    expect(search("deploy:staging")).toEqual([]);
+  });
+
   it("leaves out what != names", () => {
     expect(search("type!=threat")).toEqual([O1, R1]);
     expect(search("technique!=T1110")).toEqual([T1]);

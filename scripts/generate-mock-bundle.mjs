@@ -40,7 +40,7 @@ const BUNDLE_VERSION = "0.2.0";
  * Where an embedded signal's objective is kept. The spec gives `parent` to a signal's parent
  * signal, so the bundle never writes the objective there (lib/opentide/graph.ts reads both).
  */
-const SIGNAL_OBJECTIVE_KEY = "_objective";
+export const SIGNAL_OBJECTIVE_KEY = "_objective";
 
 /**
  * Deployment strategy per status: the statuses bundled with opentide

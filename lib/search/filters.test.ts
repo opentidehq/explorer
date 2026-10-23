@@ -4,7 +4,6 @@ import {
   hasClause,
   parseFilterTokens,
   toggleClause,
-  withoutDeploy,
   withoutFreeText,
   withReach,
 } from "@/lib/search/filters";
@@ -155,11 +154,21 @@ describe("withReach", () => {
   });
 });
 
-describe("withoutDeploy", () => {
-  it("removes the clause however it was written, and only the clause", () => {
-    expect(withoutDeploy("deploy:staging x", "staging")).toBe("x");
-    expect(withoutDeploy("status:staging x", "staging")).toBe("x");
-    expect(withoutDeploy("staging x", "staging")).toBe("staging x");
+describe("status and deployment", () => {
+  it("keeps status a property and deploy the deployment filter", () => {
+    const status = parseFilterTokens("status:staging");
+    expect(status.statuses).toEqual(["STAGING"]);
+    expect(status.stagingOnly).toBe(false);
+    const deploy = parseFilterTokens("deploy:staging");
+    expect(deploy.statuses).toEqual([]);
+    expect(deploy.stagingOnly).toBe(true);
+  });
+
+  it("removes a deploy chip like any other clause", () => {
+    expect(toggleClause("deploy:staging x", "deploy", "staging")).toBe("x");
+    expect(toggleClause("status:staging x", "deploy", "staging")).toBe(
+      "status:staging x deploy:staging",
+    );
   });
 });
 

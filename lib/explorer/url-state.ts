@@ -1,4 +1,5 @@
 import { TYPE_PLURALS } from "@/lib/graph/type-icons";
+import { UUID_PATTERN } from "@/lib/opentide/uuid";
 
 /**
  * The explorer's address: `?o=` the selected object, `?v=` the view (graph when absent),
@@ -32,11 +33,9 @@ export interface UrlEntry {
 export type LocationLike = Pick<Location, "pathname" | "search">;
 export type HistoryLike = Pick<History, "pushState" | "replaceState">;
 
-const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
-
 /** `/threats/<uuid>/` and the other permalink routes name an object in the path. */
 export const PERMALINK_RE = new RegExp(
-  `/(?:${Object.values(TYPE_PLURALS).join("|")})/(${UUID})/?$`,
+  `/(?:${Object.values(TYPE_PLURALS).join("|")})/(${UUID_PATTERN})/?$`,
   "i",
 );
 

@@ -172,9 +172,8 @@ function includeClause(
       acc.platforms.push(raw);
       return true;
     case "status":
+      // The status an object shows; where a rule is deployed is `deploy:`.
       acc.statuses.push(raw.toUpperCase());
-      if (value === "staging") acc.stagingOnly = true;
-      if (value === "production") acc.productionOnly = true;
       return true;
     case "technique":
     case "attack":
@@ -421,30 +420,14 @@ function formatClauseSet(set: ClauseSet): string[] {
 
   add("type", ":", set.types);
   add("platform", ":", set.platforms);
-  add(
-    "status",
-    ":",
-    set.statuses.filter(
-      (s) =>
-        !(s === "STAGING" && set.stagingOnly) &&
-        !(s === "PRODUCTION" && set.productionOnly),
-    ),
-  );
+  add("status", ":", set.statuses);
   add("technique", ":", set.techniques);
   add("actor", ":", set.actors);
   add("schema", ":", set.schemas);
   add("tlp", ":", set.tlps);
   add("uuid", ":", set.uuids);
-  if (set.stagingOnly) {
-    add(set.statuses.includes("STAGING") ? "status" : "deploy", ":", [
-      "staging",
-    ]);
-  }
-  if (set.productionOnly) {
-    add(set.statuses.includes("PRODUCTION") ? "status" : "deploy", ":", [
-      "production",
-    ]);
-  }
+  if (set.stagingOnly) add("deploy", ":", ["staging"]);
+  if (set.productionOnly) add("deploy", ":", ["production"]);
 
   const ex = set.exclude;
   add("type", "!=", ex.types);
@@ -556,17 +539,6 @@ export function withoutFreeText(query: string): string {
   }
   if (kept.length && JOINER_RE.test(kept.at(-1)!)) kept.pop();
   return kept.join(" ");
-}
-
-/** Remove a deployment filter however it was written: `deploy:` or `status:`. */
-export function withoutDeploy(query: string, which: DeployTarget): string {
-  return query
-    .replace(
-      new RegExp(`(^|\\s)(?:deploy|status):${which}(?=\\s|$)`, "gi"),
-      " ",
-    )
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 /** Set how far matches reach: replaces any `reach:` clause; the default needs none. */

@@ -2,7 +2,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { SIGNAL_OBJECTIVE_KEY as CLIENT_KEY } from "../lib/opentide/graph";
 import {
+  SIGNAL_OBJECTIVE_KEY,
   assembleBundle,
   buildStagingIndex,
   getStatus,
@@ -52,6 +54,10 @@ const summary = (/** @type {string} */ uuid) =>
   bundle.summaries.find((s) => s.uuid === uuid);
 
 describe("assembleBundle", () => {
+  it("files a signal's objective under the key the client reads", () => {
+    expect(SIGNAL_OBJECTIVE_KEY).toBe(CLIENT_KEY);
+  });
+
   it("keeps a signal's own parent and files its objective apart", () => {
     expect(bundle.flatIndex[CHILD_SIGNAL]).toMatchObject({
       parent: SIGNAL,
