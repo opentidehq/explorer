@@ -254,8 +254,31 @@ function listMatrixTechniqueIds(
   return [...new Set(ids)].toSorted((a, b) => a.localeCompare(b));
 }
 
+/**
+ * Resolved techniques per context and object. Contexts are snapshots of an immutable bundle,
+ * so the search index, every matrix and the inspector share one resolution per object.
+ */
+const resolvedTechniques = new WeakMap<GraphContext, Map<string, string[]>>();
+
 /** Resolve ATT&CK techniques for an object, including signal inheritance from parent objective. */
 export function resolveObjectTechniques(
+  ctx: GraphContext,
+  summary: BundleObjectSummary,
+): string[] {
+  let cache = resolvedTechniques.get(ctx);
+  if (!cache) {
+    cache = new Map();
+    resolvedTechniques.set(ctx, cache);
+  }
+  let techniques = cache.get(summary.uuid);
+  if (!techniques) {
+    techniques = resolveUncached(ctx, summary);
+    cache.set(summary.uuid, techniques);
+  }
+  return techniques;
+}
+
+function resolveUncached(
   ctx: GraphContext,
   summary: BundleObjectSummary,
 ): string[] {

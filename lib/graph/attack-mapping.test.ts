@@ -141,6 +141,14 @@ describe("resolveObjectTechniques", () => {
     ]);
   });
 
+  it("resolves each object once per graph context", () => {
+    const { ctx, summaries } = makeFixture();
+    const signal = summaries.find((s) => s.type === "signal")!;
+    const first = resolveObjectTechniques(ctx, signal);
+    expect(resolveObjectTechniques(ctx, signal)).toBe(first);
+    expect(resolveObjectTechniques(makeFixture().ctx, signal)).not.toBe(first);
+  });
+
   it("inherits via detection chain for rules", () => {
     const { ctx, summaries } = makeFixture();
     const rule = summaries.find((s) => s.type === "rule")!;

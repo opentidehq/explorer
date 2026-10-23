@@ -89,7 +89,17 @@ export const RELATION_VALUES = [
 
 const OBJECT_TYPES: ObjectType[] = ["threat", "objective", "signal", "rule"];
 
-const COMMON_STATUSES = ["STAGING", "PRODUCTION", "DRAFT", "DEPRECATED"];
+/** The statuses bundled with opentide (specifications specs/deployment.md). */
+const COMMON_STATUSES = [
+  "DESIGN",
+  "DEVELOPMENT",
+  "IMPROVING",
+  "STAGING",
+  "ACCEPTANCE",
+  "PRODUCTION",
+  "DISABLED",
+  "REMOVED",
+];
 const COMMON_TLP = ["CLEAR", "GREEN", "AMBER", "AMBER+STRICT", "RED"];
 const COMMON_SCHEMAS = [
   "threat::1.0",

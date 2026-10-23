@@ -17,7 +17,6 @@ import {
 import { Kbd } from "@/components/ui/tide";
 import {
   activeFilterCount,
-  withoutDeploy,
   withoutFreeText,
   type CatalogFilters,
   type ClauseOperator,
@@ -62,10 +61,7 @@ function filterChips(filters: CatalogFilters): Chip[] {
   add("platform", filters.platforms);
   add("technique", filters.techniques);
   add("actor", filters.actors);
-  add(
-    "status",
-    filters.statuses.filter((s) => !["STAGING", "PRODUCTION"].includes(s)),
-  );
+  add("status", filters.statuses);
   add("schema", filters.schemas);
   add("tlp", filters.tlps);
   add("uuid", filters.uuids);
@@ -290,14 +286,7 @@ export function SearchBox({
               <button
                 type="button"
                 onClick={() => {
-                  if (chip.field === "deploy" && chip.op === ":") {
-                    actions.setQuery(
-                      withoutDeploy(
-                        query,
-                        chip.value as "staging" | "production",
-                      ),
-                    );
-                  } else if (chip.field) {
+                  if (chip.field) {
                     actions.toggleToken(chip.field, chip.value, chip.op);
                   } else {
                     actions.setQuery(withoutFreeText(query));

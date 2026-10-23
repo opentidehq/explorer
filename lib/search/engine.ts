@@ -1,3 +1,4 @@
+import { UUID_RE } from "@/lib/opentide/uuid";
 import type { CatalogFilters, ClauseSet } from "@/lib/search/filters";
 import type {
   BundleObjectSummary,
@@ -14,8 +15,6 @@ import type {
  * keystroke: no index build, no async round trip, and identical results everywhere.
  */
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TECHNIQUE_RE = /^T\d{4}(\.\d{3})?$/i;
 const CONTENT_LIMIT = 6000;
 
