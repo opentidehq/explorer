@@ -60,7 +60,10 @@ jobs:
       - name: Publish
         run: |
           npm install --global npm@11
-          npm publish --provenance --access public --ignore-scripts
+          # A prerelease (v1.0.0-rc.1) goes to the `next` dist-tag, never `latest`.
+          dist_tag=latest
+          case "${GITHUB_REF_NAME}" in *-*) dist_tag=next ;; esac
+          npm publish --provenance --access public --ignore-scripts --tag "${dist_tag}"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -69,7 +72,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           node scripts/release.mjs notes "${GITHUB_REF_NAME}" > notes.md
-          gh release create "${GITHUB_REF_NAME}" \
+          prerelease=""
+          case "${GITHUB_REF_NAME}" in *-*) prerelease="--prerelease" ;; esac
+          gh release create "${GITHUB_REF_NAME}" ${prerelease} \
             --repo "${GITHUB_REPOSITORY}" \
             --title "@opentide/explorer ${GITHUB_REF_NAME}" \
             --notes-file notes.md

@@ -130,19 +130,20 @@ function copyDir(src, dest, skip = dest) {
 /**
  * Replace `output` with the static export in `nextOut`. `output` may sit inside `nextOut`
  * (`--output ./out/explorer` from the package root), but it is emptied first, so it must
- * not be the export itself, the package, or a folder that holds the package.
+ * not be the export itself, nor hold it or any of `keep`: the package, the app it builds
+ * from, the corpus's exports.
  * @param {string} nextOut
  * @param {string} output
- * @param {string} packageRoot
+ * @param {string | string[]} keep
  */
-export function writeOutput(nextOut, output, packageRoot) {
+export function writeOutput(nextOut, output, keep) {
   const target = path.resolve(output);
   const holds = (/** @type {string} */ dir) =>
     dir === target || dir.startsWith(target + path.sep);
-  if (holds(path.resolve(packageRoot)) || holds(path.resolve(nextOut))) {
-    throw new Error(
-      `Refusing to replace ${target}: it holds the explorer package or its export.`,
-    );
+  const kept = [nextOut, ...(Array.isArray(keep) ? keep : [keep])];
+  const held = kept.map((dir) => path.resolve(dir)).find(holds);
+  if (held) {
+    throw new Error(`Refusing to replace ${target}: it holds ${held}.`);
   }
   fs.rmSync(target, { recursive: true, force: true });
   copyDir(nextOut, target);
@@ -187,32 +188,61 @@ const APP_FILES = [
 ];
 
 /**
+ * Link every package in `from` into `into`, keeping a name already linked: the first
+ * directory given wins. Scoped packages (`@scope/name`) are linked one by one, so two
+ * directories can each supply part of a scope.
+ * @param {string} from
+ * @param {string} into
+ */
+function linkPackages(from, into) {
+  for (const entry of fs.readdirSync(from, { withFileTypes: true })) {
+    if (entry.name.startsWith(".")) continue;
+    const source = path.join(from, entry.name);
+    const target = path.join(into, entry.name);
+    if (entry.name.startsWith("@") && entry.isDirectory()) {
+      fs.mkdirSync(target, { recursive: true });
+      linkPackages(source, target);
+    } else if (!fs.existsSync(target)) {
+      fs.symlinkSync(source, target, "junction");
+    }
+  }
+}
+
+/**
  * Where `next build` runs. Turbopack does not compile sources inside `node_modules`, which
- * is where npm and npx install this package, so an installed package copies the app beside
- * the `node_modules` it was installed into: imports still resolve there. A git checkout
- * builds in place.
+ * is where npm, npx, and pnpm install this package. An installed package copies the app to
+ * `.opentide-explorer/` beside the outermost `node_modules` (the project, or the npx
+ * cache), and links the package's dependencies into its own `node_modules`: those npm
+ * nested under the package first, then the ones beside it (pnpm's virtual store, or the
+ * flat tree npm hoists). A git checkout builds in place.
  * @param {string} packageRoot
  * @returns {string}
  */
 export function appRootFor(packageRoot) {
   const parts = packageRoot.split(path.sep);
-  const at = parts.lastIndexOf("node_modules");
-  if (at === -1) return packageRoot;
+  const outer = parts.indexOf("node_modules");
+  if (outer === -1) return packageRoot;
 
-  const installRoot = parts.slice(0, at).join(path.sep) || path.sep;
+  const installRoot = parts.slice(0, outer).join(path.sep) || path.sep;
   const work = path.join(installRoot, ".opentide-explorer");
   fs.rmSync(work, { recursive: true, force: true });
   fs.mkdirSync(work, { recursive: true });
+  // A build directory, never source: keep it out of the project's git status.
+  fs.writeFileSync(path.join(work, ".gitignore"), "*\n");
   for (const name of APP_FILES) {
     fs.cpSync(path.join(packageRoot, name), path.join(work, name), {
       recursive: true,
     });
   }
-  // Dependencies npm nested under the package, when versions clashed.
+
+  const modules = path.join(work, "node_modules");
+  fs.mkdirSync(modules);
   const nested = path.join(packageRoot, "node_modules");
-  if (fs.existsSync(nested)) {
-    fs.symlinkSync(nested, path.join(work, "node_modules"), "junction");
-  }
+  if (fs.existsSync(nested)) linkPackages(nested, modules);
+  const beside = parts
+    .slice(0, parts.lastIndexOf("node_modules") + 1)
+    .join(path.sep);
+  linkPackages(beside, modules);
   return work;
 }
 
@@ -232,9 +262,11 @@ export async function build(args) {
   const appRoot = appRootFor(PACKAGE_ROOT);
   copyExports(exportsDir, appRoot);
 
-  // The schema types only feed the type check. The package ships types generated from the
-  // released schemas, and an npm install has neither the generator nor the checker.
-  if (hasPackage("json-schema-to-typescript")) {
+  // Only a git checkout regenerates schema types and type-checks: they feed the check, and
+  // an installed package ships types from the released schemas. `require` would otherwise
+  // find the generator or the checker in the user's own project.
+  const checkout = appRoot === PACKAGE_ROOT;
+  if (checkout && hasPackage("json-schema-to-typescript")) {
     const { codegenTypes } = await import("../scripts/codegen-types.mjs");
     const schemasDir =
       args.schemasDir ?? path.join(path.dirname(exportsDir), "schemas");
@@ -242,8 +274,8 @@ export async function build(args) {
   }
 
   // next.config.ts skips Next's own type check; tsrs is the checker. A git checkout has it
-  // (a dev dependency); an npm install of the package does not, and builds unchecked.
-  if (hasPackage("tsrs")) {
+  // (a dev dependency); an installed package builds unchecked.
+  if (checkout && hasPackage("tsrs")) {
     console.log("Type-checking with tsrs...");
     execFileSync(process.execPath, [packageBin("tsrs"), "--noEmit"], {
       cwd: PACKAGE_ROOT,
@@ -259,7 +291,11 @@ export async function build(args) {
   });
 
   const output = path.resolve(args.output);
-  writeOutput(path.join(appRoot, "out"), output, appRoot);
+  writeOutput(path.join(appRoot, "out"), output, [
+    PACKAGE_ROOT,
+    appRoot,
+    exportsDir,
+  ]);
   console.log(`Static export written to ${output}`);
   return output;
 }

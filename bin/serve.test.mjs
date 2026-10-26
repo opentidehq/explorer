@@ -108,6 +108,12 @@ describe("resolveRequest", () => {
     });
   });
 
+  it("redirects to the path inside the export, never another host", () => {
+    expect(resolveRequest(exportDir(), "//evil.com/..%2fdata")).toEqual({
+      redirect: "/data/",
+    });
+  });
+
   it("serves files as they are", () => {
     const dir = exportDir();
     expect(resolveRequest(dir, "/data/explorer.bundle.json")).toEqual({
@@ -151,6 +157,22 @@ describe("createStaticServer", () => {
     const res = await fetch(`${base}/rules/none/`);
     expect(res.status).toBe(404);
     expect(await res.text()).toBe("<p>missing</p>");
+  });
+
+  it("answers 500 for a file it cannot read, and keeps serving", async () => {
+    const dir = exportDir();
+    const base = await listen(dir);
+    const file = path.join(dir, "data", "explorer.bundle.json");
+    fs.chmodSync(file, 0o000);
+    try {
+      // Root reads any file regardless of mode; the check only means something otherwise.
+      const readable = process.getuid?.() === 0;
+      const res = await fetch(`${base}/data/explorer.bundle.json`);
+      expect(res.status).toBe(readable ? 200 : 500);
+    } finally {
+      fs.chmodSync(file, 0o644);
+    }
+    expect((await fetch(`${base}/`)).status).toBe(200);
   });
 
   it("only reads", async () => {

@@ -221,6 +221,17 @@ describe("writeOutput", () => {
     }
     expect(fs.existsSync(path.join(out, "index.html"))).toBe(true);
   });
+
+  it("refuses an output that holds any folder it must keep, such as the exports", () => {
+    const { root, out } = packageWithExport();
+    const corpus = tempDir();
+    const exportsDir = path.join(corpus, ".opentide", "exports");
+    fs.mkdirSync(exportsDir, { recursive: true });
+    expect(() =>
+      writeOutput(out, path.join(corpus, ".opentide"), [root, exportsDir]),
+    ).toThrow("Refusing");
+    expect(fs.existsSync(exportsDir)).toBe(true);
+  });
 });
 
 describe("appRootFor", () => {
@@ -259,6 +270,41 @@ describe("appRootFor", () => {
     for (const file of configFiles)
       expect(fs.existsSync(path.join(work, file))).toBe(true);
     expect(fs.existsSync(path.join(work, "bin"))).toBe(false);
+  });
+
+  it("stages outside pnpm's store and links the package's dependencies", () => {
+    const install = tempDir();
+    const store = path.join(
+      install,
+      "node_modules",
+      ".pnpm",
+      "@opentide+explorer@0.5.0",
+      "node_modules",
+    );
+    const pkg = fakePackage(path.join(store, "@opentide", "explorer"));
+    fs.mkdirSync(path.join(store, "next"));
+    fs.mkdirSync(path.join(store, "@types", "react"), { recursive: true });
+    const work = appRootFor(pkg);
+    expect(work).toBe(path.join(install, ".opentide-explorer"));
+    expect(fs.realpathSync(path.join(work, "node_modules", "next"))).toBe(
+      fs.realpathSync(path.join(store, "next")),
+    );
+    expect(
+      fs.existsSync(path.join(work, "node_modules", "@types", "react")),
+    ).toBe(true);
+  });
+
+  it("prefers dependencies npm nested under the package", () => {
+    const install = tempDir();
+    const pkg = fakePackage(
+      path.join(install, "node_modules", "@opentide", "explorer"),
+    );
+    fs.mkdirSync(path.join(install, "node_modules", "next"));
+    fs.mkdirSync(path.join(pkg, "node_modules", "next"), { recursive: true });
+    const work = appRootFor(pkg);
+    expect(fs.realpathSync(path.join(work, "node_modules", "next"))).toBe(
+      fs.realpathSync(path.join(pkg, "node_modules", "next")),
+    );
   });
 
   it("starts each build from a fresh copy", () => {

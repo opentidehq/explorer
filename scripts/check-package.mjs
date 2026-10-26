@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * Proves the npm package works as users get it: packs it, installs the tarball with npm
- * into an empty project, and builds the fixture corpus with the installed CLI. The user's
+ * Proves the npm package works as users get it: packs it, installs the tarball into an
+ * empty project with npm, and with pnpm when it is on PATH (its store puts the package
+ * deeper inside node_modules), and builds the fixture corpus with the installed CLI. The
  * project must come out with nothing changed but the build output.
  *
  *   node scripts/check-package.mjs
@@ -13,25 +14,27 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const npm = process.platform === "win32" ? "npm.cmd" : "npm";
-const npx = process.platform === "win32" ? "npx.cmd" : "npx";
+// Node refuses to spawn a Windows .cmd without a shell; the arguments are fixed paths.
+const shell = process.platform === "win32";
 
-const work = fs.mkdtempSync(path.join(os.tmpdir(), "explorer-package-"));
-try {
-  const packed = execFileSync(
-    npm,
-    ["pack", "--silent", "--pack-destination", work],
-    {
-      cwd: ROOT,
-      encoding: "utf8",
-    },
-  )
-    .trim()
-    .split("\n")
-    .at(-1);
-  const tarball = path.join(work, /** @type {string} */ (packed));
+/** @param {string} cmd */
+function available(cmd) {
+  try {
+    execFileSync(cmd, ["--version"], { stdio: "ignore", shell });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
-  const project = path.join(work, "project");
+/**
+ * Install the tarball into a fresh project with `manager` and build the fixture corpus.
+ * @param {string} work
+ * @param {string} tarball
+ * @param {"npm" | "pnpm"} manager
+ */
+function installAndBuild(work, tarball, manager) {
+  const project = path.join(work, `project-${manager}`);
   const exportsDir = path.join(project, ".opentide", "exports");
   fs.mkdirSync(exportsDir, { recursive: true });
   const fixture = JSON.parse(
@@ -47,11 +50,15 @@ try {
   );
 
   const run = (/** @type {string} */ cmd, /** @type {string[]} */ args) =>
-    execFileSync(cmd, args, { cwd: project, stdio: "inherit" });
-  run(npm, ["install", "--no-audit", "--no-fund", tarball]);
+    execFileSync(cmd, args, { cwd: project, stdio: "inherit", shell });
+  if (manager === "npm")
+    run("npm", ["install", "--no-audit", "--no-fund", tarball]);
+  else run("pnpm", ["add", tarball]);
   const manifest = fs.readFileSync(path.join(project, "package.json"), "utf8");
 
-  run(npx, [
+  const [cli, ...prefix] = manager === "npm" ? ["npx"] : ["pnpm", "exec"];
+  run(/** @type {string} */ (cli), [
+    ...prefix,
     "opentide-explorer",
     "build",
     "--exports-dir",
@@ -63,17 +70,39 @@ try {
     "index.html",
     path.join("data", "explorer.bundle.json"),
   ]) {
-    if (!fs.existsSync(path.join(out, page)))
-      throw new Error(`The build has no ${page}`);
+    if (!fs.existsSync(path.join(out, page))) {
+      throw new Error(`${manager}: the build has no ${page}`);
+    }
   }
   if (
     fs.readFileSync(path.join(project, "package.json"), "utf8") !== manifest
   ) {
-    throw new Error("Building changed the project's package.json");
+    throw new Error(`${manager}: building changed the project's package.json`);
   }
   console.log(
-    `The packed ${packed} installs with npm and builds the fixture corpus.`,
+    `Installed with ${manager}, the package builds the fixture corpus.`,
   );
+}
+
+const work = fs.mkdtempSync(path.join(os.tmpdir(), "explorer-package-"));
+try {
+  const packed = execFileSync(
+    "npm",
+    ["pack", "--silent", "--pack-destination", work],
+    {
+      cwd: ROOT,
+      encoding: "utf8",
+      shell,
+    },
+  )
+    .trim()
+    .split("\n")
+    .at(-1);
+  const tarball = path.join(work, /** @type {string} */ (packed));
+
+  installAndBuild(work, tarball, "npm");
+  if (available("pnpm")) installAndBuild(work, tarball, "pnpm");
+  else console.warn("pnpm is not on PATH: skipped the pnpm install.");
 } finally {
   fs.rmSync(work, { recursive: true, force: true });
 }

@@ -107,30 +107,63 @@ export function resolveRequest(root, pathname) {
   }
   if (stat.isFile()) return { file: target };
   if (!stat.isDirectory()) return null;
-  if (!pathname.endsWith("/")) return { redirect: `${pathname}/` };
+  // Rebuilt from the path inside the export, never echoed: `//evil.com/..%2fdata` resolves
+  // to data/, and a Location of `//evil.com/…` would send the browser off the server.
+  if (!pathname.endsWith("/")) {
+    const rel = path
+      .relative(root, target)
+      .split(path.sep)
+      .map(encodeURIComponent);
+    return { redirect: `/${rel.join("/")}/` };
+  }
   const index = path.join(target, "index.html");
   return fs.existsSync(index) ? { file: index } : null;
 }
 
 /**
+ * Stream `file` with its content type. A file that cannot be read (removed by a rebuild,
+ * or unreadable) answers 500 instead of taking the server down.
  * @param {http.ServerResponse} res
  * @param {number} status
  * @param {string} file
  * @param {boolean} head
  */
 function sendFile(res, status, file, head) {
+  let size;
+  try {
+    size = fs.statSync(file).size;
+  } catch {
+    res
+      .writeHead(500, { "Content-Type": "text/plain; charset=utf-8" })
+      .end("Unreadable file");
+    return;
+  }
   const type =
     CONTENT_TYPES[
       /** @type {keyof typeof CONTENT_TYPES} */ (path.extname(file))
     ] ?? "application/octet-stream";
-  res.writeHead(status, {
+  const headers = {
     "Content-Type": type,
-    "Content-Length": fs.statSync(file).size,
+    "Content-Length": size,
     "X-Content-Type-Options": "nosniff",
     "Cache-Control": "no-cache",
+  };
+  if (head) {
+    res.writeHead(status, headers).end();
+    return;
+  }
+  const stream = fs.createReadStream(file);
+  stream.once("open", () => {
+    res.writeHead(status, headers);
+    stream.pipe(res);
   });
-  if (head) res.end();
-  else fs.createReadStream(file).pipe(res);
+  stream.once("error", () => {
+    if (res.headersSent) res.destroy();
+    else
+      res
+        .writeHead(500, { "Content-Type": "text/plain; charset=utf-8" })
+        .end("Unreadable file");
+  });
 }
 
 /**

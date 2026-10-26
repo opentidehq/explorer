@@ -20,7 +20,7 @@ npx @opentide/explorer serve --dir out/explorer                   # serve an exi
 
 `serve` is a dependency-free Node server for local previews, not a production host: deploy `out/explorer/` to any static host. Pin a version (`npx @opentide/explorer@0.5`) where a pipeline should not move.
 
-Next.js does not compile sources inside `node_modules`, so an installed package builds from a copy of the app beside the `node_modules` it was installed into: `.opentide-explorer/` in a project that installs it, or the npx cache. Each build replaces that copy. A git checkout builds in place.
+Next.js does not compile sources inside `node_modules`, so an installed package (npm, npx, or pnpm) builds from a copy of the app in `.opentide-explorer/` beside the outermost `node_modules` (your project, or the npx cache), with the package's dependencies linked into it. The folder ignores itself in git, and each build replaces it. A git checkout builds in place.
 
 ## Releases
 
