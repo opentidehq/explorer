@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { copyExports, parseArgs, writeOutput } from "./build.mjs";
+import { appRootFor, copyExports, parseArgs, writeOutput } from "./build.mjs";
 
 const technique = {
   name: "Valid Accounts",
@@ -117,7 +117,7 @@ describe("parseArgs", () => {
       // Not taken as an unknown flag's value.
       expect(() => parseArgs(["--verbose", flag])).toThrow("exit 0");
       expect(exit).toHaveBeenCalledWith(0);
-      expect(log.mock.calls[0]?.[0]).toMatch(/^Usage: opentide-explorer-build/);
+      expect(log.mock.calls[0]?.[0]).toMatch(/^Usage: opentide-explorer build/);
       for (const option of [
         "--exports-dir",
         "--schemas-dir",
@@ -220,5 +220,62 @@ describe("writeOutput", () => {
       expect(() => writeOutput(out, output, root)).toThrow("Refusing");
     }
     expect(fs.existsSync(path.join(out, "index.html"))).toBe(true);
+  });
+});
+
+describe("appRootFor", () => {
+  const appFiles = ["app", "components", "lib", "public"];
+  const configFiles = ["next.config.ts", "postcss.config.mjs", "tsconfig.json"];
+
+  /** @param {string} root */
+  function fakePackage(root) {
+    for (const dir of appFiles) {
+      fs.mkdirSync(path.join(root, dir), { recursive: true });
+      fs.writeFileSync(path.join(root, dir, "file.txt"), dir);
+    }
+    for (const file of configFiles)
+      fs.writeFileSync(path.join(root, file), file);
+    fs.mkdirSync(path.join(root, "bin"));
+    return root;
+  }
+
+  it("builds a git checkout in place", () => {
+    const root = fakePackage(tempDir());
+    expect(appRootFor(root)).toBe(root);
+  });
+
+  it("copies an installed package's app beside its node_modules", () => {
+    const install = tempDir();
+    const pkg = fakePackage(
+      path.join(install, "node_modules", "@opentide", "explorer"),
+    );
+    const work = appRootFor(pkg);
+    expect(work).toBe(path.join(install, ".opentide-explorer"));
+    for (const dir of appFiles) {
+      expect(fs.readFileSync(path.join(work, dir, "file.txt"), "utf8")).toBe(
+        dir,
+      );
+    }
+    for (const file of configFiles)
+      expect(fs.existsSync(path.join(work, file))).toBe(true);
+    expect(fs.existsSync(path.join(work, "bin"))).toBe(false);
+  });
+
+  it("starts each build from a fresh copy", () => {
+    const install = tempDir();
+    const pkg = fakePackage(
+      path.join(install, "node_modules", "@opentide", "explorer"),
+    );
+    const stale = path.join(
+      install,
+      ".opentide-explorer",
+      "public",
+      "data",
+      "old.json",
+    );
+    fs.mkdirSync(path.dirname(stale), { recursive: true });
+    fs.writeFileSync(stale, "{}");
+    appRootFor(pkg);
+    expect(fs.existsSync(stale)).toBe(false);
   });
 });

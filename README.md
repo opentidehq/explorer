@@ -2,13 +2,29 @@
 
 Deployable static application for interactively exploring opentide objects — threats, objectives, signals, rules, and threat chains — in the opentide.org design language: white and Pantone Reflex Blue in light mode, black and EU Yellow in dark, Inter and JetBrains Mono.
 
-Distribution is **git-based** during development: the Python `opentide` CLI resolves this repository from a local path, sibling checkout, or shallow git clone. npm publish (`@opentide/explorer`) remains optional for future releases.
+## Run it on a corpus
+
+The explorer ships on npm as [`@opentide/explorer`](https://www.npmjs.com/package/@opentide/explorer). In a corpus repository, export the objects with the `opentide` CLI, then build and serve the explorer, with no checkout of this repository:
 
 ```bash
-opentide explorer dev      # local preview (contributors)
-opentide explorer build    # static export → out/explorer/
-opentide explorer serve    # self-hosted static server
+opentide generate explorer                                        # → .opentide/exports/
+npx @opentide/explorer serve --exports-dir .opentide/exports      # http://127.0.0.1:4173/
+npx @opentide/explorer build --exports-dir .opentide/exports      # static site → out/explorer/
+npx @opentide/explorer serve --dir out/explorer                   # serve an existing build
 ```
+
+| Command | Options                                                                                                                            |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `build` | `--exports-dir` (required), `--output` (default `out/explorer`), `--base-path` (e.g. `/library` for GitHub Pages), `--schemas-dir` |
+| `serve` | the `build` options, or `--dir` to serve a build; `--port` (default `4173`, `0` picks one), `--host` (default `127.0.0.1`)         |
+
+`serve` is a dependency-free Node server for local previews, not a production host: deploy `out/explorer/` to any static host. Pin a version (`npx @opentide/explorer@0.5`) where a pipeline should not move.
+
+Next.js does not compile sources inside `node_modules`, so an installed package builds from a copy of the app beside the `node_modules` it was installed into: `.opentide-explorer/` in a project that installs it, or the npx cache. Each build replaces that copy. A git checkout builds in place.
+
+## Releases
+
+Versions follow [Semantic Versioning](https://semver.org/) and are listed in [CHANGELOG.md](CHANGELOG.md). To cut one, set the version (`npm version 0.6.0 --no-git-tag-version`), write its CHANGELOG.md section (the first paragraph is the summary), check them with `node scripts/release.mjs check v0.6.0`, then commit and push the tag `v0.6.0`. [`publish.yml`](.github/workflows/publish.yml) checks the release, proves the packed package installs and builds (`node scripts/check-package.mjs`, which CI also runs on every pull request), publishes to npm with provenance, and opens the GitHub Release from the changelog.
 
 ## Ecosystem
 
