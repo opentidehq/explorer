@@ -1,0 +1,40 @@
+name: Backfill releases
+
+# Tags and GitHub Releases for the versions that shipped before releases were
+# tagged. Run it once by hand. A tag created with GITHUB_TOKEN starts no
+# workflow, so publish.yml never runs for those old commits: the releases carry
+# their CHANGELOG.md notes only, and nothing reaches npm. Existing tags and
+# releases are left alone, so a second run does nothing.
+
+on: workflow_dispatch
+
+permissions:
+  contents: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Tag and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          while read -r version sha; do
+            tag="v${version}"
+            if ! gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag}" >/dev/null 2>&1; then
+              gh api "repos/${GITHUB_REPOSITORY}/git/refs" -f ref="refs/tags/${tag}" -f sha="${sha}" >/dev/null
+              echo "tagged ${tag} at ${sha}"
+            fi
+            if ! gh release view "${tag}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+              node scripts/release.mjs notes "${version}" > notes.md
+              gh release create "${tag}" --repo "${GITHUB_REPOSITORY}" --verify-tag --latest=false \
+                --title "@opentide/explorer ${tag}" --notes-file notes.md
+            fi
+          done <<'EOF'
+          0.1.0 795c683ff50bbf266a50efdeb5a13be9d2447485
+          0.2.0 8510c4665017c718cd528dc1b4f6d13ade77c191
+          0.3.0 2f970386d178e46c47283be5949ec40614c56170
+          0.4.0 f9785a6c4736b96bf3d2901c1ac5b729242730b3
+          EOF

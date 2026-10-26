@@ -95,7 +95,7 @@ const RULE_FIELDS: FieldDefinition[] = [
     path: "severity",
     label: "Severity",
     format: "pills",
-    vocab: "severity",
+    vocab: "alert_severity",
   },
   {
     path: "techniques",

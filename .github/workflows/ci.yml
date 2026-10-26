@@ -145,3 +145,22 @@ jobs:
 
       - name: Audit
         run: pnpm audit --audit-level=high
+
+  package:
+    name: npm package (install and build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6.1.0
+
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: "22"
+
+      # Packs the tarball, installs it with npm and with pnpm into empty projects, and
+      # builds the fixture corpus with each installed CLI, as `npx @opentide/explorer` would.
+      - name: Install the packed package and build
+        run: node scripts/check-package.mjs
