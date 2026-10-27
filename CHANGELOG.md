@@ -4,6 +4,15 @@ Notable changes to the opentide explorer, newest first. The format follows [Keep
 
 Each version's first paragraph is its summary: the GitHub Release and [opentide.org/releases](https://opentide.org/releases/explorer/) show it above the change lists. Versions before 0.5.0 were tagged after the fact, on the commit each one shipped as; they were not published to npm.
 
+## [0.5.1] - 2026-10-27
+
+`npx @opentide/explorer serve` works: 0.5.0 shipped two commands, so npx could not tell which to run and stopped with "could not determine executable to run".
+
+### Fixed
+
+- The package has one command, `opentide-explorer`, which npx runs for `npx @opentide/explorer`. The `opentide-explorer-build` alias is gone; `opentide-explorer build` replaces it.
+- The release check runs the package the way users do, `npx @opentide/explorer --version`, before publishing.
+
 ## [0.5.0] - 2026-10-26
 
 The explorer is an npm package: `npx @opentide/explorer serve --exports-dir .opentide/exports` builds a corpus's explorer and serves it on localhost, with no checkout of this repository.
@@ -79,6 +88,7 @@ The first explorer: a search-first WebGL graph of a corpus's threats, objectives
 - A static export the `opentide` CI can build for GitHub Pages, and a fixture corpus for hermetic builds.
 - A persisted dark and light theme.
 
+[0.5.1]: https://github.com/opentidehq/explorer/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/opentidehq/explorer/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/opentidehq/explorer/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/opentidehq/explorer/compare/v0.2.0...v0.3.0

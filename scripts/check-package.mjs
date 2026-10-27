@@ -100,6 +100,16 @@ try {
     .at(-1);
   const tarball = path.join(work, /** @type {string} */ (packed));
 
+  // `npx @opentide/explorer` names no command: npx runs the package's only bin, or the
+  // one named after it, and fails when it cannot tell which.
+  // A relative path: npx runs an absolute one as a command instead of installing it.
+  const version = execFileSync("npx", ["--yes", `./${packed}`, "--version"], {
+    cwd: work,
+    encoding: "utf8",
+    shell,
+  }).trim();
+  console.log(`npx <package> runs the CLI (${version}).`);
+
   installAndBuild(work, tarball, "npm");
   if (available("pnpm")) installAndBuild(work, tarball, "pnpm");
   else console.warn("pnpm is not on PATH: skipped the pnpm install.");
