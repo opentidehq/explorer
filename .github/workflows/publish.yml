@@ -1,13 +1,16 @@
 name: Release
 
-# A version tag (vX.Y.Z) publishes @opentide/explorer to npm and opens the GitHub
-# Release with that version's CHANGELOG.md notes. Cut one with:
-#   npm version X.Y.Z --no-git-tag-version, a CHANGELOG.md section, commit, tag, push.
+# Publishes @opentide/explorer to npm and opens the GitHub Release with the
+# version's CHANGELOG.md notes. Either push a vX.Y.Z tag, or "Run workflow" on
+# main, which releases the version in package.json and creates its tag with
+# the GitHub Release. Prepare the version first:
+#   npm version X.Y.Z --no-git-tag-version, plus a CHANGELOG.md section, merged to main.
 
 on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -22,8 +25,29 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Tag
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            tag="${GITHUB_REF_NAME}"
+          else
+            if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+              echo "::error::Run the release from main, not ${GITHUB_REF_NAME}"
+              exit 1
+            fi
+            tag="v$(node -p 'require("./package.json").version')"
+            if gh release view "${tag}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+              echo "::error::${tag} is already released; bump the version first"
+              exit 1
+            fi
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
       - name: Tag, package.json, and changelog agree
-        run: node scripts/release.mjs check "${GITHUB_REF_NAME}"
+        run: node scripts/release.mjs check "${{ steps.tag.outputs.tag }}"
 
       # `pnpm check` regenerates the schema artifacts from specifications, as in ci.yml.
       - name: Checkout specifications
@@ -50,31 +74,39 @@ jobs:
           OPENTIDE_USE_FIXTURE: "1"
           SPECIFICATIONS_REPO_ROOT: ${{ github.workspace }}/specifications
 
-      # The tarball, installed with npm into an empty project, builds a corpus.
+      # The tarball, installed with npm and pnpm into empty projects, builds a corpus.
       - name: Package works when installed
         run: node scripts/check-package.mjs
 
-      # npm 11.5+ publishes with trusted publishing (OIDC) once it is configured
-      # for the package on npmjs.com; until then NPM_TOKEN authenticates.
-      # `check` above replaces prepublishOnly, which builds against the library.
-      - name: Publish
-        run: |
-          npm install --global npm@11
-          # A prerelease (v1.0.0-rc.1) goes to the `next` dist-tag, never `latest`.
-          dist_tag=latest
-          case "${GITHUB_REF_NAME}" in *-*) dist_tag=next ;; esac
-          npm publish --provenance --access public --ignore-scripts --tag "${dist_tag}"
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
+      # npm is permanent, so the GitHub Release comes first: from "Run workflow"
+      # it also creates the tag, and if that is refused nothing is published.
       - name: GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          node scripts/release.mjs notes "${GITHUB_REF_NAME}" > notes.md
+          set -euo pipefail
+          node scripts/release.mjs notes "${TAG}" > notes.md
           prerelease=""
-          case "${GITHUB_REF_NAME}" in *-*) prerelease="--prerelease" ;; esac
-          gh release create "${GITHUB_REF_NAME}" ${prerelease} \
+          case "${TAG}" in *-*) prerelease="--prerelease" ;; esac
+          gh release create "${TAG}" ${prerelease} \
             --repo "${GITHUB_REPOSITORY}" \
-            --title "@opentide/explorer ${GITHUB_REF_NAME}" \
+            --target "${GITHUB_SHA}" \
+            --title "@opentide/explorer ${TAG}" \
             --notes-file notes.md
+
+      # Trusted publishing (OIDC) once it is configured for the package on
+      # npmjs.com, which needs npm 11.5.1+; NPM_TOKEN until then, and for
+      # nothing after. `check` above replaces prepublishOnly, which builds
+      # against the library.
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          npm install --global npm@11
+          # A prerelease (v1.0.0-rc.1) goes to the `next` dist-tag, never `latest`.
+          dist_tag=latest
+          case "${TAG}" in *-*) dist_tag=next ;; esac
+          npm publish --provenance --access public --ignore-scripts --tag "${dist_tag}"

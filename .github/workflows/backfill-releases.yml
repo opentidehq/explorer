@@ -21,15 +21,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          # The release creates its tag on the commit (the git refs API refused
+          # this repository's token); a tag pushed by hand is used as it is.
           while read -r version sha; do
             tag="v${version}"
-            if ! gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag}" >/dev/null 2>&1; then
-              gh api "repos/${GITHUB_REPOSITORY}/git/refs" -f ref="refs/tags/${tag}" -f sha="${sha}" >/dev/null
-              echo "tagged ${tag} at ${sha}"
-            fi
             if ! gh release view "${tag}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
               node scripts/release.mjs notes "${version}" > notes.md
-              gh release create "${tag}" --repo "${GITHUB_REPOSITORY}" --verify-tag --latest=false \
+              gh release create "${tag}" --repo "${GITHUB_REPOSITORY}" --target "${sha}" --latest=false \
                 --title "@opentide/explorer ${tag}" --notes-file notes.md
             fi
           done <<'EOF'
