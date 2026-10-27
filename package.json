@@ -19,8 +19,8 @@
   ],
   "type": "module",
   "bin": {
-    "opentide-explorer": "./bin/opentide-explorer.mjs",
-    "opentide-explorer-build": "./bin/build.mjs"
+    "opentide-explorer": "bin/opentide-explorer.mjs",
+    "opentide-explorer-build": "bin/build.mjs"
   },
   "files": [
     "bin",
