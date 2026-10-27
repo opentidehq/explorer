@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 /**
  * `opentide-explorer build`: a static explorer for a corpus's exports.
- * Runs from a git checkout or from the npm package (`npx @opentide/explorer build`);
- * `opentide-explorer-build build` is the older name for the same command.
+ * Runs from a git checkout or from the npm package (`npx @opentide/explorer build`).
  */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";

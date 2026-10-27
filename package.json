@@ -1,6 +1,6 @@
 {
   "name": "@opentide/explorer",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Interactive opentide corpus explorer: build a static site from a corpus's exports, or serve it locally",
   "license": "Apache-2.0",
   "repository": {
@@ -19,8 +19,7 @@
   ],
   "type": "module",
   "bin": {
-    "opentide-explorer": "./bin/opentide-explorer.mjs",
-    "opentide-explorer-build": "./bin/build.mjs"
+    "opentide-explorer": "bin/opentide-explorer.mjs"
   },
   "files": [
     "bin",
