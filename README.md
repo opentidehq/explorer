@@ -24,7 +24,14 @@ Next.js does not compile sources inside `node_modules`, so an installed package 
 
 ## Releases
 
-Versions follow [Semantic Versioning](https://semver.org/) and are listed in [CHANGELOG.md](CHANGELOG.md). To cut one, set the version (`npm version 0.6.0 --no-git-tag-version`), write its CHANGELOG.md section (the first paragraph is the summary), check them with `node scripts/release.mjs check v0.6.0`, then commit and push the tag `v0.6.0`. [`publish.yml`](.github/workflows/publish.yml) checks the release, proves the packed package installs and builds (`node scripts/check-package.mjs`, which CI also runs on every pull request), publishes to npm with provenance, and opens the GitHub Release from the changelog.
+Versions follow [Semantic Versioning](https://semver.org/) and are listed in [CHANGELOG.md](CHANGELOG.md). To cut one:
+
+1. In a pull request, set the version (`npm version 0.6.0 --no-git-tag-version`) and write its CHANGELOG.md section (the first paragraph is the summary); `node scripts/release.mjs check v0.6.0` confirms they agree.
+2. Merge it, then run the **Release** workflow on `main` (Actions → Release → Run workflow). Pushing a `v0.6.0` tag does the same.
+
+[`publish.yml`](.github/workflows/publish.yml) checks the release, proves the packed package installs and builds (`node scripts/check-package.mjs`, which CI also runs on every pull request), opens the GitHub Release from the changelog (creating the tag), then publishes to npm with provenance.
+
+npm publishing uses [trusted publishing](https://docs.npmjs.com/trusted-publishers/): on npmjs.com, the package's Settings → Trusted publishing names GitHub Actions, `opentidehq/explorer`, `publish.yml`, with `npm publish` allowed. A new trusted publisher must publish within two days or it expires, so add it (or re-add it) just before running a release. The `NPM_TOKEN` secret is only a fallback.
 
 ## Ecosystem
 
