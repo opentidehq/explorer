@@ -91,7 +91,7 @@
     "@vitest/coverage-v8": "^5.0.5",
     "happy-dom": "^21.0.4",
     "json-schema-to-typescript": "^16.0.0",
-    "oxfmt": "^0.74.0",
+    "oxfmt": "^0.75.0",
     "oxlint": "^1.89.0",
     "react-doctor": "^0.9.18",
     "smol-toml": "^1.9.1",
