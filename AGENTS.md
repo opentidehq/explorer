@@ -7,3 +7,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Skills
+
+| Task                                         | Skill                                                                            |
+| -------------------------------------------- | -------------------------------------------------------------------------------- |
+| A `CHANGELOG.md` entry, or a release's notes | [`.agents/skills/release-notes/SKILL.md`](.agents/skills/release-notes/SKILL.md) |
+| Next.js 16, React and composition patterns   | the vendored skills in `.agents/skills/` (`skills-lock.json`)                    |
