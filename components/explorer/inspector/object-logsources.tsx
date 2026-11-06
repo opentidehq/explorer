@@ -1,6 +1,7 @@
 "use client";
 
 import { Radar } from "lucide-react";
+import { isDesktop } from "@/components/explorer/breakpoints";
 import {
   useCatalog,
   useExplorerActions,
@@ -20,7 +21,9 @@ const HOW: Record<LogSourceUse, string> = {
 
 /**
  * The log sources a rule, signal or objective uses, each opening its page in the Visibility
- * view. Nothing without a visibility export.
+ * view. Nothing without a visibility export. Below the desktop breakpoint the inspector is a
+ * sheet over the stage, so opening a page closes it (clears the selection, which is what
+ * keeps the sheet open); on the desktop the selection stays beside the page.
  */
 export function ObjectLogSources({ id }: { id: string }) {
   const { visibility } = useCatalog();
@@ -34,7 +37,10 @@ export function ObjectLogSources({ id }: { id: string }) {
           <li key={logSourceKey(source)}>
             <button
               type="button"
-              onClick={() => actions.openLogSource(logSourceKey(source))}
+              onClick={() => {
+                if (!isDesktop()) actions.select(null);
+                actions.openLogSource(logSourceKey(source));
+              }}
               className="flex w-full items-center gap-2 rounded-xl border border-line bg-panel px-2.5 py-1.5 text-left transition-colors hover:border-accent/45"
             >
               <Radar className="size-3.5 shrink-0 text-accent" aria-hidden />

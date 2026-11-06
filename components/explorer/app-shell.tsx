@@ -19,6 +19,7 @@ import {
   useExplorerActions,
   useExplorerStore,
 } from "@/components/explorer/explorer-state";
+import { DESKTOP } from "@/components/explorer/breakpoints";
 import { Header } from "@/components/explorer/header";
 import { LibraryOverview } from "@/components/explorer/inspector/library-overview";
 import { ObjectInspector } from "@/components/explorer/inspector/object-inspector";
@@ -34,8 +35,6 @@ const CommandPalette = dynamic(
     ),
   { ssr: false },
 );
-
-const DESKTOP = "(min-width: 1024px)";
 
 function useMediaQuery(query: string): boolean {
   return useSyncExternalStore(
@@ -121,6 +120,10 @@ function useReturnFocus() {
         event.preventDefault();
         const target = holder.current;
         holder.current = null;
+        // What closed it may have moved focus on already (a log source's page takes it):
+        // give it back only when it was left nowhere.
+        const active = document.activeElement;
+        if (active && active !== document.body) return;
         if (target?.isConnected) target.focus({ preventScroll: true });
       },
     }),
@@ -172,12 +175,17 @@ export function AppShell() {
   if (paletteOpen && !paletteUsed) setPaletteUsed(true);
 
   // Once the first view is up, fetch the other views and the markdown renderer while the
-  // browser is idle, so switching and opening objects never waits on the network.
+  // browser is idle, so switching and opening objects never waits on the network. The
+  // Visibility view only when the corpus has it.
+  const hasVisibility = catalog.visibility !== null;
   useEffect(() => {
     const warm = () => {
       void import("@/components/explorer/graph/graph-view");
       void import("@/components/explorer/catalogue/catalogue-view");
       void import("@/components/explorer/attack/attack-view");
+      if (hasVisibility) {
+        void import("@/components/explorer/visibility/visibility-view");
+      }
       void import("react-markdown");
     };
     // Safari has no requestIdleCallback.
@@ -187,7 +195,7 @@ export function AppShell() {
     }
     const id = globalThis.setTimeout(warm, 1500);
     return () => globalThis.clearTimeout(id);
-  }, []);
+  }, [hasVisibility]);
 
   const resize = useCallback((delta: number) => {
     setWidth((current) =>

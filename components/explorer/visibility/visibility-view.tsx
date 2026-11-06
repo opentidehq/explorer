@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -23,6 +23,7 @@ import {
   type Tlp,
   type VisibilityExport,
   type VisibilityLogSource,
+  type VisibilityUndeclared,
 } from "@/lib/opentide/visibility";
 import { cn } from "@/lib/utils";
 
@@ -69,12 +70,8 @@ function Tile({
       <span
         className={cn(
           "block font-mono text-2xl font-semibold tracking-[-0.02em]",
-          tone === "warn" &&
-            value > 0 &&
-            "text-[color:var(--tide-warn,#b7791f)]",
-          tone === "danger" &&
-            value > 0 &&
-            "text-[color:var(--tide-danger,#c53030)]",
+          tone === "warn" && value > 0 && "text-warn",
+          tone === "danger" && value > 0 && "text-danger",
         )}
       >
         {value}
@@ -149,8 +146,17 @@ function ObjectList({ label, ids }: { label: string; ids: string[] }) {
   );
 }
 
-/** One log source's page: what it records, its columns, and the detections that use it. */
-export function LogSourcePage({ source }: { source: VisibilityLogSource }) {
+/**
+ * One log source's page: what it records, its columns, and the detections that use it. Its
+ * heading takes focus when it opens (`headingRef`), so a keyboard or screen reader lands on it.
+ */
+export function LogSourcePage({
+  source,
+  headingRef,
+}: {
+  source: VisibilityLogSource;
+  headingRef?: RefObject<HTMLHeadingElement | null>;
+}) {
   const actions = useExplorerActions();
   return (
     <article
@@ -167,7 +173,11 @@ export function LogSourcePage({ source }: { source: VisibilityLogSource }) {
       </button>
       <header>
         <p className="font-mono text-[11px] text-subtle">{source.system}</p>
-        <h2 className="mt-0.5 break-all text-xl font-semibold tracking-[-0.01em]">
+        <h2
+          ref={headingRef}
+          tabIndex={-1}
+          className="mt-0.5 break-all text-xl font-semibold tracking-[-0.01em] outline-none"
+        >
           {source.name}
         </h2>
         <p className="mt-2 max-w-prose text-sm text-muted">
@@ -229,6 +239,7 @@ function SourceCard({ source }: { source: VisibilityLogSource }) {
     <li>
       <button
         type="button"
+        data-logsource={logSourceKey(source)}
         onClick={() => actions.openLogSource(logSourceKey(source))}
         className="flex h-full w-full flex-col gap-1.5 rounded-2xl border border-line bg-panel px-3.5 py-3 text-left transition-colors hover:border-accent/45"
       >
@@ -250,12 +261,10 @@ function SourceCard({ source }: { source: VisibilityLogSource }) {
           </span>
           <span>{source.rules.length} rules</span>
           {!source.columns.length ? (
-            <span className="text-[color:var(--tide-warn,#b7791f)]">
-              no columns
-            </span>
+            <span className="text-warn">no columns</span>
           ) : null}
           {unused ? (
-            <span className="inline-flex items-center gap-1 text-[color:var(--tide-warn,#b7791f)]">
+            <span className="inline-flex items-center gap-1 text-warn">
               <EyeOff className="size-3" aria-hidden />
               unused
             </span>
@@ -266,40 +275,85 @@ function SourceCard({ source }: { source: VisibilityLogSource }) {
   );
 }
 
-function Undeclared({ visibility }: { visibility: VisibilityExport }) {
-  if (!visibility.undeclared.length) return null;
+/** Datasets rules read that no log source declares, for the selected system. */
+function Undeclared({ items }: { items: VisibilityUndeclared[] }) {
   return (
     <section aria-label="Read but not declared">
       <Caption as="h3">
-        Read by rules, declared by no log source ({visibility.undeclared.length}
-        )
+        Read by rules, declared by no log source ({items.length})
       </Caption>
+      {items.length ? (
+        <ul className="mt-2 grid gap-2 md:grid-cols-2">
+          {items.map((item) => (
+            <li
+              key={`${item.system}:${item.name}`}
+              className="rounded-2xl border border-dashed border-danger/50 bg-panel px-3.5 py-3"
+            >
+              <span className="flex items-center gap-2">
+                <ShieldAlert
+                  className="size-3.5 shrink-0 text-danger"
+                  aria-hidden
+                />
+                <span className="min-w-0 flex-1 truncate font-mono text-[13px] font-semibold">
+                  {item.name}
+                </span>
+                <Tag className="px-1.5 text-[10px] leading-[14px]">
+                  {item.system}
+                </Tag>
+              </span>
+              {!item.system_declares ? (
+                <p className="mt-1 text-[12px] text-subtle">
+                  {item.system} declares no log source, so the query checks do
+                  not warn.
+                </p>
+              ) : null}
+              <ul className="mt-2 grid gap-1.5">
+                {item.rules.map((id) => (
+                  <ObjectButton key={id} id={id} />
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-1.5 text-[13px] text-subtle">None.</p>
+      )}
+    </section>
+  );
+}
+
+/** Log sources a signal's `data.logsources` names that no log source declares. */
+function UnknownSignalSources({
+  items,
+}: {
+  items: VisibilityExport["unknown_signal_sources"];
+}) {
+  return (
+    <section aria-label="Named by signals but not declared">
+      <Caption as="h3">
+        Named by signals, declared by no log source ({items.length})
+      </Caption>
+      <p className="mt-1 text-[12px] text-subtle">
+        A signal&apos;s data.logsources names each; no log source of any system
+        has that name.
+      </p>
       <ul className="mt-2 grid gap-2 md:grid-cols-2">
-        {visibility.undeclared.map((item) => (
+        {items.map((item) => (
           <li
-            key={`${item.system}:${item.name}`}
-            className="rounded-2xl border border-dashed border-[color:var(--tide-danger,#c53030)]/50 bg-panel px-3.5 py-3"
+            key={item.name}
+            className="rounded-2xl border border-dashed border-warn/50 bg-panel px-3.5 py-3"
           >
             <span className="flex items-center gap-2">
-              <ShieldAlert
-                className="size-3.5 text-[color:var(--tide-danger,#c53030)]"
+              <AlertTriangle
+                className="size-3.5 shrink-0 text-warn"
                 aria-hidden
               />
               <span className="min-w-0 flex-1 truncate font-mono text-[13px] font-semibold">
                 {item.name}
               </span>
-              <Tag className="px-1.5 text-[10px] leading-[14px]">
-                {item.system}
-              </Tag>
             </span>
-            {!item.system_declares ? (
-              <p className="mt-1 text-[12px] text-subtle">
-                {item.system} declares no log source, so the query checks do not
-                warn.
-              </p>
-            ) : null}
             <ul className="mt-2 grid gap-1.5">
-              {item.rules.map((id) => (
+              {item.objectives.map((id) => (
                 <ObjectButton key={id} id={id} />
               ))}
             </ul>
@@ -307,6 +361,22 @@ function Undeclared({ visibility }: { visibility: VisibilityExport }) {
         ))}
       </ul>
     </section>
+  );
+}
+
+/** What needs attention beyond the log sources: reads and signal names nothing declares. */
+function NotDeclared({
+  undeclared,
+  unknown,
+}: {
+  undeclared: VisibilityUndeclared[];
+  unknown: VisibilityExport["unknown_signal_sources"];
+}) {
+  return (
+    <>
+      <Undeclared items={undeclared} />
+      {unknown.length ? <UnknownSignalSources items={unknown} /> : null}
+    </>
   );
 }
 
@@ -320,6 +390,8 @@ export function VisibilityView() {
   const [query, setQuery] = useState("");
   const [system, setSystem] = useState<string | null>(null);
   const [attention, setAttention] = useState<Attention>("all");
+  const scroller = useRef<HTMLDivElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
   const overview = useMemo(
     () => (visibility ? visibilityOverview(visibility) : null),
     [visibility],
@@ -337,12 +409,44 @@ export function VisibilityView() {
             !source.objectives.length)),
     );
   }, [visibility, system, query, attention]);
+  const undeclared = useMemo(
+    () =>
+      (visibility?.undeclared ?? []).filter(
+        (item) => !system || item.system === system,
+      ),
+    [visibility, system],
+  );
+
+  const page = visibility && open ? findLogSource(visibility, open) : undefined;
+  const pageKey = page ? logSourceKey(page) : null;
+
+  // Opening a page puts it at the top and moves focus to its heading; leaving it gives focus
+  // back to the card it was opened from.
+  const shownKey = useRef<string | null>(null);
+  useEffect(() => {
+    const left = shownKey.current;
+    shownKey.current = pageKey;
+    if (pageKey === left) return;
+    const container = scroller.current;
+    if (pageKey) {
+      if (container) container.scrollTop = 0;
+      heading.current?.focus({ preventScroll: true });
+    } else if (left && container) {
+      const card = [
+        ...container.querySelectorAll<HTMLElement>("[data-logsource]"),
+      ].find((element) => element.dataset.logsource === left);
+      card?.focus();
+    }
+  }, [pageKey]);
 
   if (!visibility || !overview) return null;
-  const page = open ? findLogSource(visibility, open) : undefined;
+  const unknown = visibility.unknown_signal_sources;
 
   return (
-    <div className="h-full overflow-y-auto px-4 pb-10 pt-2 sm:px-6">
+    <div
+      ref={scroller}
+      className="h-full overflow-y-auto px-4 pb-10 pt-2 sm:px-6"
+    >
       <div className="mx-auto flex max-w-6xl flex-col gap-6">
         <header className="flex flex-wrap items-center gap-3">
           <span className="grid size-9 place-items-center rounded-xl bg-accent/10 text-accent">
@@ -371,8 +475,22 @@ export function VisibilityView() {
           </p>
         ) : null}
 
-        {page ? (
-          <LogSourcePage source={page} />
+        {!visibility.present ? (
+          <>
+            <p className="rounded-xl border border-line bg-panel px-3 py-2 text-[13px] text-muted">
+              This library declares no log sources (
+              <code className="font-mono text-[12px]">
+                .opentide/configurations/visibility.toml
+              </code>
+              ).
+            </p>
+            {visibility.undeclared.length ? (
+              <Undeclared items={visibility.undeclared} />
+            ) : null}
+            {unknown.length ? <UnknownSignalSources items={unknown} /> : null}
+          </>
+        ) : page ? (
+          <LogSourcePage source={page} headingRef={heading} />
         ) : (
           <>
             <section
@@ -404,6 +522,11 @@ export function VisibilityView() {
               <Tile
                 value={overview.undeclared}
                 label="read but not declared"
+                detail={
+                  unknown.length
+                    ? `${unknown.length} more named by signals`
+                    : undefined
+                }
                 tone="danger"
                 pressed={attention === "undeclared"}
                 onClick={() => setAttention("undeclared")}
@@ -446,7 +569,7 @@ export function VisibilityView() {
             </section>
 
             {attention === "undeclared" ? (
-              <Undeclared visibility={visibility} />
+              <NotDeclared undeclared={undeclared} unknown={unknown} />
             ) : (
               <section aria-label="Log sources" className="flex flex-col gap-3">
                 <input

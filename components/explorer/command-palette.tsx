@@ -2,9 +2,21 @@
 
 import { useMemo, useState } from "react";
 import { Command } from "cmdk";
-import { Grid3x3, Moon, Network, Rows3, Search, Sun, X } from "lucide-react";
+import {
+  Grid3x3,
+  Moon,
+  Network,
+  Radar,
+  Rows3,
+  Search,
+  Sun,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { useTheme } from "next-themes";
 import {
+  EXPLORER_VIEW_LABELS,
+  availableViews,
   useCatalog,
   useExplorer,
   useExplorerActions,
@@ -20,16 +32,12 @@ import { Kbd, TypeIcon } from "@/components/ui/tide";
 import { searchCatalog } from "@/lib/search/engine";
 import { DEFAULT_FILTERS, parseFilterTokens } from "@/lib/search/filters";
 
-const VIEWS: Array<{
-  value: ExplorerView;
-  label: string;
-  icon: typeof Network;
-  key: string;
-}> = [
-  { value: "graph", label: "Graph", icon: Network, key: "1" },
-  { value: "catalogue", label: "Catalogue", icon: Rows3, key: "2" },
-  { value: "attack", label: "ATT&CK matrix", icon: Grid3x3, key: "3" },
-];
+const VIEW_ICONS: Record<ExplorerView, LucideIcon> = {
+  graph: Network,
+  catalogue: Rows3,
+  attack: Grid3x3,
+  visibility: Radar,
+};
 
 const itemClass =
   "flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-[13px] text-ink aria-selected:bg-accent/10";
@@ -42,6 +50,17 @@ export function CommandPalette() {
   const query = useExplorer((s) => s.query);
   const { resolvedTheme, setTheme } = useTheme();
   const [input, setInput] = useState("");
+  // The views this corpus has, each with the number key that opens it (app-shell's keys).
+  const views = useMemo(
+    () =>
+      availableViews(catalog).map((value, index) => ({
+        value,
+        label: EXPLORER_VIEW_LABELS[value],
+        icon: VIEW_ICONS[value],
+        key: String(index + 1),
+      })),
+    [catalog],
+  );
 
   const results = useMemo(() => {
     const filters = input.trim() ? parseFilterTokens(input) : DEFAULT_FILTERS;
@@ -130,23 +149,25 @@ export function CommandPalette() {
               heading="views"
               className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pb-1.5 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:text-subtle"
             >
-              {VIEWS.filter((view) =>
-                view.label.toLowerCase().includes(input.trim().toLowerCase()),
-              ).map((view) => (
-                <Command.Item
-                  key={view.value}
-                  value={`view-${view.value}`}
-                  onSelect={() => {
-                    actions.setView(view.value);
-                    close();
-                  }}
-                  className={itemClass}
-                >
-                  <view.icon className="size-4 text-subtle" aria-hidden />
-                  <span className="flex-1">{view.label}</span>
-                  <Kbd>{view.key}</Kbd>
-                </Command.Item>
-              ))}
+              {views
+                .filter((view) =>
+                  view.label.toLowerCase().includes(input.trim().toLowerCase()),
+                )
+                .map((view) => (
+                  <Command.Item
+                    key={view.value}
+                    value={`view-${view.value}`}
+                    onSelect={() => {
+                      actions.setView(view.value);
+                      close();
+                    }}
+                    className={itemClass}
+                  >
+                    <view.icon className="size-4 text-subtle" aria-hidden />
+                    <span className="flex-1">{view.label}</span>
+                    <Kbd>{view.key}</Kbd>
+                  </Command.Item>
+                ))}
               {"theme".includes(input.trim().toLowerCase()) || !input.trim() ? (
                 <Command.Item
                   value="theme"

@@ -87,6 +87,19 @@ const strings = (value: unknown): string[] =>
 const text = (value: unknown): string =>
   typeof value === "string" ? value : "";
 
+/**
+ * The export's TLP. opentide writes the bare value, but a hand-edited setting may read
+ * `TLP:AMBER` or carry spaces; anything else marks the export red, the most restrictive,
+ * rather than understating how far it may travel.
+ */
+export function normalizeTlp(value: unknown): Tlp {
+  const tlp = text(value)
+    .trim()
+    .toLowerCase()
+    .replace(/^tlp:\s*/, "");
+  return (TLP_VALUES as readonly string[]).includes(tlp) ? (tlp as Tlp) : "red";
+}
+
 const record = (value: unknown): Record<string, unknown> =>
   value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -100,7 +113,6 @@ export function normalizeVisibility(raw: unknown): VisibilityExport | null {
   const data = record(raw);
   const version = text(data.version);
   if (!version || version.split(".")[0] !== "1") return null;
-  const tlp = text(data.tlp).toLowerCase();
   const logsources = (Array.isArray(data.logsources) ? data.logsources : [])
     .map(record)
     .filter((source) => text(source.name) && text(source.system))
@@ -148,9 +160,7 @@ export function normalizeVisibility(raw: unknown): VisibilityExport | null {
   return {
     version,
     generatedAt: text(data.generatedAt) || null,
-    tlp: (TLP_VALUES as readonly string[]).includes(tlp)
-      ? (tlp as Tlp)
-      : "amber",
+    tlp: normalizeTlp(data.tlp),
     present: data.present !== false,
     problem: text(data.problem) || null,
     reads_unavailable: text(data.reads_unavailable) || null,
@@ -170,6 +180,7 @@ export function normalizeVisibility(raw: unknown): VisibilityExport | null {
       : []
     )
       .map(record)
+      .filter((item) => text(item.name))
       .map((item) => ({
         name: text(item.name),
         objectives: strings(item.objectives),

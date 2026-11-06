@@ -4,6 +4,7 @@ import {
   logSourceKey,
   logSourcesFor,
   matchesLogSource,
+  normalizeTlp,
   normalizeVisibility,
   visibilityOverview,
 } from "@/lib/opentide/visibility";
@@ -34,16 +35,36 @@ describe("normalizeVisibility", () => {
     expect(normalizeVisibility({ logsources: [] })).toBeNull();
   });
 
-  it("tolerates missing keys and an unknown TLP", () => {
+  it("tolerates missing keys, and marks an unknown TLP red", () => {
     const visibility = normalizeVisibility({
       version: "1.0",
       tlp: "pink",
       logsources: [{ name: "X", system: "sentinel", read_by: ["r"] }],
     })!;
-    expect(visibility.tlp).toBe("amber");
+    expect(visibility.tlp).toBe("red");
     expect(visibility.logsources[0]!.rules).toEqual(["r"]);
     expect(visibility.logsources[0]!.columns).toEqual([]);
     expect(visibility.undeclared).toEqual([]);
+  });
+});
+
+describe("normalizeTlp", () => {
+  it("reads the TLP with spaces, any case and a `tlp:` prefix", () => {
+    expect(normalizeTlp("amber")).toBe("amber");
+    expect(normalizeTlp("  green \n")).toBe("green");
+    expect(normalizeTlp("TLP:CLEAR")).toBe("clear");
+    expect(normalizeTlp("tlp: amber+strict")).toBe("amber+strict");
+    expect(normalizeTlp(" TLP:Amber ")).toBe("amber");
+  });
+
+  it("fails safe: a value it does not know, or none, is red", () => {
+    for (const value of ["pink", "white", "tlp:", "", null, undefined, 3, {}]) {
+      expect(normalizeTlp(value)).toBe("red");
+    }
+    expect(normalizeVisibility({ version: "1.0" })!.tlp).toBe("red");
+    expect(normalizeVisibility({ version: "1.0", tlp: "TLP:GREEN" })!.tlp).toBe(
+      "green",
+    );
   });
 });
 

@@ -6,6 +6,7 @@
  * Writes to public/data:
  *   explorer.bundle.json  objects (once, in `flatIndex`), summaries, chaining, deployments
  *   explorer.vocab.json   the vocabulary terms the client reads (see lib/slim-vocab.mjs)
+ * and removes exports it does not write (no Visibility view in a mock build).
  */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -584,18 +585,31 @@ export function assembleBundle(files, options = {}) {
   };
 }
 
+/**
+ * Exports this script does not write, removed from `public/data` so none is served beside
+ * the bundle it writes: earlier layouts shipped the first three (the client derives search
+ * and coverage itself now), and a visibility export (`opentide-explorer build` copies one)
+ * describes another corpus's log sources.
+ */
+export const STALE_EXPORTS = [
+  "explorer.search.json",
+  "explorer.coverage.json",
+  "vocab.att&ck.json",
+  "explorer.visibility.json",
+];
+
+/** @param {string} outDir */
+export function removeStaleExports(outDir) {
+  for (const stale of STALE_EXPORTS) {
+    fs.rmSync(path.join(outDir, stale), { force: true });
+  }
+}
+
 async function main() {
   const corpusRoot = resolveCorpusRoot();
   const outDir = path.join(ROOT, "public", "data");
   fs.mkdirSync(outDir, { recursive: true });
-  // Earlier layouts shipped these; the client derives search and coverage itself now.
-  for (const stale of [
-    "explorer.search.json",
-    "explorer.coverage.json",
-    "vocab.att&ck.json",
-  ]) {
-    fs.rmSync(path.join(outDir, stale), { force: true });
-  }
+  removeStaleExports(outDir);
 
   runSchemaCodegen(corpusRoot);
 

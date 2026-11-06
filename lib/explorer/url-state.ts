@@ -150,8 +150,18 @@ export function syncUrl(options: UrlSyncOptions): () => void {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let restoring = false;
 
-  // The first entry's address may not say which view it showed (it came from storage).
-  writeHistory(history, "replace", entry.view);
+  // The first entry's address may not say which view it showed (it came from storage). An
+  // address naming a view the explorer did not open (Visibility on a corpus without the
+  // export) is corrected, so it says what the explorer shows.
+  const namedView = parseUrl(location).view;
+  writeHistory(
+    history,
+    "replace",
+    entry.view,
+    namedView !== null && namedView !== entry.view
+      ? urlFor(entry, base)
+      : undefined,
+  );
 
   const write = () => {
     clearTimeout(timer);
@@ -206,7 +216,9 @@ export function syncUrl(options: UrlSyncOptions): () => void {
       restoring = false;
     }
     entry = read();
-    if (named !== entry.selectedId) {
+    // The explorer showed something other than the entry names: the entry now says what it
+    // shows (no such object, or a view this corpus does not have).
+    if (named !== entry.selectedId || target.view !== entry.view) {
       writeHistory(history, "replace", entry.view, urlFor(entry, base));
     }
   };

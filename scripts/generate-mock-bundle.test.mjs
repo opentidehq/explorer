@@ -10,6 +10,7 @@ import {
   getStatus,
   inferType,
   loadStatusStrategies,
+  removeStaleExports,
 } from "./generate-mock-bundle.mjs";
 
 const THREAT = "00000000-0000-4000-8000-000000000001";
@@ -208,5 +209,29 @@ describe("loadStatusStrategies", () => {
 
   it("uses the bundled statuses without a corpus file", () => {
     expect(loadStatusStrategies(null).DEVELOPMENT).toBe("PREVIEW");
+  });
+});
+
+describe("removeStaleExports", () => {
+  it("removes a visibility export and older layouts, and keeps the rest", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "explorer-stale-"));
+    try {
+      for (const name of [
+        "explorer.visibility.json",
+        "explorer.search.json",
+        "explorer.bundle.json",
+        "explorer.vocab.json",
+      ]) {
+        fs.writeFileSync(path.join(dir, name), "{}");
+      }
+      removeStaleExports(dir);
+      removeStaleExports(dir); // nothing left to remove is not an error
+      expect(fs.readdirSync(dir).toSorted()).toEqual([
+        "explorer.bundle.json",
+        "explorer.vocab.json",
+      ]);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

@@ -282,7 +282,13 @@ export function ExplorerProvider({
       subscribe: store.subscribe,
       restore(entry) {
         actions.select(entry.selectedId);
-        actions.setView(entry.view);
+        // An entry from a build with the visibility export, on one without: setView would
+        // ignore it and leave the view as it was, so open the graph, as a first load does.
+        actions.setView(
+          entry.view === "visibility" && !value.catalog.visibility
+            ? "graph"
+            : entry.view,
+        );
         if (entry.query !== store.get().query) actions.setQuery(entry.query);
       },
       hasObject: (id) => value.catalog.summaries.has(id),
