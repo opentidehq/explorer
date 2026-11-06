@@ -13,7 +13,7 @@ import {
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import {
-  EXPLORER_VIEWS,
+  availableViews,
   useCatalog,
   useExplorer,
   useExplorerActions,
@@ -154,6 +154,7 @@ function InspectorBody({ onClose }: { onClose: () => void }) {
  * breakpoint the rail becomes a drawer and the inspector a sheet.
  */
 export function AppShell() {
+  const catalog = useCatalog();
   const actions = useExplorerActions();
   const store = useExplorerStore();
   const desktop = useMediaQuery(DESKTOP);
@@ -211,7 +212,7 @@ export function AppShell() {
     setOverviewSheet(false);
   }, [actions]);
 
-  // Keys: ⌘K jumps, / searches, 1–3 switch views, Esc steps back.
+  // Keys: ⌘K jumps, / searches, 1–4 switch views (4 with a visibility export), Esc steps back.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -235,7 +236,7 @@ export function AppShell() {
         requestAnimationFrame(() => searchRef.current?.focus());
         return;
       }
-      const view = EXPLORER_VIEWS[Number(event.key) - 1];
+      const view = availableViews(catalog)[Number(event.key) - 1];
       if (view) {
         actions.setView(view);
         return;
@@ -251,7 +252,7 @@ export function AppShell() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [actions, store]);
+  }, [actions, catalog, store]);
 
   const sheetOpen = !desktop && (Boolean(selectedId) || overviewSheet);
 

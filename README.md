@@ -211,6 +211,14 @@ When using `opentide explorer serve`, detection content is resolved separately:
   Selecting an object pulls its chain to the top and draws connectors across the columns.
 - **ATT&CK** — Enterprise, ICS and Mobile matrices as a heatmap: techniques filled by how many
   objectives, signals and rules detect them, threat-only techniques marked as gaps.
+- **Visibility** — the telemetry a corpus declares and how its detections use it, when the corpus
+  exported it (`opentide generate explorer --include-visibility`): tiles for log sources, those
+  without columns, those no detection uses and datasets rules read that no log source declares;
+  log sources as cards with search and a filter by system; and a page per log source with its
+  columns and the rules (by query or through a signal) and objectives that use it. The view carries
+  the export's TLP marking. A rule's, signal's or objective's inspector links to the log sources it
+  uses. Without the export there is no Visibility view: the export is opt-in because a telemetry
+  inventory says what an organisation cannot see.
 - **Search** — free text plus `field:value` clauses (`type:rule technique:T1059 platform:sentinel`)
   and `field!=value` exclusions (`type!=rule`), with suggestions from the corpus and its
   vocabularies. Side by side, values of one field are alternatives and different fields must all
@@ -232,12 +240,17 @@ When using `opentide explorer serve`, detection content is resolved separately:
 
 ## Data
 
-The client fetches two files from `public/data/`, both preloaded with the HTML:
+The client fetches two files from `public/data/`, both preloaded with the HTML, and a third when the corpus exported it:
 
 | File                   | Written by                         | Contents                                                                                                                                                                                             |
 | ---------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `explorer.bundle.json` | `scripts/generate-mock-bundle.mjs` | Every object once (`flatIndex`), summaries, chaining, deployments, and the corpus repository and commit                                                                                              |
 | `explorer.vocab.json`  | `scripts/generate-mock-bundle.mjs` | The vocabulary terms the client reads: every ATT&CK technique, the small vocabularies whole, and of the large catalogues (actors, groups, malware) only the terms the corpus names, each stored once |
+
+`explorer.visibility.json`, from `opentide generate explorer --include-visibility`, holds the log
+sources, their columns and what uses each. `build` copies it when the exports have it and removes
+a copy an earlier build left when they do not, so a corpus that stops exporting it stops
+publishing it.
 
 `vocab.index.json` (the full index from `pnpm codegen:specs`, ~15 MB) is the fallback when
 `explorer.vocab.json` is absent; bundles from older generators that ship `models` and `signals`

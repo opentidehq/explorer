@@ -30,6 +30,7 @@ import {
   normalizeReference,
   splitPillValues,
 } from "@/lib/opentide/vocab";
+import { ObjectLogSources } from "@/components/explorer/inspector/object-logsources";
 
 export function Section({
   label,
@@ -461,6 +462,8 @@ export function ObjectOverview({
       {objectiveSignals.length ? (
         <RelatedRows label="signals" ids={objectiveSignals} />
       ) : null}
+
+      <ObjectLogSources id={summary.uuid} />
 
       {summary.type === "rule" ? <Integrations body={body} /> : null}
       {summary.type === "signal" ? (

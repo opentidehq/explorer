@@ -4,6 +4,13 @@ Notable changes to the opentide explorer, newest first. The format follows [Keep
 
 Each version's first paragraph is its summary: the GitHub Release and [opentide.org/releases](https://opentide.org/releases/explorer/) show it above the change lists. Versions before 0.5.0 were tagged after the fact, on the commit each one shipped as; they were not published to npm.
 
+## [Unreleased]
+
+### Added
+
+- A **Visibility** view, beside Graph, Catalogue and ATT&CK ([#85](https://github.com/opentidehq/explorer/issues/85)), for a corpus that exported visibility with `opentide generate explorer --include-visibility` (`explorer.visibility.json`). Tiles count log sources, those without columns, those no detection uses and datasets rules read that no log source declares, each a filter; log sources show as cards with search and a filter by system; a log source's page lists its columns with types and descriptions, the rules whose queries read it, the rules that use it through a signal, and the objectives whose signals name it. The view shows the export's TLP. The inspector of a rule, signal or objective lists the log sources it uses, each opening its page. Key `4` opens the view.
+- `opentide-explorer build` copies `explorer.visibility.json` when the exports have it, and removes a copy an earlier build left when they do not. Without it there is no Visibility view, and an address or a stored preference that names it opens the graph.
+
 ## [0.5.1] - 2026-10-27
 
 `npx @opentide/explorer serve` works: 0.5.0 shipped two commands, so npx could not tell which to run and stopped with "could not determine executable to run".

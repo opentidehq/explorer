@@ -9,7 +9,12 @@ import { UUID_PATTERN } from "@/lib/opentide/uuid";
  * explorer-state.tsx stays a few lines and the rules here can run under fake timers.
  */
 
-export const EXPLORER_VIEWS = ["graph", "catalogue", "attack"] as const;
+export const EXPLORER_VIEWS = [
+  "graph",
+  "catalogue",
+  "attack",
+  "visibility",
+] as const;
 export type ExplorerView = (typeof EXPLORER_VIEWS)[number];
 
 export function isExplorerView(value: unknown): value is ExplorerView {
