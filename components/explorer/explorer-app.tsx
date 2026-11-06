@@ -47,7 +47,11 @@ export function ExplorerApp({ initialId }: { initialId?: string }) {
         setState({ stage: "indexing" });
         // Let the indexing message paint before the synchronous build.
         await nextPaint();
-        const catalog = buildCatalog(payload.bundle, payload.vocabIndex);
+        const catalog = buildCatalog(
+          payload.bundle,
+          payload.vocabIndex,
+          payload.visibility,
+        );
         if (!cancelled) setState({ stage: "ready", catalog });
       } catch (error) {
         pending = null;

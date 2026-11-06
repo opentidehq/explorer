@@ -64,6 +64,12 @@ const FULL_VOCAB = "vocab.index.json";
 const VOCABULARIES = [SLIM_VOCAB, FULL_VOCAB];
 /** Written by earlier versions; nothing reads them now. */
 const STALE = ["explorer.search.json", "explorer.coverage.json"];
+/**
+ * Optional: `opentide generate explorer --include-visibility` writes it, and only then does
+ * the site have a Visibility view. A build without it removes the copy an earlier build left,
+ * so a corpus that stopped exporting visibility stops publishing it.
+ */
+const OPTIONAL = ["explorer.visibility.json"];
 
 /**
  * Put the exports where `next build` reads them: `<targetDir>/public/data`.
@@ -82,10 +88,13 @@ export function copyExports(exportsDir, targetDir) {
 
   // public/data holds exactly these exports: a vocabulary left by an earlier build would be
   // served in place of this corpus's.
-  for (const file of [...VOCABULARIES, ...STALE]) {
+  for (const file of [...VOCABULARIES, ...OPTIONAL, ...STALE]) {
     const src = path.join(exportsDir, file);
     const dest = path.join(dataDir, file);
-    if (VOCABULARIES.includes(file) && fs.existsSync(src)) {
+    if (
+      (VOCABULARIES.includes(file) || OPTIONAL.includes(file)) &&
+      fs.existsSync(src)
+    ) {
       fs.copyFileSync(src, dest);
     } else {
       fs.rmSync(dest, { force: true });

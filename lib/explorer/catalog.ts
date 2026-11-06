@@ -17,6 +17,7 @@ import {
   type RawExplorerBundle,
 } from "@/lib/opentide/types";
 import { lookupVocabTerm, type VocabIndex } from "@/lib/opentide/vocab";
+import type { VisibilityExport } from "@/lib/opentide/visibility";
 import {
   buildSearchDocuments,
   createSearchIndex,
@@ -40,6 +41,8 @@ export interface Catalog {
   /** Summaries per type, by name. */
   byType: Record<ObjectType, BundleObjectSummary[]>;
   overview: CatalogOverview;
+  /** The corpus's visibility export, when it published one; null hides the Visibility view. */
+  visibility: VisibilityExport | null;
 }
 
 export interface CatalogOverview {
@@ -159,6 +162,7 @@ function buildOverview(
 export function buildCatalog(
   raw: RawExplorerBundle | ExplorerBundle,
   vocab: VocabIndex,
+  visibility: VisibilityExport | null = null,
 ): Catalog {
   const bundle = enrichBundle(normalizeExplorerBundle(raw));
   const graph = createGraphContext(bundle);
@@ -185,6 +189,7 @@ export function buildCatalog(
     summaries,
     byType,
     overview: buildOverview(bundle, corpus, byType),
+    visibility,
   };
 }
 

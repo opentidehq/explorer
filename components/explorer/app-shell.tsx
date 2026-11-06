@@ -13,12 +13,13 @@ import {
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import {
-  EXPLORER_VIEWS,
+  availableViews,
   useCatalog,
   useExplorer,
   useExplorerActions,
   useExplorerStore,
 } from "@/components/explorer/explorer-state";
+import { DESKTOP } from "@/components/explorer/breakpoints";
 import { Header } from "@/components/explorer/header";
 import { LibraryOverview } from "@/components/explorer/inspector/library-overview";
 import { ObjectInspector } from "@/components/explorer/inspector/object-inspector";
@@ -34,8 +35,6 @@ const CommandPalette = dynamic(
     ),
   { ssr: false },
 );
-
-const DESKTOP = "(min-width: 1024px)";
 
 function useMediaQuery(query: string): boolean {
   return useSyncExternalStore(
@@ -121,6 +120,10 @@ function useReturnFocus() {
         event.preventDefault();
         const target = holder.current;
         holder.current = null;
+        // What closed it may have moved focus on already (a log source's page takes it):
+        // give it back only when it was left nowhere.
+        const active = document.activeElement;
+        if (active && active !== document.body) return;
         if (target?.isConnected) target.focus({ preventScroll: true });
       },
     }),
@@ -154,6 +157,7 @@ function InspectorBody({ onClose }: { onClose: () => void }) {
  * breakpoint the rail becomes a drawer and the inspector a sheet.
  */
 export function AppShell() {
+  const catalog = useCatalog();
   const actions = useExplorerActions();
   const store = useExplorerStore();
   const desktop = useMediaQuery(DESKTOP);
@@ -171,12 +175,17 @@ export function AppShell() {
   if (paletteOpen && !paletteUsed) setPaletteUsed(true);
 
   // Once the first view is up, fetch the other views and the markdown renderer while the
-  // browser is idle, so switching and opening objects never waits on the network.
+  // browser is idle, so switching and opening objects never waits on the network. The
+  // Visibility view only when the corpus has it.
+  const hasVisibility = catalog.visibility !== null;
   useEffect(() => {
     const warm = () => {
       void import("@/components/explorer/graph/graph-view");
       void import("@/components/explorer/catalogue/catalogue-view");
       void import("@/components/explorer/attack/attack-view");
+      if (hasVisibility) {
+        void import("@/components/explorer/visibility/visibility-view");
+      }
       void import("react-markdown");
     };
     // Safari has no requestIdleCallback.
@@ -186,7 +195,7 @@ export function AppShell() {
     }
     const id = globalThis.setTimeout(warm, 1500);
     return () => globalThis.clearTimeout(id);
-  }, []);
+  }, [hasVisibility]);
 
   const resize = useCallback((delta: number) => {
     setWidth((current) =>
@@ -211,7 +220,7 @@ export function AppShell() {
     setOverviewSheet(false);
   }, [actions]);
 
-  // Keys: ⌘K jumps, / searches, 1–3 switch views, Esc steps back.
+  // Keys: ⌘K jumps, / searches, 1–4 switch views (4 with a visibility export), Esc steps back.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -235,7 +244,7 @@ export function AppShell() {
         requestAnimationFrame(() => searchRef.current?.focus());
         return;
       }
-      const view = EXPLORER_VIEWS[Number(event.key) - 1];
+      const view = availableViews(catalog)[Number(event.key) - 1];
       if (view) {
         actions.setView(view);
         return;
@@ -251,7 +260,7 @@ export function AppShell() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [actions, store]);
+  }, [actions, catalog, store]);
 
   const sheetOpen = !desktop && (Boolean(selectedId) || overviewSheet);
 

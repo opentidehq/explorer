@@ -31,12 +31,21 @@ import {
 } from "@/lib/search/filters";
 
 export { EXPLORER_VIEWS, type ExplorerView } from "@/lib/explorer/url-state";
+import { EXPLORER_VIEWS } from "@/lib/explorer/url-state";
 
 export const EXPLORER_VIEW_LABELS: Record<ExplorerView, string> = {
   graph: "Graph",
   catalogue: "Catalogue",
   attack: "ATT&CK",
+  visibility: "Visibility",
 };
+
+/** The views this corpus has: Visibility only when it exported visibility. */
+export function availableViews(catalog: Catalog): ExplorerView[] {
+  return EXPLORER_VIEWS.filter(
+    (view) => view !== "visibility" || catalog.visibility !== null,
+  );
+}
 
 export type InspectorTab = "overview" | "links" | "file";
 
@@ -56,6 +65,8 @@ export interface ExplorerState {
   killchainGrouping: boolean;
   showVocabNodes: boolean;
   inspectorTab: InspectorTab;
+  /** The log source the Visibility view shows (`system:name`), if one is open. */
+  logSource: string | null;
   /** The corpus rail as a drawer (below the desktop breakpoint). */
   railOpen: boolean;
   paletteOpen: boolean;
@@ -112,6 +123,8 @@ export interface ExplorerActions {
   select: (id: string | null, options?: { tab?: InspectorTab }) => void;
   hover: (id: string | null) => void;
   setView: (view: ExplorerView) => void;
+  /** Open a log source in the Visibility view (`system:name`), or close it. */
+  openLogSource: (key: string | null) => void;
   setQuery: (query: string) => void;
   /** Add or remove one `field:value` (or `field!=value`) clause in the search. */
   toggleToken: (field: string, value: string, op?: ClauseOperator) => void;
@@ -158,8 +171,19 @@ function createActions(
       store.set({ hoveredId: id });
     },
     setView(view) {
+      // A corpus without the visibility export has no such view.
+      if (view === "visibility" && !catalog.visibility) return;
       storeView(view);
       store.set({ view, hoveredId: null });
+    },
+    openLogSource(key) {
+      if (!catalog.visibility) return;
+      if (key) storeView("visibility");
+      store.set(
+        key
+          ? { view: "visibility", logSource: key, hoveredId: null }
+          : { logSource: null },
+      );
     },
     setQuery: (query) => setQuery(query),
     toggleToken(field, value, op) {
@@ -221,11 +245,16 @@ export function ExplorerProvider({
     const query = url?.query ?? "";
     const filters = parseFilterTokens(query);
     const requested = url?.selectedId ?? initialId ?? null;
+    const requestedView =
+      url?.view ??
+      (typeof window === "undefined" ? null : readStoredView()) ??
+      "graph";
     const store = createStore<ExplorerState>({
+      // A Visibility address on a corpus without the export opens the graph.
       view:
-        url?.view ??
-        (typeof window === "undefined" ? null : readStoredView()) ??
-        "graph",
+        requestedView === "visibility" && !catalog.visibility
+          ? "graph"
+          : requestedView,
       selectedId:
         requested && catalog.summaries.has(requested) ? requested : null,
       hoveredId: null,
@@ -237,6 +266,7 @@ export function ExplorerProvider({
       killchainGrouping: false,
       showVocabNodes: false,
       inspectorTab: "overview",
+      logSource: null,
       railOpen: false,
       paletteOpen: false,
     });
@@ -252,7 +282,13 @@ export function ExplorerProvider({
       subscribe: store.subscribe,
       restore(entry) {
         actions.select(entry.selectedId);
-        actions.setView(entry.view);
+        // An entry from a build with the visibility export, on one without: setView would
+        // ignore it and leave the view as it was, so open the graph, as a first load does.
+        actions.setView(
+          entry.view === "visibility" && !value.catalog.visibility
+            ? "graph"
+            : entry.view,
+        );
         if (entry.query !== store.get().query) actions.setQuery(entry.query);
       },
       hasObject: (id) => value.catalog.summaries.has(id),

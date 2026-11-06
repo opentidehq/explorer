@@ -279,6 +279,57 @@ describe("syncUrl", () => {
     expect(browser.history.pushState).not.toHaveBeenCalled();
   });
 
+  it("corrects a first address naming a view the explorer did not open", () => {
+    // Visibility on a corpus without the export: the explorer opened the graph.
+    const browser = fakeBrowser(`/?o=${A}&v=visibility&q=apt`);
+    const store = createStore<UrlEntry>({
+      selectedId: A,
+      view: "graph",
+      query: "apt",
+    });
+    syncUrl({
+      read: store.get,
+      subscribe: store.subscribe,
+      restore: () => {},
+      hasObject: () => true,
+      ...browser,
+      base: "",
+    });
+
+    expect(browser.address).toBe(`/?o=${A}&q=apt`);
+    expect(browser.state).toEqual({ view: "graph" });
+    expect(browser.history.pushState).not.toHaveBeenCalled();
+    expect(browser.length).toBe(1);
+  });
+
+  it("rewrites an entry Back returns to when its view is not restored", () => {
+    // An entry from a build that had the Visibility view, in the same tab.
+    const browser = fakeBrowser("/?v=visibility", { view: "visibility" });
+    browser.history.pushState({ view: "catalogue" }, "", "/?v=catalogue");
+    const store = createStore<UrlEntry>({
+      selectedId: null,
+      view: "catalogue",
+      query: "",
+    });
+    syncUrl({
+      read: store.get,
+      subscribe: store.subscribe,
+      // As the explorer restores: a view this corpus lacks opens the graph.
+      restore: (entry) =>
+        store.set({ view: entry.view === "visibility" ? "graph" : entry.view }),
+      hasObject: () => true,
+      ...browser,
+      base: "",
+    });
+
+    browser.back();
+
+    expect(store.get().view).toBe("graph");
+    expect(browser.address).toBe("/");
+    expect(browser.state).toEqual({ view: "graph" });
+    expect(browser.length).toBe(2);
+  });
+
   it("pushes an entry for a new selection, at once", () => {
     const { browser, select } = mount("/");
 

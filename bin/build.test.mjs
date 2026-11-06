@@ -169,6 +169,30 @@ describe("copyExports", () => {
     expect(fs.existsSync(path.join(data, "vocab.index.json"))).toBe(false);
   });
 
+  it("copies the visibility export when the corpus wrote one, and removes a stale copy", () => {
+    const exports = tempDir();
+    const target = tempDir();
+    write(exports, "explorer.bundle.json", bundle);
+    write(exports, "explorer.visibility.json", {
+      version: "1.0",
+      tlp: "amber",
+    });
+    copyExports(exports, target);
+    const data = path.join(target, "public", "data");
+    expect(
+      JSON.parse(
+        fs.readFileSync(path.join(data, "explorer.visibility.json"), "utf8"),
+      ),
+    ).toEqual({ version: "1.0", tlp: "amber" });
+
+    // The corpus stopped exporting it (it is opt-in): the site stops publishing it.
+    fs.rmSync(path.join(exports, "explorer.visibility.json"));
+    copyExports(exports, target);
+    expect(fs.existsSync(path.join(data, "explorer.visibility.json"))).toBe(
+      false,
+    );
+  });
+
   it("requires the bundle", () => {
     expect(() => copyExports(tempDir(), tempDir())).toThrow(
       "Missing required export",

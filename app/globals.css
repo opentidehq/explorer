@@ -36,6 +36,9 @@
   --tide-float:
     0 14px 36px -18px rgb(0 20 80 / 0.4), 0 2px 6px -3px rgb(0 0 0 / 0.1);
   --tide-glow: #f0a800;
+  /* Attention: text at 4.5:1 or more on the panel (warn 5.4:1, danger 6.6:1 on white). */
+  --tide-warn: #9a5b00;
+  --tide-danger: #b42318;
 
   --tide-code-bg: #000b1f;
   --tide-code-ink: #e8f0ff;
@@ -72,6 +75,9 @@
   --tide-float:
     0 18px 40px -18px rgb(0 0 0 / 0.9), 0 0 0 1px rgb(255 255 255 / 0.02);
   --tide-glow: #ffcc00;
+  /* Warn 9.5:1, danger 7.0:1 on the dark panel. */
+  --tide-warn: #f2a65a;
+  --tide-danger: #ff6b6b;
 
   --type-threat: #aab2c5;
   --type-objective: #8aa4ff;
@@ -104,6 +110,8 @@
   --color-line-subtle: var(--tide-border-subtle);
   --color-hover: var(--tide-hover);
   --color-glow: var(--tide-glow);
+  --color-warn: var(--tide-warn);
+  --color-danger: var(--tide-danger);
   --color-code: var(--tide-code-bg);
   --color-code-ink: var(--tide-code-ink);
   --color-code-dim: var(--tide-code-dim);

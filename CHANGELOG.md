@@ -4,6 +4,13 @@ Notable changes to the opentide explorer, newest first. The format follows [Keep
 
 Each version's first paragraph is its summary: the GitHub Release and [opentide.org/releases](https://opentide.org/releases/explorer/) show it above the change lists. How to write a version: [`.agents/skills/release-notes/SKILL.md`](.agents/skills/release-notes/SKILL.md). Versions before 0.5.0 were tagged after the fact, on the commit each one shipped as; they were not published to npm.
 
+## [Unreleased]
+
+### Added
+
+- A **Visibility** view, beside Graph, Catalogue and ATT&CK ([#85](https://github.com/opentidehq/explorer/issues/85)), for a corpus that exported visibility with `opentide generate explorer --include-visibility` (`explorer.visibility.json`). Tiles count log sources, those without columns, those no detection uses and datasets rules read that no log source declares, each a filter; log sources show as cards with search and a filter by system, which the undeclared datasets follow too; the log sources signals name that no log source declares are listed with the objectives that name them; a log source's page lists its columns with types and descriptions, the rules whose queries read it, the rules that use it through a signal, and the objectives whose signals name it, and takes focus when it opens. A library without `.opentide/configurations/visibility.toml` gets a page that says so, still listing the datasets its rules read. The view shows the export's TLP, read as red when the export names none the explorer knows. The inspector of a rule, signal or objective lists the log sources it uses, each opening its page (on a small screen the inspector closes). Key `4` and the command palette open the view.
+- `opentide-explorer build` copies `explorer.visibility.json` when the exports have it, and removes a copy an earlier build left when they do not. Without it there is no Visibility view, and an address, a stored preference or a Back or Forward that names it opens the graph, and the address stops naming it.
+
 ## [0.5.1] - 2026-10-27
 
 `npx @opentide/explorer serve` works: 0.5.0 shipped two commands, so npx could not tell which to run and stopped with "could not determine executable to run".

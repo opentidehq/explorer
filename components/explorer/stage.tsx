@@ -53,6 +53,14 @@ const AttackView = dynamic(
   { ssr: false, loading: () => <ViewLoading label="building the matrix" /> },
 );
 
+const VisibilityView = dynamic(
+  () =>
+    import("@/components/explorer/visibility/visibility-view").then(
+      (m) => m.VisibilityView,
+    ),
+  { ssr: false, loading: () => <ViewLoading label="reading the telemetry" /> },
+);
+
 /** Shown by every view when the search leaves nothing. */
 export function NoMatches({ children }: { children?: ReactNode }) {
   const actions = useExplorerActions();
@@ -88,6 +96,7 @@ export function Stage() {
         {view === "graph" ? <GraphView /> : null}
         {view === "catalogue" ? <CatalogueView /> : null}
         {view === "attack" ? <AttackView /> : null}
+        {view === "visibility" ? <VisibilityView /> : null}
       </ViewBoundary>
     </div>
   );

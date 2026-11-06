@@ -7,6 +7,11 @@ import type {
   RawExplorerBundle,
 } from "@/lib/opentide/types";
 import {
+  VISIBILITY_FILE,
+  normalizeVisibility,
+  type VisibilityExport,
+} from "@/lib/opentide/visibility";
+import {
   expandSlimVocab,
   isSlimVocab,
   type VocabIndex,
@@ -79,6 +84,8 @@ export function normalizeExplorerBundle(
 export interface CatalogPayload {
   bundle: ExplorerBundle;
   vocabIndex: VocabIndex;
+  /** `explorer.visibility.json`, when the corpus exported it (opt-in); else null. */
+  visibility: VisibilityExport | null;
 }
 
 export type CatalogStage = "fetching" | "indexing";
@@ -110,9 +117,11 @@ export async function loadCatalog(
   onStage?: (stage: CatalogStage) => void,
 ): Promise<CatalogPayload> {
   onStage?.("fetching");
-  const [bundle, vocabIndex] = await Promise.all([
+  const [bundle, vocabIndex, visibility] = await Promise.all([
     fetchJson<RawExplorerBundle>(catalogDataUrl("explorer.bundle.json")),
     loadVocab(),
+    // Optional: a corpus that did not export visibility has no file, and no view.
+    fetchJson<unknown>(catalogDataUrl(VISIBILITY_FILE)),
   ]);
 
   if (!bundle) {
@@ -123,5 +132,6 @@ export async function loadCatalog(
   return {
     bundle: normalizeExplorerBundle(bundle),
     vocabIndex,
+    visibility: normalizeVisibility(visibility),
   };
 }

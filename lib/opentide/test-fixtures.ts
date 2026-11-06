@@ -1,0 +1,67 @@
+/** A synthetic visibility export, shaped as `opentide generate explorer --include-visibility` writes it. */
+export const VISIBILITY_FIXTURE = {
+  version: "1.0",
+  generatedAt: "2026-11-06T00:00:00+00:00",
+  tlp: "amber",
+  present: true,
+  problem: null,
+  reads_unavailable: null,
+  systems: {
+    sentinel: { logsources: 2, with_columns: 1, used: 1 },
+    splunk: { logsources: 1, with_columns: 0, used: 1 },
+  },
+  logsources: [
+    {
+      name: "SecurityEvent",
+      system: "sentinel",
+      description: "Windows security events.",
+      tenants: [],
+      columns: [
+        {
+          name: "EventID",
+          type: "int",
+          description: "The event's identifier.",
+        },
+      ],
+      read_by: ["rule-1"],
+      objectives: [],
+      signals: [],
+      signal_rules: [],
+      rules: ["rule-1"],
+    },
+    {
+      name: "Contoso_Audit_CL",
+      system: "sentinel",
+      description: "Administrative audit events.",
+      tenants: [],
+      columns: [],
+      read_by: [],
+      objectives: [],
+      signals: [],
+      signal_rules: [],
+      rules: [],
+    },
+    {
+      name: "WinEventLog:Security",
+      system: "splunk",
+      description: "Security event log of the domain controllers.",
+      tenants: [],
+      columns: [],
+      read_by: [],
+      objectives: ["objective-1"],
+      signals: [{ objective: "objective-1", uuid: "signal-1", name: "Logons" }],
+      signal_rules: ["rule-1"],
+      rules: ["rule-1"],
+    },
+  ],
+  undeclared: [
+    {
+      system: "sentinel",
+      name: "SigninLogs",
+      rules: ["rule-2"],
+      system_declares: true,
+    },
+  ],
+  unknown_signal_sources: [],
+  reads: [],
+};

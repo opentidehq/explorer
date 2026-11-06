@@ -8,6 +8,7 @@ import {
   Search,
   SlidersHorizontal,
   Grid3x3,
+  Radar,
 } from "lucide-react";
 import {
   OpentideMark,
@@ -15,6 +16,7 @@ import {
 } from "@/components/brand/opentide-mark";
 import {
   EXPLORER_VIEW_LABELS,
+  availableViews,
   useCatalog,
   useExplorer,
   useExplorerActions,
@@ -42,6 +44,12 @@ const VIEW_OPTIONS: SegmentOption<ExplorerView>[] = [
     value: "attack",
     label: EXPLORER_VIEW_LABELS.attack,
     icon: Grid3x3,
+    compactLabel: true,
+  },
+  {
+    value: "visibility",
+    label: EXPLORER_VIEW_LABELS.visibility,
+    icon: Radar,
     compactLabel: true,
   },
 ];
@@ -101,7 +109,9 @@ export function Header({ onOpenOverview }: { onOpenOverview: () => void }) {
         <Segmented
           label="Explorer view"
           value={view}
-          options={VIEW_OPTIONS}
+          options={VIEW_OPTIONS.filter((option) =>
+            availableViews(catalog).includes(option.value),
+          )}
           onChange={actions.setView}
           className="justify-self-center"
         />
