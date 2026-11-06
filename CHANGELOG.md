@@ -6,10 +6,15 @@ Each version's first paragraph is its summary: the GitHub Release and [opentide.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-06
+
+A Visibility view shows the telemetry a library declares and the detections that use it, when the library exports it with `opentide generate explorer --include-visibility`.
+
 ### Added
 
-- A **Visibility** view, beside Graph, Catalogue and ATT&CK ([#85](https://github.com/opentidehq/explorer/issues/85)), for a corpus that exported visibility with `opentide generate explorer --include-visibility` (`explorer.visibility.json`). Tiles count log sources, those without columns, those no detection uses and datasets rules read that no log source declares, each a filter; log sources show as cards with search and a filter by system, which the undeclared datasets follow too; the log sources signals name that no log source declares are listed with the objectives that name them; a log source's page lists its columns with types and descriptions, the rules whose queries read it, the rules that use it through a signal, and the objectives whose signals name it, and takes focus when it opens. A library without `.opentide/configurations/visibility.toml` gets a page that says so, still listing the datasets its rules read. The view shows the export's TLP, read as red when the export names none the explorer knows. The inspector of a rule, signal or objective lists the log sources it uses, each opening its page (on a small screen the inspector closes). Key `4` and the command palette open the view.
-- `opentide-explorer build` copies `explorer.visibility.json` when the exports have it, and removes a copy an earlier build left when they do not. Without it there is no Visibility view, and an address, a stored preference or a Back or Forward that names it opens the graph, and the address stops naming it.
+- **A Visibility view for the log sources a library declares.** Tiles count log sources, those without columns, those no detection uses and datasets rules read that none declares; cards filter by search and system; each log source's page lists its columns and the rules and objectives that use it, under the export's TLP ([#85](https://github.com/opentidehq/explorer/issues/85)).
+- **The inspector links a detection to its log sources.** A rule, signal or objective lists the log sources it uses and how, each opening its page; key `4` and the command palette open the view.
+- **`opentide-explorer build` publishes the visibility export only while it exists.** It copies `explorer.visibility.json` when the exports have it and removes an earlier copy when they do not; without it there is no Visibility view, and an address that names it opens the graph.
 
 ## [0.5.1] - 2026-10-27
 
@@ -103,6 +108,7 @@ The first explorer: a search-first WebGL graph of a corpus's threats, objectives
 - **A static export for GitHub Pages**, which the `opentide` CI can build.
 - **Dark and light themes**, remembered between visits.
 
+[0.6.0]: https://github.com/opentidehq/explorer/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/opentidehq/explorer/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/opentidehq/explorer/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/opentidehq/explorer/compare/v0.3.0...v0.4.0
