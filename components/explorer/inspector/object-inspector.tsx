@@ -8,6 +8,10 @@ import {
   useExplorerActions,
   type InspectorTab,
 } from "@/components/explorer/explorer-state";
+import {
+  ObjectChecks,
+  useFindingCount,
+} from "@/components/explorer/inspector/object-checks";
 import { ObjectFile } from "@/components/explorer/inspector/object-file";
 import { ObjectLinks } from "@/components/explorer/inspector/object-links";
 import { ObjectOverview } from "@/components/explorer/inspector/object-overview";
@@ -101,6 +105,7 @@ export function ObjectInspector({
   const actions = useExplorerActions();
   const tab = useExplorer((s) => s.inspectorTab);
   const body = catalog.bundle.flatIndex[summary.uuid] ?? {};
+  const findings = useFindingCount(summary.uuid);
   const [copiedUuid, copyUuid] = useCopy();
   const [copiedLink, copyLink] = useCopy();
 
@@ -180,12 +185,17 @@ export function ObjectInspector({
           <Segmented<InspectorTab>
             size="sm"
             label="Object details"
+            className="shrink-0"
             value={tab}
             onChange={actions.setInspectorTab}
             options={[
               { value: "overview", label: "overview" },
               { value: "links", label: `links · ${links}` },
               { value: "file", label: "file" },
+              {
+                value: "checks",
+                label: findings == null ? "checks" : `checks · ${findings}`,
+              },
             ]}
           />
           <button
@@ -213,6 +223,9 @@ export function ObjectInspector({
         ) : null}
         {tab === "links" ? <ObjectLinks id={summary.uuid} /> : null}
         {tab === "file" ? <ObjectFile summary={summary} body={body} /> : null}
+        {tab === "checks" ? (
+          <ObjectChecks summary={summary} body={body} />
+        ) : null}
       </div>
     </article>
   );

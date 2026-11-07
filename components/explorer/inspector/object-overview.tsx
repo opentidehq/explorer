@@ -7,7 +7,16 @@ import {
   useExplorerActions,
 } from "@/components/explorer/explorer-state";
 import { VocabChip } from "@/components/explorer/inspector/vocab-chip";
-import { CodePanel } from "@/components/code/code-panel";
+import { CodePanel, type PanelAnalysis } from "@/components/code/code-panel";
+import { useObjectAnalysis } from "@/components/code/use-object-analysis";
+import {
+  regionDiagnostics,
+  regionTokens,
+  toFile,
+  type QueryRegion,
+} from "@/lib/lsp/object-document";
+import type { DocumentAnalysis } from "@/lib/lsp/client";
+import type { Position } from "@/lib/lsp/protocol";
 import { Markdown } from "@/components/ui/markdown";
 import { Caption, Tag, TypeIcon } from "@/components/ui/tide";
 import {
@@ -183,11 +192,62 @@ function statusTone(status: string): "solid" | "accent" | "outline" {
   return "outline";
 }
 
-/** A rule's integrations: each configuration, its status, and its query. */
-function Integrations({ body }: { body: ObjectBody }) {
-  const configurations =
-    (body["configurations"] as Record<string, ObjectBody> | undefined) ?? {};
+/** A query panel's share of the object's analysis: its region's tokens and findings. */
+function regionAnalysis(
+  region: QueryRegion | undefined,
+  analysis: DocumentAnalysis | null,
+  hover: (position: Position) => Promise<string | null>,
+): PanelAnalysis | null {
+  if (!region || !analysis) return null;
+  return {
+    tokens: analysis.tokens ? regionTokens(region, analysis.tokens) : null,
+    diagnostics: regionDiagnostics(region, analysis.diagnostics),
+    hover: (position) => {
+      const at = toFile(region, position);
+      return at ? hover(at) : Promise.resolve(null);
+    },
+  };
+}
+
+function hasQuery(configurations: Record<string, ObjectBody>): boolean {
+  return Object.values(configurations).some(
+    (config) =>
+      typeof config?.["query"] === "string" ||
+      typeof config?.["search"] === "string" ||
+      typeof config?.["condition"] === "string",
+  );
+}
+
+/**
+ * A rule's integrations: each configuration, its status, and its query. The queries are
+ * read by the language server as part of the rule's document, so each panel shows the
+ * server's tokens, findings and hover for its query, in the platform's own profile.
+ */
+function Integrations({
+  summary,
+  body,
+}: {
+  summary: BundleObjectSummary;
+  body: ObjectBody;
+}) {
+  const raw = body["configurations"] as Record<string, ObjectBody> | undefined;
+  const configurations = raw ?? {};
   const entries = Object.entries(configurations);
+  const { document, analysis, hover } = useObjectAnalysis(
+    summary,
+    body,
+    entries.length > 0 && hasQuery(configurations),
+  );
+  const panels = useMemo(
+    () =>
+      new Map(
+        Object.keys(raw ?? {}).map((platform) => [
+          platform,
+          regionAnalysis(document?.queries.get(platform), analysis, hover),
+        ]),
+      ),
+    [raw, document, analysis, hover],
+  );
   if (!entries.length) return null;
   return (
     <Section label="integrations" aside={String(entries.length)}>
@@ -201,6 +261,7 @@ function Integrations({ body }: { body: ObjectBody }) {
             typeof config?.["query"] === "string"
               ? (config["query"] as string)
               : null;
+          const region = document?.queries.get(platform);
           const extras = Object.entries(config ?? {}).filter(
             ([key, value]) =>
               !["status", "query", "contributors"].includes(key) &&
@@ -229,10 +290,13 @@ function Integrations({ body }: { body: ObjectBody }) {
               ) : null}
               {query ? (
                 <CodePanel
-                  code={query.trim()}
+                  code={region?.key === "query" ? region.text : query.trim()}
                   language="query"
                   caption={`${platform} · query`}
                   maxHeight="22rem"
+                  analysis={
+                    region?.key === "query" ? panels.get(platform) : null
+                  }
                 />
               ) : null}
             </div>
@@ -465,7 +529,9 @@ export function ObjectOverview({
 
       <ObjectLogSources id={summary.uuid} />
 
-      {summary.type === "rule" ? <Integrations body={body} /> : null}
+      {summary.type === "rule" ? (
+        <Integrations summary={summary} body={body} />
+      ) : null}
       {summary.type === "signal" ? (
         <Examples examples={body["examples"]} />
       ) : null}

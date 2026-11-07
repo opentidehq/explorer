@@ -47,7 +47,7 @@ export function availableViews(catalog: Catalog): ExplorerView[] {
   );
 }
 
-export type InspectorTab = "overview" | "links" | "file";
+export type InspectorTab = "overview" | "links" | "file" | "checks";
 
 export interface ExplorerState {
   view: ExplorerView;
@@ -65,6 +65,8 @@ export interface ExplorerState {
   killchainGrouping: boolean;
   showVocabNodes: boolean;
   inspectorTab: InspectorTab;
+  /** A line of the File tab to scroll to and mark (a finding picked in the checks tab). */
+  fileReveal: { line: number; nonce: number } | null;
   /** The log source the Visibility view shows (`system:name`), if one is open. */
   logSource: string | null;
   /** The corpus rail as a drawer (below the desktop breakpoint). */
@@ -131,6 +133,8 @@ export interface ExplorerActions {
   setRelationMode: (mode: RelationMode) => void;
   resetFilters: () => void;
   setInspectorTab: (tab: InspectorTab) => void;
+  /** Open the File tab at a line (0-based) of the object's YAML. */
+  revealInFile: (line: number) => void;
   setTopology: (topology: GraphLayoutTopology) => void;
   relayout: () => void;
   setKillchainGrouping: (on: boolean) => void;
@@ -165,6 +169,7 @@ function createActions(
         inspectorTab:
           options?.tab ??
           (id === state.selectedId ? state.inspectorTab : "overview"),
+        fileReveal: id === state.selectedId ? state.fileReveal : null,
       }));
     },
     hover(id) {
@@ -196,7 +201,13 @@ function createActions(
       setQuery("", true);
     },
     setInspectorTab(tab) {
-      store.set({ inspectorTab: tab });
+      store.set({ inspectorTab: tab, fileReveal: null });
+    },
+    revealInFile(line) {
+      store.set((state) => ({
+        inspectorTab: "file",
+        fileReveal: { line, nonce: (state.fileReveal?.nonce ?? 0) + 1 },
+      }));
     },
     setTopology(topology) {
       store.set({ topology });
@@ -266,6 +277,7 @@ export function ExplorerProvider({
       killchainGrouping: false,
       showVocabNodes: false,
       inspectorTab: "overview",
+      fileReveal: null,
       logSource: null,
       railOpen: false,
       paletteOpen: false,

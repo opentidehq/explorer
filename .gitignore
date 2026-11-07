@@ -8,6 +8,9 @@ coverage/
 .env*.local
 public/data/*.json
 !public/data/.gitkeep
+# The language server's WASM build (scripts/fetch-language-server.mjs).
+public/lsp/
+public/lsp.partial/
 
 # CI clones these into the workspace for corpus tests and schema codegen.
 # oxfmt honors .gitignore; without this, fmt:check reformats the checkouts.

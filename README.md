@@ -233,6 +233,17 @@ When using `opentide explorer serve`, detection content is resolved separately:
   definitions, rule queries per integration, its links read from the fields that hold them, and its
   YAML with a link to the file at the bundle's commit. With nothing selected it shows the library's
   coverage, integrations and most-chained threats.
+- **Language server** — the opentide language server (`opentide-lsp`) runs in the browser,
+  compiled to WebAssembly from the
+  [language-server](https://github.com/opentidehq/language-server) crates (`opentide-wasm`), in a
+  web worker. Opening an object sends its YAML to the server as one Tide document. Every embedded
+  query is checked in its own language and platform profile: Defender or Sentinel KQL, SPL, ES|QL,
+  EQL, Kibana KQL, Lucene or Falco. The File tab and each rule query panel show the server's
+  semantic tokens. Hovering a token shows what the server knows about it: a table and its
+  columns, an operator, a Tide field, a reference. Findings are underlined where they are and
+  listed in the **checks** tab, where picking one opens the file at its line. The module loads
+  only when an object with code is opened. Until it answers, and in a build without it, the panels
+  keep the regex highlighter.
 - **Permalinks** — `/threats/[uuid]/`, `/objectives/[uuid]/`, `/signals/[uuid]/`, `/rules/[uuid]/`
   open the explorer on that object, with per-object titles and descriptions for link previews. The
   address bar tracks the selection (`?o=`), view (`?v=`) and search (`?q=`); Back returns to the
@@ -255,6 +266,25 @@ publishing it.
 `vocab.index.json` (the full index from `pnpm codegen:specs`, ~15 MB) is the fallback when
 `explorer.vocab.json` is absent; bundles from older generators that ship `models` and `signals`
 beside `flatIndex` still load.
+
+## Language server
+
+`public/lsp/` holds the language server's browser build: `opentide_wasm.js` (wasm-bindgen glue),
+`opentide_wasm_bg.wasm`, and their licences (EUPL-1.2, with third-party notices). It is not in
+git. `node scripts/fetch-language-server.mjs` (`pnpm lsp:fetch`) fills it from the
+language-server release pinned in [`scripts/language-server.json`](scripts/language-server.json):
+the release's `opentide-wasm-web-v<version>.zip`, checked against the pinned sha256 from its
+`SHA256SUMS`. `pnpm dev`, `pnpm build` and `opentide-explorer build` run it, and a build without
+network continues without the language server. The publish workflow runs it, so the npm package
+ships the module and installed builds need no download.
+
+To try a language-server change, point `OPENTIDE_LSP_WASM_DIR` at a `wasm-bindgen --target web`
+build (`scripts/build-wasm.sh browser` in that repository, then
+`wasm-bindgen --target web --out-dir pkg target/wasm32-unknown-unknown/release/opentide_wasm.wasm`).
+To move the pin, set `version` and `sha256` from the new release's `SHA256SUMS`.
+
+The module is 16 MB, 2.3 MB with brotli; static hosts compress `.wasm`, and `serve` sends it as
+`application/wasm`, so browsers compile it while it downloads.
 
 ## Upstream exports
 

@@ -15,7 +15,11 @@
     "suspicious": "warn"
   },
   "env": { "browser": true, "node": true, "es2024": true },
-  "ignorePatterns": [".agents/**", "lib/opentide/generated/**"],
+  "ignorePatterns": [
+    ".agents/**",
+    "lib/opentide/generated/**",
+    "public/lsp/**"
+  ],
   "rules": {
     "eslint/no-unused-vars": "error",
     "typescript/no-explicit-any": "error",

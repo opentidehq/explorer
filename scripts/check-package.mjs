@@ -66,9 +66,20 @@ function installAndBuild(work, tarball, manager) {
   ]);
 
   const out = path.join(project, "out", "explorer");
+  // The package ships the language server when the checkout fetched it
+  // (`pnpm lsp:fetch`, which the publish workflow runs): the site must serve it.
+  const lsp = fs.existsSync(
+    path.join(ROOT, "public", "lsp", "opentide_wasm.js"),
+  )
+    ? [
+        path.join("lsp", "opentide_wasm.js"),
+        path.join("lsp", "opentide_wasm_bg.wasm"),
+      ]
+    : [];
   for (const page of [
     "index.html",
     path.join("data", "explorer.bundle.json"),
+    ...lsp,
   ]) {
     if (!fs.existsSync(path.join(out, page))) {
       throw new Error(`${manager}: the build has no ${page}`);

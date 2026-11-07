@@ -288,7 +288,7 @@ export function Segmented<T extends string>({
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(option.value)}
             className={cn(
-              "tide-segment-option font-medium",
+              "tide-segment-option whitespace-nowrap font-medium",
               size === "md"
                 ? "h-8 px-3 text-[13px]"
                 : "h-6 px-2.5 font-mono text-[11px]",

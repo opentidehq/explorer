@@ -1,59 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowUpRight } from "lucide-react";
-import { useCatalog } from "@/components/explorer/explorer-state";
-import { CodePanel } from "@/components/code/code-panel";
+import { useCatalog, useExplorer } from "@/components/explorer/explorer-state";
+import { CodePanel, type PanelAnalysis } from "@/components/code/code-panel";
+import { useObjectAnalysis } from "@/components/code/use-object-analysis";
 import { sourceUrl } from "@/lib/explorer/fields";
-import { SIGNAL_OBJECTIVE_KEY } from "@/lib/opentide/graph";
+import { fileBody, isEmbeddedSignal } from "@/lib/explorer/object-file";
 import type { BundleObjectSummary, ObjectBody } from "@/lib/opentide/types";
 
-/**
- * Whether a signal is one an objective embeds, promoted to an object by the bundle. Bundles
- * from earlier generators marked those by writing the objective over `parent`, which the
- * spec gives to a parent signal: such a `parent` counts only when it names an objective.
- */
-function isEmbeddedSignal(
-  summary: BundleObjectSummary,
-  body: ObjectBody,
-  isObjective: (id: string) => boolean,
-): boolean {
-  if (summary.type !== "signal") return false;
-  if (typeof body[SIGNAL_OBJECTIVE_KEY] === "string") return true;
-  const parent = body["parent"];
-  return typeof parent === "string" && isObjective(parent);
-}
-
-/** What the file says. Embedded signals show without the fields the bundle adds to them. */
-function fileBody(body: ObjectBody, embedded: boolean): ObjectBody {
-  if (!embedded) return body;
-  const {
-    metadata: _metadata,
-    [SIGNAL_OBJECTIVE_KEY]: objective,
-    ...signal
-  } = body;
-  // Bundles from earlier generators wrote the objective over the signal's `parent`.
-  if (objective === undefined) delete signal["parent"];
-  return signal;
-}
-
-/** The object as YAML, in a deep-tide panel, with a link to the file at the bundle's commit. */
-export function ObjectFile({
-  summary,
-  body,
-}: {
-  summary: BundleObjectSummary;
-  body: ObjectBody;
-}) {
-  const { bundle, summaries } = useCatalog();
+/** An embedded signal's YAML: the part of its objective's file it is, not an object. */
+function useEmbeddedYaml(body: ObjectBody, embedded: boolean) {
   const [yaml, setYaml] = useState<string | null>(null);
-  const embedded = isEmbeddedSignal(
-    summary,
-    body,
-    (id) => summaries.get(id)?.type === "objective",
-  );
-
   useEffect(() => {
+    if (!embedded) return;
     let cancelled = false;
     // The YAML serialiser loads only when a file is opened. If its chunk cannot load,
     // show the object as JSON rather than a skeleton that never resolves.
@@ -69,13 +29,58 @@ export function ObjectFile({
       cancelled = true;
     };
   }, [body, embedded]);
+  return yaml;
+}
+
+/**
+ * The object as YAML, in a deep-tide panel, with a link to the file at the bundle's commit.
+ * An object (not an embedded signal) is the document the language server analyses: the
+ * panel shows its semantic tokens, findings and hover.
+ */
+export function ObjectFile({
+  summary,
+  body,
+}: {
+  summary: BundleObjectSummary;
+  body: ObjectBody;
+}) {
+  const { bundle, summaries } = useCatalog();
+  const embedded = isEmbeddedSignal(
+    summary,
+    body,
+    (id) => summaries.get(id)?.type === "objective",
+  );
+  const embeddedYaml = useEmbeddedYaml(body, embedded);
+  const { document, analysis, error, hover } = useObjectAnalysis(
+    summary,
+    body,
+    !embedded,
+  );
+  const reveal = useExplorer((s) => s.fileReveal);
+
+  const panelAnalysis = useMemo<PanelAnalysis | null>(
+    () =>
+      analysis
+        ? {
+            tokens: analysis.tokens,
+            diagnostics: analysis.diagnostics,
+            hover,
+          }
+        : null,
+    [analysis, hover],
+  );
 
   const url = sourceUrl(bundle.source, summary.path);
   const caption = summary.path
     ? `${summary.path}${embedded ? " · objective.signals[]" : ""}`
     : `${summary.type}::${summary.uuid}`;
+  // A document that could not be built (the YAML chunk did not load): the object as JSON.
+  const code = embedded
+    ? embeddedYaml
+    : (document?.text ??
+      (error ? JSON.stringify(fileBody(body, false), null, 2) : null));
 
-  if (yaml == null) {
+  if (code == null) {
     return (
       <div
         className="h-64 rounded-2xl bg-code/90 motion-safe:animate-pulse"
@@ -86,11 +91,14 @@ export function ObjectFile({
 
   return (
     <CodePanel
-      code={yaml}
+      code={code}
       language="yaml"
       caption={caption}
       lineNumbers
       maxHeight="none"
+      analysis={embedded ? null : panelAnalysis}
+      revealLine={reveal?.line ?? null}
+      key={reveal?.nonce}
       aside={
         url ? (
           <a

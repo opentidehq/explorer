@@ -8,6 +8,7 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { fetchLanguageServer } from "../scripts/fetch-language-server.mjs";
 import { isMain } from "../scripts/lib/is-main.mjs";
 import {
   collectCorpusValues,
@@ -255,6 +256,25 @@ export function appRootFor(packageRoot) {
 }
 
 /**
+ * The language server the code panels run in the browser (`public/lsp/`). The npm package
+ * ships it; a checkout downloads the pinned release. It is an enhancement: without it (no
+ * network, a changed pin that cannot be fetched) the site builds, and its code panels keep
+ * the regex highlighter.
+ * @param {string} appRoot
+ * @param {typeof fetchLanguageServer} [fetch]
+ */
+export async function addLanguageServer(appRoot, fetch = fetchLanguageServer) {
+  try {
+    console.log(`Language server: ${await fetch({ appRoot })}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(
+      `Language server unavailable (${message}); building without it.`,
+    );
+  }
+}
+
+/**
  * Build the static explorer for `args.exportsDir` into `args.output`.
  * @param {ReturnType<typeof parseArgs>} args
  * @returns {Promise<string>} The output directory.
@@ -269,6 +289,7 @@ export async function build(args) {
 
   const appRoot = appRootFor(PACKAGE_ROOT);
   copyExports(exportsDir, appRoot);
+  await addLanguageServer(appRoot);
 
   // Only a git checkout regenerates schema types and type-checks: they feed the check, and
   // an installed package ships types from the released schemas. `require` would otherwise

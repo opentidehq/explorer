@@ -12,6 +12,7 @@ export type TokenKind =
   | "num"
   | "kw"
   | "fn"
+  | "type"
   | "op"
   | "punct"
   | "comment";

@@ -6,6 +6,15 @@ Each version's first paragraph is its summary: the GitHub Release and [opentide.
 
 ## [Unreleased]
 
+The opentide language server runs in the browser. Queries and object files are coloured by its semantic tokens, hovering a token explains it, and a checks tab lists what the server finds in each object.
+
+### Added
+
+- **Queries and object YAML are coloured by the opentide language server.** The File tab and each rule query panel show the server's semantic tokens. The server is the language-server's `opentide-wasm` build, run in a web worker, and each query is read in its platform's profile ([#93](https://github.com/opentidehq/explorer/issues/93)).
+- **Hovering a token shows what the server knows about it.** For example: a table and its columns, a column, an operator or function, a Tide field, or the object a reference names.
+- **A checks tab lists the server's findings for each object.** The findings are schema errors, references, and query errors such as `kql_unknown_operator`. Each finding is underlined in the code panels, and picking one opens the File tab at its line.
+- **`opentide-explorer build` includes the language server.** The npm package ships the pinned release (`scripts/language-server.json`); a checkout downloads it and checks its sha256, and a build that cannot get it continues without it. `OPENTIDE_LSP_WASM_DIR` uses a local build instead.
+
 ## [0.6.0] - 2026-11-06
 
 A Visibility view shows the telemetry a library declares and the detections that use it, when the library exports it with `opentide generate explorer --include-visibility`.

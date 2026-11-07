@@ -160,6 +160,11 @@ jobs:
         with:
           node-version: "22"
 
+      # The pinned language server (scripts/language-server.json), checked against its
+      # sha256, into public/lsp: the package ships it, so installed builds need no network.
+      - name: Fetch the language server
+        run: node scripts/fetch-language-server.mjs
+
       # Packs the tarball, installs it with npm and with pnpm into empty projects, and
       # builds the fixture corpus with each installed CLI, as `npx @opentide/explorer` would.
       - name: Install the packed package and build

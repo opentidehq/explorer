@@ -42,8 +42,8 @@
     "node": ">=20.19"
   },
   "scripts": {
-    "dev": "next dev",
-    "build": "pnpm codegen:specs && node scripts/generate-mock-bundle.mjs && pnpm typecheck && next build",
+    "dev": "node scripts/fetch-language-server.mjs --optional && next dev",
+    "build": "pnpm codegen:specs && node scripts/generate-mock-bundle.mjs && node scripts/fetch-language-server.mjs --optional && pnpm typecheck && next build",
     "typecheck": "tsrs --noEmit && tsrs --noEmit -p tsconfig.scripts.json",
     "lint": "oxlint --deny-warnings --report-unused-disable-directives",
     "fmt": "oxfmt",
@@ -55,6 +55,7 @@
     "test:components": "vitest run --project components",
     "test:coverage": "node scripts/generate-mock-bundle.mjs && vitest run --coverage",
     "check": "pnpm typecheck && pnpm lint && pnpm fmt:check && pnpm test && pnpm codegen:check",
+    "lsp:fetch": "node scripts/fetch-language-server.mjs",
     "codegen:specs": "node scripts/codegen-from-specs.mjs",
     "codegen:check": "node scripts/codegen-from-specs.mjs --check",
     "validate": "pnpm codegen:specs && pnpm check && pnpm build",

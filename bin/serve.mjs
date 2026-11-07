@@ -22,6 +22,7 @@ const CONTENT_TYPES = {
   ".ico": "image/x-icon",
   ".webp": "image/webp",
   ".woff2": "font/woff2",
+  ".wasm": "application/wasm",
   ".webmanifest": "application/manifest+json",
 };
 

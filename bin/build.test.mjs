@@ -2,7 +2,13 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { appRootFor, copyExports, parseArgs, writeOutput } from "./build.mjs";
+import {
+  addLanguageServer,
+  appRootFor,
+  copyExports,
+  parseArgs,
+  writeOutput,
+} from "./build.mjs";
 
 const technique = {
   name: "Valid Accounts",
@@ -347,5 +353,18 @@ describe("appRootFor", () => {
     fs.writeFileSync(stale, "{}");
     appRootFor(pkg);
     expect(fs.existsSync(stale)).toBe(false);
+  });
+});
+
+describe("addLanguageServer", () => {
+  it("builds on without the language server, and says why", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await addLanguageServer("/nowhere", async () => {
+      throw new Error("offline");
+    });
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("Language server unavailable (offline)"),
+    );
+    warn.mockRestore();
   });
 });

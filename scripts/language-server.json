@@ -1,0 +1,5 @@
+{
+  "$comment": "The opentide language server the explorer runs in the browser: the opentide-wasm-web zip of this opentidehq/language-server release, checked against its SHA256SUMS line. scripts/fetch-language-server.mjs reads it.",
+  "version": "0.11.0",
+  "sha256": "c323d1d5fc8a51309c922f40d92091824973f755f6e94dc1497386797f76ca59"
+}

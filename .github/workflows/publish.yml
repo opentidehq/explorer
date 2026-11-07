@@ -74,6 +74,11 @@ jobs:
           OPENTIDE_USE_FIXTURE: "1"
           SPECIFICATIONS_REPO_ROOT: ${{ github.workspace }}/specifications
 
+      # The pinned language server (scripts/language-server.json), checked against its
+      # sha256, into public/lsp: the package ships it, so installed builds need no network.
+      - name: Fetch the language server
+        run: node scripts/fetch-language-server.mjs
+
       # The tarball, installed with npm and pnpm into empty projects, builds a corpus.
       - name: Package works when installed
         run: node scripts/check-package.mjs

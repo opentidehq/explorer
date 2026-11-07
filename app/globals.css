@@ -46,6 +46,11 @@
   --tide-code-key: #7ec8e3;
   --tide-code-str: var(--yellow-lift);
   --tide-code-num: #9db1ef;
+  --tide-code-type: #8fe3c7;
+  /* Findings on the navy code panel, the same in both themes. */
+  --tide-code-error: #ff8f8f;
+  --tide-code-warn: #ffc65c;
+  --tide-code-info: #8fc9ff;
 
   --type-threat: #56627d;
   --type-objective: #2747d6;
@@ -351,6 +356,78 @@
     color: color-mix(in srgb, var(--tide-code-dim) 75%, transparent);
     font-style: italic;
   }
+  .tide-code .tok-type {
+    color: var(--tide-code-type);
+  }
+
+  /* The language server's findings, underlined where they are. */
+  .tide-code .diag {
+    text-decoration-line: underline;
+    text-decoration-style: wavy;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    text-decoration-skip-ink: none;
+  }
+  .tide-code .diag-1 {
+    text-decoration-color: var(--tide-code-error);
+  }
+  .tide-code .diag-2 {
+    text-decoration-color: var(--tide-code-warn);
+  }
+  .tide-code .diag-3,
+  .tide-code .diag-4 {
+    text-decoration-color: var(--tide-code-info);
+  }
+  /* A finding with no width (a missing key, end of line): a mark where it is. */
+  .tide-code .diag-point {
+    display: inline-block;
+    width: 0;
+    height: 1.15em;
+    margin-right: -2px;
+    vertical-align: text-bottom;
+    border-left: 2px solid currentColor;
+  }
+  .tide-code .gutter-1 {
+    color: var(--tide-code-error);
+  }
+  .tide-code .gutter-2 {
+    color: var(--tide-code-warn);
+  }
+  .tide-code .gutter-3,
+  .tide-code .gutter-4 {
+    color: var(--tide-code-info);
+  }
+  .tide-code .line-diag-1 {
+    box-shadow: inset 2px 0 0 var(--tide-code-error);
+  }
+  .tide-code .line-diag-2 {
+    box-shadow: inset 2px 0 0 var(--tide-code-warn);
+  }
+  .tide-code .line-diag-3,
+  .tide-code .line-diag-4 {
+    box-shadow: inset 2px 0 0 var(--tide-code-info);
+  }
+  /* The line a finding was picked for: marked, then fading back. */
+  .tide-code .line-reveal {
+    animation: tide-line-reveal 2.4s ease-out;
+  }
+  @keyframes tide-line-reveal {
+    0%,
+    40% {
+      background-color: color-mix(
+        in srgb,
+        var(--tide-code-key) 18%,
+        transparent
+      );
+    }
+    100% {
+      background-color: transparent;
+    }
+  }
+  .tide-code [data-c]:hover {
+    background-color: color-mix(in srgb, var(--tide-code-ink) 9%, transparent);
+    border-radius: 2px;
+  }
 
   /* Thin themed scrollbars. */
   .tide-scroll {
@@ -446,6 +523,10 @@
     background-color: var(--tide-code-bg);
     padding: 0.75rem;
     color: var(--tide-code-ink);
+    font-size: 0.75rem;
+  }
+
+  .markdown.lsp-hover {
     font-size: 0.75rem;
   }
 
