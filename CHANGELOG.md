@@ -8,7 +8,7 @@ Each version's first paragraph is its summary: the GitHub Release and [opentide.
 
 ## [0.6.0] - 2026-11-06
 
-A Visibility view shows the telemetry a library declares and the detections that use it, when the library exports it with `opentide generate explorer --include-visibility`.
+Visibility view: see the telemetry a library declares and the detections that use it.
 
 ### Added
 
@@ -18,7 +18,7 @@ A Visibility view shows the telemetry a library declares and the detections that
 
 ## [0.5.1] - 2026-10-27
 
-`npx @opentide/explorer serve` works: 0.5.0 shipped two commands, so npx could not tell which to run and stopped with "could not determine executable to run".
+Fixes `npx @opentide/explorer serve`, which failed with "could not determine executable to run".
 
 ### Upgrade
 
@@ -34,7 +34,7 @@ A Visibility view shows the telemetry a library declares and the detections that
 
 ## [0.5.0] - 2026-10-26
 
-The explorer is an npm package: `npx @opentide/explorer serve --exports-dir .opentide/exports` builds a corpus's explorer and serves it on localhost, with no checkout of this repository.
+Run it with npx: `npx @opentide/explorer serve` builds a corpus's explorer and serves it locally.
 
 ### Added
 
@@ -55,7 +55,7 @@ The explorer is an npm package: `npx @opentide/explorer serve --exports-dir .ope
 
 ## [0.4.0] - 2026-10-14
 
-The explorer takes the opentide.org design language: the site's tokens, glass header and logotype, with object types read as depth.
+A redesign in the opentide.org look.
 
 ### Changed
 
@@ -68,7 +68,7 @@ The explorer takes the opentide.org design language: the site's tokens, glass he
 
 ## [0.3.0] - 2026-09-17
 
-Object pages stay small: the catalogue loads once on the client instead of inlining into every page, so a full corpus fits GitHub Pages.
+Smaller pages: the catalogue loads once, so a full corpus fits on GitHub Pages.
 
 ### Changed
 
@@ -86,7 +86,7 @@ Object pages stay small: the catalogue loads once on the client instead of inlin
 
 ## [0.2.0] - 2026-07-01
 
-Three ways to read a corpus: the graph, a catalogue list and an ATT&CK matrix, with token search kept in sync across them.
+Three views of a corpus: graph, catalogue list and ATT&CK matrix, with one search across them.
 
 ### Added
 
@@ -100,7 +100,7 @@ Three ways to read a corpus: the graph, a catalogue list and an ATT&CK matrix, w
 
 ## [0.1.0] - 2026-06-27
 
-The first explorer: a search-first WebGL graph of a corpus's threats, objectives, signals and rules, exported as a static site.
+First release: a searchable graph of a corpus's threats, objectives, signals and rules, exported as a static site.
 
 ### Added
 
